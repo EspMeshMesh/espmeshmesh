@@ -1,0 +1,198 @@
+#pragma once
+
+#include "log.h"
+#include "packetbuf.h"
+#include "discovery.h"
+#include "rssicheck.h"
+#include "memringbuffer.h"
+
+#include <string>
+
+#ifdef ESP8266
+#include <HardwareSerial.h>
+#endif  // ESP8266
+
+#ifdef IDF_VER
+#include <driver/uart.h>
+#endif  // IDF_VER
+
+namespace espmeshmesh {
+
+typedef std::function<int8_t(uint8_t *data, uint16_t len, uint32_t from)> HandleFrameCbFn;
+typedef void (*EspHomeDataReceivedCbFn)(uint16_t, uint8_t *, uint16_t);
+
+typedef enum { WAIT_MAGICK, WAIT_DATA, WAIT_ESCAPE } RecvState;
+
+class Broadcast;
+class Unicast;
+#ifdef USE_MULTIPATH_PROTOCOL
+class MultiPath;
+#endif
+class PoliteBroadcastProtocol;
+#ifdef USE_CONNECTED_PROTOCOL
+class ConnectedPath;
+#endif
+
+#define HANDLE_UART_OK 0
+#define HANDLE_UART_ERROR 1
+#define FRAME_NOT_HANDLED -1
+
+typedef struct {
+  const char *hostname;
+  uint8_t channel;
+  uint8_t txPower;
+} EspMeshMeshSetupConfig;
+
+class EspMeshMesh {
+ public:
+  typedef enum {
+    SRC_SERIAL,
+    SRC_BROADCAST,
+    SRC_UNICAST,
+    SRC_MULTIPATH,
+    SRC_POLITEBRD,
+    SRC_CONNPATH,
+    SRC_FILTER
+  } DataSrc;
+
+ public:
+  static EspMeshMesh *singleton;
+  static EspMeshMesh *getInstance();
+#ifdef USE_CONNECTED_PROTOCOL
+  ConnectedPath *getConnectedPath() const { return mConnectedPath; }
+#endif
+ public:
+  EspMeshMesh(int baud_rate, int tx_buffer, int rx_buffer);
+  void pre_setup();
+#ifdef IDF_VER
+  static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
+  bool setupIdfWifiAP(const char *hostname, uint8_t channel, uint8_t txPower);
+  bool setupIdfWifiStation(const char *hostname, uint8_t channel, uint8_t txPower);
+#endif
+  void setupWifi(const char *hostname, uint8_t channel, uint8_t txPower);
+  void setup(EspMeshMeshSetupConfig *config);
+  void setAesPassword(const char *password) { mAesPassword = password; }
+  void dump_config();
+  void register_rssi_sensor(RssiSensor *sensor) { mRssiCheck.registerRssiSensor(sensor); }
+  void loop();
+
+ public:
+  void setLockdownMode(bool active) { packetbuf->setLockdownMode(active); }
+  static void wifiInitMacAddr(uint8_t index);
+  void commandReply(const uint8_t *buff, uint16_t len);
+  void uartSendData(const uint8_t *buff, uint16_t len);
+  int16_t lastPacketRssi() const { return packetbuf->lastPacketRssi(); }
+  uint32_t broadcastFromAddress() const { return mBroadcastFromAddress; }
+  void broadCastSendData(const uint8_t *buff, uint16_t len);
+  void uniCastSendData(const uint8_t *buff, uint16_t len, uint32_t addr);
+#ifdef USE_MULTIPATH_PROTOCOL
+  void multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint8_t *path);
+#endif
+#ifdef USE_CONNECTED_PROTOCOL
+  void connectedpathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint8_t *path);
+#endif
+public:
+  static unsigned long elapsedMillis(unsigned long t2, unsigned long t1) {
+    return t2 >= t1 ? t2 - t1 : (~(t1 - t2)) + 1;
+  }
+
+ private:
+#ifdef IDF_VER
+  void initIdfUart();
+#endif
+  void user_uart_recv_data(uint8_t byte);
+  void flushUartTxBuffer();
+
+ private:
+  void handleFrame(const uint8_t *data, uint16_t len, DataSrc src, uint32_t from);
+  void replyHandleFrame(uint8_t *buf, uint16_t len, DataSrc src, uint32_t from);
+
+ private:
+  static void user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint8_t *from);
+  void user_broadcast_recv(uint8_t *data, uint16_t size, uint8_t *from);
+  static void unicastRecvCb(void *arg, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
+  void unicastRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
+  static void multipathRecvCb(void *arg, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path,
+                              uint8_t pathSize);
+  void multipathRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path, uint8_t pathSize);
+  static void politeBroadcastReceive(void *arg, uint8_t *data, uint16_t size, uint32_t from);
+  void politeBroadcastReceiveCb(uint8_t *data, uint16_t size, uint32_t from);
+  static void onConnectedPathNewClientCb(void *arg, uint32_t from, uint16_t handle);
+  void onConnectedPathNewClient(uint32_t from, uint16_t handle);
+  static void onConnectedPathReceiveCb(void *arg, const uint8_t *data, uint16_t size, uint8_t connid);
+  void onConnectedPathReceive(const uint8_t *data, uint16_t size, uint8_t connid);
+  void sendLog(int level, const char *tag, const char *payload, size_t payload_len);
+
+ private:
+  uint32_t mLogDestination{0};
+  uint32_t mFilterGroups{0};
+  int mBaudRate{460800};
+  int mTxBuffer;
+  int mRxBuffer;
+
+ private:
+  DataSrc commandSource = SRC_SERIAL;
+  PacketBuf *packetbuf = nullptr;
+  Broadcast *broadcast = nullptr;
+  Unicast *unicast = nullptr;
+#ifdef USE_MULTIPATH_PROTOCOL
+  MultiPath *multipath = nullptr;
+#endif
+#ifdef USE_POLITE_BROADCAST_PROTOCOL
+  PoliteBroadcastProtocol *mPoliteBroadcast = nullptr;
+#endif
+  uint32_t mBroadcastFromAddress = 0;
+#ifdef USE_POLITE_BROADCAST_PROTOCOL
+  uint32_t mPoliteFromAddress = 0;
+#endif
+#ifdef USE_CONNECTED_PROTOCOL
+  ConnectedPath *mConnectedPath = nullptr;
+  uint8_t mConnectionId = 0;
+#endif
+
+#ifdef ESP8266
+  HardwareSerial *mHwSerial = nullptr;
+#endif  // ESP8266
+
+#ifdef IDF_VER
+  uart_port_t mUartNum{UART_NUM_0};
+#else
+  int mUartNum{0};
+#endif
+
+  RecvState mRecvState = WAIT_MAGICK;
+  uint8_t *mRecvBuffer = nullptr;
+  uint16_t mRecvBufferPos = 0;
+  uint8_t mRecvFromId[4];
+  uint8_t mRecvPath[32];
+  uint8_t mRecvPathSize = 0;
+
+  Discovery mDiscovery;
+  RssiCheck mRssiCheck;
+
+ private:
+  // UartRingBuffer;
+  MemRingBuffer mUartTxBuffer;
+  // Use serial
+  bool mUseSerial = false;
+  // Elapsed time for stats
+  uint32_t mElapsed1 = 0;
+  // RSSI for handle frame
+  int16_t mRssiHandle = 0;
+  // Encryption password
+  std::string mAesPassword;
+#ifdef ESP8266
+  bool mWorkAround{false};
+#endif
+
+public:
+  void addHandleFrameCb(HandleFrameCbFn cb) { mHandleFrameCbs.push_back(cb); }
+private:
+  std::list<HandleFrameCbFn> mHandleFrameCbs;
+
+public:
+  void setLogCb(LogCbFn cb) { setLibLogCb(cb); }
+};
+
+}  // namespace espmeshmesh
+

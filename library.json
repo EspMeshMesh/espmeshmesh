@@ -1,0 +1,28 @@
+{
+  "name": "ESPMeshMesh",
+  "version": "1.0.0",
+  "description": "ESPMeshMesh implementation",
+  "keywords": "mesh, network",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/EspMeshMesh/espmeshmesh"
+  },
+  "authors":
+  [
+    {
+      "name": "Stefano Pagnottelli",
+      "email": "dev@espmeshmesh.org",
+      "url": "https://www.espmeshmesh.org/"
+    }
+  ],
+  "license": "BSD",
+  "homepage": "https://www.espmeshmesh.org/",
+  "dependencies": {
+  },
+  "frameworks": "*",
+  "platforms": [
+    "espressif32",
+    "espressif8266"
+  ]
+}
