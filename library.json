@@ -6,7 +6,7 @@
   "repository":
   {
     "type": "git",
-    "url": "https://github.com/EspMeshMesh/espmeshmesh"
+    "url": "https://github.com/EspMeshMesh/espmeshmesh.git"
   },
   "authors":
   [
@@ -16,7 +16,7 @@
       "url": "https://www.espmeshmesh.org/"
     }
   ],
-  "license": "BSD",
+  "license": "BSD-2-Clause",
   "homepage": "https://www.espmeshmesh.org/",
   "dependencies": {
   },
