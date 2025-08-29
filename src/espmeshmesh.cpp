@@ -312,7 +312,7 @@ void EspMeshMesh::setupWifi(const char *hostname, uint8_t channel, uint8_t txPow
   wifi_set_phy_mode(PHY_MODE_11B);
   wifi_set_channel(channel);
   system_phy_set_max_tpw(txPower);
-  LIB_LOGCONFIG(TAG, "Channel cfg:%d pref:%d", channel, txPower);
+  LIB_LOGCONFIG(TAG, "Channel cfg:%d txPower:%d", channel, txPower);
 #endif
   LIB_LOGD(TAG, "Wifi succesful!!!!");
 }
@@ -365,7 +365,6 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 #endif
 
   mDiscovery.init();
-  mRssiCheck.setup();
   broadcast->open();
   broadcast->setRecv_cb(user_broadcast_recv_cb);
   unicast->setup();
@@ -430,9 +429,6 @@ void EspMeshMesh::loop() {
   // Execute discovery if is running
   if (mDiscovery.isRunning())
     mDiscovery.loop(this);
-  // Execute rrsicheck if is running
-  if (mRssiCheck.isRunning())
-    mRssiCheck.loop(this);
 
 #ifdef ESP8266
   if (!mWorkAround && elapsedMillis(now, mElapsed1) > 2000) {
@@ -649,11 +645,6 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
         err = mDiscovery.handle_frame(buf + 1, len - 1, this);
       }
       break;
-    case CMD_RSSICHECK_REQ:
-      if (len > 1) {
-        err = mRssiCheck.handleFrame(buf + 1, len - 1, from, mRssiHandle, this);
-      }
-      break;
     case CMD_BROADCAST_SEND:  // 70 AABBCCDDEE...ZZ
       if (len > 1) {
         broadcast->send(buf + 1, len - 1);
@@ -755,11 +746,6 @@ void EspMeshMesh::replyHandleFrame(uint8_t *buf, uint16_t len, DataSrc src, uint
         mDiscovery.process_beacon(b->id, b->rssi, 0);
       }
       break;
-    case CMD_RSSICHECK_REP:
-      if (len > 1) {
-        mRssiCheck.handleFrame(buf + 1, len - 1, from, mRssiHandle, this);
-      }
-      break;
     default:
       uartSendData(buf, len);
       break;
@@ -797,8 +783,6 @@ void EspMeshMesh::unicastRecv(uint8_t *data, uint16_t size, uint32_t from, int16
   os_memcpy(mRecvFromId, (uint8_t *) &from, 4);
   mRssiHandle = rssi;
   handleFrame(data, size, SRC_UNICAST, from);
-  if (mRssiCheck.useRssiStatistics())
-    mRssiCheck.newRssiData(from, rssi);
 }
 
 void EspMeshMesh::multipathRecvCb(void *arg, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi,

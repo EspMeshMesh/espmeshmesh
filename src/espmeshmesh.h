@@ -3,7 +3,6 @@
 #include "log.h"
 #include "packetbuf.h"
 #include "discovery.h"
-#include "rssicheck.h"
 #include "memringbuffer.h"
 
 #include <string>
@@ -73,7 +72,6 @@ class EspMeshMesh {
   void setup(EspMeshMeshSetupConfig *config);
   void setAesPassword(const char *password) { mAesPassword = password; }
   void dump_config();
-  void register_rssi_sensor(RssiSensor *sensor) { mRssiCheck.registerRssiSensor(sensor); }
   void loop();
 
  public:
@@ -168,7 +166,6 @@ public:
   uint8_t mRecvPathSize = 0;
 
   Discovery mDiscovery;
-  RssiCheck mRssiCheck;
 
  private:
   // UartRingBuffer;
