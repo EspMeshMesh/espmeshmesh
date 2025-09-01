@@ -724,7 +724,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
     rep[0] = CMD_ERROR_REP;
     os_memcpy(rep + 1, buf, len);
     commandReply(rep, len + 1);
-    LIB_LOGD(TAG, "MeshmeshComponent::handleFrame error frame %02X %02X size %d", buf[0], buf[1], len);
+    LIB_LOGD(TAG, "EspMeshMesh::handleFrame error frame %02X %02X size %d", buf[0], buf[1], len);
     delete[] rep;
   }
 
