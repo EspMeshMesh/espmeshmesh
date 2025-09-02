@@ -294,7 +294,7 @@ void PacketBuf::recvTask(os_event_t *events) {
         }
 
         lastpktLen = pktbufRecvTaskPacket[index].length - PACKETBUF_80211_SIZE - 4;
-        lastpktRssi = pktbufRecvTaskPacket[index].rssi;
+        int16_t lastpktRssi = pktbufRecvTaskPacket[index].rssi;
 
 #ifdef IDF_VER
         if(heap_caps_get_free_size(MALLOC_CAP_8BIT)<lastpktLen+128 || heap_caps_get_free_size(MALLOC_CAP_8BIT)<MEMORY_TRESHOLD) {
@@ -321,14 +321,14 @@ void PacketBuf::recvTask(os_event_t *events) {
 
         switch(prot) {
         case PROTOCOL_BROADCAST:
-            if(broadcast) broadcast->recv(clear, lastpktLen, fromptr);
+            if(broadcast) broadcast->recv(clear, lastpktLen, fromptr, lastpktRssi);
             break;
         case PROTOCOL_UNICAST:
-            if(unicast) unicast->receiveRadioPacket(clear, lastpktLen, from, lastPacketRssi());
+            if(unicast) unicast->receiveRadioPacket(clear, lastpktLen, from, lastpktRssi);
             break;
         case PROTOCOL_MULTIPATH:
 #ifdef USE_MULTIPATH_PROTOCOL
-            if(multipath) multipath->receiveRadioPacket(clear, lastpktLen, from, lastPacketRssi());
+            if(multipath) multipath->receiveRadioPacket(clear, lastpktLen, from, lastpktRssi);
 #endif
             break;
         case PROTOCOL_POLITEBRD:

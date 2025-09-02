@@ -10,7 +10,7 @@ struct broadcast_header_st {
 
 typedef struct broadcast_header_st broadcast_header_t;
 
-typedef void (*breadcast_recv_cb_fn)(uint8_t *data, uint16_t size, uint8_t *from);
+typedef void (*breadcast_recv_cb_fn)(uint8_t *data, uint16_t size, uint8_t *from, int16_t r);
 
 class BroadCastPacket: public RadioPacket {
 public:
@@ -26,7 +26,7 @@ class Broadcast {
 public:
 	Broadcast(PacketBuf *pbuf) { packetbuf = pbuf; packetbuf->setBroadcast(this); }
 	uint8_t send(const uint8_t *data, uint16_t size);
-	void recv(uint8_t *p, uint16_t size, uint8_t *f);
+	void recv(uint8_t *p, uint16_t size, uint8_t *f, int16_t r);
 	void setRecv_cb(breadcast_recv_cb_fn rx_fn);
 	void open();
 private:

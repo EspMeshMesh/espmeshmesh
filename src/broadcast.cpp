@@ -20,9 +20,9 @@ uint8_t Broadcast::send(const uint8_t *data, uint16_t size) {
     return res;
 }
 
-void Broadcast::recv(uint8_t *p, uint16_t size, uint8_t *f) {
+void Broadcast::recv(uint8_t *p, uint16_t size, uint8_t *f, int16_t r) {
 	broadcast_header_t *brdchead = (broadcast_header_t *)p;
-	if (rx_func) rx_func(p+sizeof(broadcast_header_t), brdchead->lenght, f);
+	if (rx_func) rx_func(p+sizeof(broadcast_header_t), brdchead->lenght, f, r);
 }
 
 void Broadcast::setRecv_cb(breadcast_recv_cb_fn rx_fn) {

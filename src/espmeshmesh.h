@@ -79,7 +79,7 @@ class EspMeshMesh {
   static void wifiInitMacAddr(uint8_t index);
   void commandReply(const uint8_t *buff, uint16_t len);
   void uartSendData(const uint8_t *buff, uint16_t len);
-  int16_t lastPacketRssi() const { return packetbuf->lastPacketRssi(); }
+  int16_t lastPacketRssi() const { return mRssiHandle; }
   uint32_t broadcastFromAddress() const { return mBroadcastFromAddress; }
   void broadCastSendData(const uint8_t *buff, uint16_t len);
   void uniCastSendData(const uint8_t *buff, uint16_t len, uint32_t addr);
@@ -106,8 +106,8 @@ public:
   void replyHandleFrame(uint8_t *buf, uint16_t len, DataSrc src, uint32_t from);
 
  private:
-  static void user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint8_t *from);
-  void user_broadcast_recv(uint8_t *data, uint16_t size, uint8_t *from);
+  static void user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint8_t *from, int16_t rssi);
+  void user_broadcast_recv(uint8_t *data, uint16_t size, uint8_t *from, int16_t rssi);
   static void unicastRecvCb(void *arg, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
   void unicastRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
   static void multipathRecvCb(void *arg, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path,

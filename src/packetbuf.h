@@ -214,7 +214,6 @@ class PacketBuf {
   uint8_t *nodeIdPtr() const { return (uint8_t *) &pktbufNodeId; }
 
  public:
-  int16_t lastPacketRssi() const { return lastpktRssi; }
   bool sendBusy() { return pktbufSent != nullptr; }
   uint8_t send(RadioPacket *pkt);
   void rawRecv(RxPacket *pkt);
@@ -249,8 +248,7 @@ class PacketBuf {
   uint32_t pktbufNodeId = 0;
   uint8_t *pktbufNodeIdPtr = nullptr;
   uint16_t lastpktLen = 0;
-  int16_t lastpktRssi = 0;
-
+  
  private:
   os_event_t pktbufRecvTaskQueue[PACKETBUF_TASK_QUEUE_LEN];
   pktbuf_recvTask_packet_t pktbufRecvTaskPacket[PACKETBUF_TASK_QUEUE_LEN];
