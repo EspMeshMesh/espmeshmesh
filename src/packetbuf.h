@@ -1,13 +1,12 @@
 #pragma once
 #include "defines.h"
 
-#ifdef USE_ESP32
-#include <os.h>
+#ifdef IDF_VER
 #include <esp_wifi.h>
-typedef struct _os_event_ {
+typedef struct _event_ {
   uint32_t _tevent;
   uint32_t _tparam;
-} os_event_t;
+} event_t;
 #endif
 #ifdef ESP8266
 #include <user_interface.h>
@@ -218,18 +217,18 @@ class PacketBuf {
   uint8_t send(RadioPacket *pkt);
   void rawRecv(RxPacket *pkt);
   void setup(const uint8_t *aeskey, int aeskeylen);
-#ifdef USE_ESP32
+#ifdef IDF_VER
   void loop();
 #endif
  private:
   void freedomCallback(uint8_t status);
-#ifdef USE_ESP32
+#ifdef IDF_VER
   void recvTask(uint32_t index);
   static void wifiTxDoneCb(uint8_t ifidx, uint8_t *data, uint16_t *data_len, bool txStatus);
 #else
   static void freedomCallback_cb(uint8_t status);
-  static void recvTask_cb(os_event_t *events);
-  void recvTask(os_event_t *events);
+  static void recvTask_cb(event_t *events);
+  void recvTask(event_t *events);
 #endif
 
  public:
@@ -242,7 +241,7 @@ class PacketBuf {
   std::list<RadioPacket *> mPacketQueue;
   pktbufSentCbFn pktbufSentCb = nullptr;
   void *pktbufSentCbArgs = nullptr;
-#ifdef USE_ESP32
+#ifdef IDF_VER
   QueueHandle_t mRecvQueue;
 #endif
   uint32_t pktbufNodeId = 0;
@@ -250,7 +249,7 @@ class PacketBuf {
   uint16_t lastpktLen = 0;
   
  private:
-  os_event_t pktbufRecvTaskQueue[PACKETBUF_TASK_QUEUE_LEN];
+  event_t pktbufRecvTaskQueue[PACKETBUF_TASK_QUEUE_LEN];
   pktbuf_recvTask_packet_t pktbufRecvTaskPacket[PACKETBUF_TASK_QUEUE_LEN];
   uint32_t pktbufRecvTaskIndex;
 

@@ -17,7 +17,7 @@ uint32_t millis() {
 
 uint32_t random_uint32() {
 #ifdef ESP8266
-    return os_random();
+    return random();
 #endif
 #ifdef IDF_VER
     return esp_random();

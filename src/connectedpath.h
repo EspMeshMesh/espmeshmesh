@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <functional>
 #include <list>
+#include <cstring>
 
 #include "packetbuf.h"
 #include "recvdups.h"

@@ -4,10 +4,11 @@
 #include "espmeshmesh.h"
 
 #if USE_ESP32
-#include <os.h>
 #include <esp_random.h>
 #include <esp_mac.h>
 #endif
+
+#include <cstring>
 
 namespace espmeshmesh {
 
@@ -19,7 +20,7 @@ namespace espmeshmesh {
 #ifdef USE_ESP32
 #define BEACONS_SLOT(X) (esp_random() % X)
 #else
-#define BEACONS_SLOT(X) (os_random() % X)
+#define BEACONS_SLOT(X) (random() % X)
 #endif
 
 #define DISCCMD_RESET_TABLE_REQ 0x00
@@ -99,7 +100,7 @@ void Discovery::process_beacon(uint32_t id, int16_t rssi1, int16_t rssi2) {
 }
 
 void Discovery::clear_table(void) {
-  os_memset(discovery_table, '\0', sizeof(DiscoveryItem_t) * 64);
+  memset(discovery_table, '\0', sizeof(DiscoveryItem_t) * 64);
   discovery_table_index = 0;
 }
 
@@ -132,7 +133,7 @@ uint8_t Discovery::handle_frame(uint8_t *buf, uint16_t len, EspMeshMesh *parent)
         rep[0] = CMD_DISCOVERY_REP;
         rep[1] = DISCCMD_TABLE_ITEM_GET_REP;
         rep[2] = buf[1];
-        os_memcpy(rep + 3, discovery_table + buf[1], sizeof(DiscoveryItem_t));
+        memcpy(rep + 3, discovery_table + buf[1], sizeof(DiscoveryItem_t));
         parent->commandReply(rep, 3 + sizeof(DiscoveryItem_t));
         err = 0;
       }
@@ -151,7 +152,7 @@ uint8_t Discovery::handle_frame(uint8_t *buf, uint16_t len, EspMeshMesh *parent)
       break;
     case DISCCMD_BEACONS_SEND_REQ:
       if (len == sizeof(CmdStart_t) - 1 && !isRunning()) {
-        os_memcpy(((uint8_t *) &mStart) + 1, buf, sizeof(CmdStart_t) - 1);
+        memcpy(((uint8_t *) &mStart) + 1, buf, sizeof(CmdStart_t) - 1);
         if (mStart.mask == 0 || (Discovery::chipId() & mStart.mask) == mStart.filter) {
           mRunPhase = 11;
           mStartTime = millis();
@@ -165,7 +166,7 @@ uint8_t Discovery::handle_frame(uint8_t *buf, uint16_t len, EspMeshMesh *parent)
     case DISCCMD_BEACONS_SEND_REP:
       if (len == sizeof(BaconsData_t) - 1) {
         BaconsData_t data;
-        os_memcpy(((uint8_t *) &data) + 1, buf, sizeof(BaconsData_t) - 1);
+        memcpy(((uint8_t *) &data) + 1, buf, sizeof(BaconsData_t) - 1);
         process_beacon(data.id, data.rssi, (int16_t) parent->lastPacketRssi());
         err = 0;
       }
@@ -200,7 +201,7 @@ void Discovery::findMaxRssi(int16_t max, int16_t &maxRssi, uint32_t &maxRssiNode
 
 void Discovery::discoveryStart(uint8_t *buf, uint16_t len) {
   uint8_t *data = ((uint8_t *) &mStart) + 1;
-  os_memcpy(data, buf, sizeof(CmdStart_t));
+  memcpy(data, buf, sizeof(CmdStart_t));
   discoveryStart(mStart.slotnum);
 }
 

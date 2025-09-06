@@ -8,6 +8,8 @@
 #include <osapi.h>
 #endif  // ESP8266
 
+#include <cstring>
+
 namespace espmeshmesh {
 
 static const char *TAG = "espmeshmesh.recvdups";
@@ -29,7 +31,7 @@ void RecvDups::loop() {
 }
 
 void RecvDups::clear() {
-    os_memset(&mDuplicates, 0, sizeof(RecvDupPacket)*mDuplicateTableSize);
+    memset(&mDuplicates, 0, sizeof(RecvDupPacket)*mDuplicateTableSize);
     for(int i=0; i<mDuplicateTableSize; i++) mDuplicates[i].address = TABLE_INVALID_ADDRESS;
     mDuplicateTableTime = millis();
 }

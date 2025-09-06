@@ -5,6 +5,8 @@
 #include "espmeshmesh.h"
 #include "packetbuf.h"
 
+#include <cstring>
+
 namespace espmeshmesh {
 
 static const char *TAG = "espmeshmesh.politebroadcast";
@@ -130,7 +132,7 @@ void PoliteBroadcastProtocol::send(const uint8_t *data, uint16_t size, uint32_t 
 	pkt->setAutoDelete(false);
 
 	pkt->allocClearData(size);
-	os_memcpy(pkt->politePayload(), data, size);
+	memcpy(pkt->politePayload(), data, size);
 
 	// Fill protocol header...
 	PoliteBroadcastHeader *header = pkt->politeHeader();

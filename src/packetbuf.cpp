@@ -23,6 +23,7 @@
 #endif
 
 #ifdef IDF_VER
+#include <esp_heap_caps.h>
 #include <esp_wifi.h>
 #include <esp_private/wifi.h>
 #include <freertos/queue.h>
@@ -79,14 +80,14 @@ typedef struct ieee80211_hdr_st ieee80211_hdr_t;
 
 typedef ieee80211_hdr_t *ieee80211_hdr_p;
 
-#define PACKETBUF_LEN_POS_INDEX		2
-#define PACKETBUF_LEN_POS_INDEX		2
+#define PACKETBUF_LEN_PINDEX		2
+#define PACKETBUF_LEN_PINDEX		2
 
 #ifndef CRYPTO_LEN
 #define CRYPTO_LEN(X) {}
 #endif
 
-#ifdef USE_ESP32
+#ifdef IDF_VER
 void promiscuousRxq(void* buf, wifi_promiscuous_pkt_type_t type);
 #endif
 
@@ -98,7 +99,7 @@ RadioPacket::~RadioPacket() {
 void RadioPacket::fromRawData(uint8_t *buf, uint16_t size) {
     mClearDataSize = size;
     mClearData = new uint8_t[mClearDataSize];
-	os_memcpy(clearData(), buf, size);
+	memcpy(clearData(), buf, size);
 }
 
 void RadioPacket::allocClearData(uint16_t size) {
@@ -109,7 +110,7 @@ void RadioPacket::allocClearData(uint16_t size) {
 void RadioPacket::allocAndCopyClearData(uint8_t *data, uint16_t size) {
     mClearDataSize = size;
     mClearData = new uint8_t[mClearDataSize];
-    os_memcpy(mClearData, data, size);
+    memcpy(mClearData, data, size);
 }
 
 bool RadioPacket::encryptClearData() {
@@ -160,7 +161,7 @@ void RadioPacket::sendFreedom() {
 
 void RadioPacket::fill80211(uint8_t *targetId, uint8_t *pktbufNodeIdPtr) {
     uint16_t seq_ctrl = 1;
-    os_memset(ptr80211(), 0, sizeof(ieee80211_hdr_st));
+    memset(ptr80211(), 0, sizeof(ieee80211_hdr_st));
 
 	ieee80211_hdr_p ieee80211_hdr = (ieee80211_hdr_p)ptr80211();
 	ieee80211_hdr->frame_control.Protocol = 0;
@@ -174,7 +175,7 @@ void RadioPacket::fill80211(uint8_t *targetId, uint8_t *pktbufNodeIdPtr) {
 
   ieee80211_hdr->seq_ctrl = ++seq_ctrl;
 	// Fill addresses with 0xFF
-	os_memset(ieee80211_hdr->addr1, 0xFF, 18);
+	memset(ieee80211_hdr->addr1, 0xFF, 18);
 	// Target for unicast packet
 	if(targetId) {
 		ieee80211_hdr->addr1[0] = 0xFE;
@@ -276,13 +277,13 @@ void PacketBuf::freedomCallback(uint8_t status) {
 void PacketBuf::recvTask(uint32_t index) {
     {
 #else
-void PacketBuf::recvTask_cb(os_event_t *events) {
+void PacketBuf::recvTask_cb(event_t *events) {
     if(singleton) {
         singleton->recvTask(events);
     }
 }
 
-void PacketBuf::recvTask(os_event_t *events) {
+void PacketBuf::recvTask(event_t *events) {
     if(events->sig == 0) {
         uint32_t index = events->par;
 #endif
@@ -349,7 +350,7 @@ void PacketBuf::recvTask(os_event_t *events) {
 
         delete []clear;
         delete pktbufRecvTaskPacket[index].data;
-        os_memset(&pktbufRecvTaskPacket[index], 0, sizeof(pktbuf_recvTask_packet_t));
+        memset(&pktbufRecvTaskPacket[index], 0, sizeof(pktbuf_recvTask_packet_t));
     }
 }
 
@@ -376,7 +377,7 @@ void PacketBuf::setup(const uint8_t *aeskey, int aeskeylen) {
     }
     mRecvQueue = xQueueCreate(16,sizeof(uint32_t));
 #else
-    system_os_task(recvTask_cb, PACKETBUF_TASK_PRIO, pktbufRecvTaskQueue, PACKETBUF_TASK_QUEUE_LEN);
+    system_task(recvTask_cb, PACKETBUF_TASK_PRIO, pktbufRecvTaskQueue, PACKETBUF_TASK_QUEUE_LEN);
 #endif
     encryption_init(aeskey, aeskeylen);
     for(i=0; i< PACKETBUF_TASK_QUEUE_LEN;    i++) {
@@ -423,7 +424,7 @@ void IRAM_ATTR __attribute__((hot)) PacketBuf::rawRecv(RxPacket *pkt) {
 
 #ifdef IDF_VER
     static uint8_t brdaddr[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-    if(os_memcmp(brdaddr, ieee80211_hdr->addr1, 6) != 0 && (ieee80211_hdr->addr1[0]!=0xFE || ieee80211_hdr->addr1[1]!=0x7F ||
+    if(memcmp(brdaddr, ieee80211_hdr->addr1, 6) != 0 && (ieee80211_hdr->addr1[0]!=0xFE || ieee80211_hdr->addr1[1]!=0x7F ||
         ieee80211_hdr->addr1[2]!=nodeIdPtr()[3] || ieee80211_hdr->addr1[3]!=nodeIdPtr()[2] || ieee80211_hdr->addr1[4]!=nodeIdPtr()[1],
         ieee80211_hdr->addr1[5]!=nodeIdPtr()[0])) {
         return;
@@ -457,12 +458,12 @@ void IRAM_ATTR __attribute__((hot)) PacketBuf::rawRecv(RxPacket *pkt) {
         //LIB_LOGD(TAG, "rawRecv enqueued %d len %d", pktbufRecvTaskIndex, pkt->rx_ctrl.sig_len);
         pktbufRecvTaskPacket[pktbufRecvTaskIndex].length = pkt->rx_ctrl.sig_len;
         pktbufRecvTaskPacket[pktbufRecvTaskIndex].data = new uint8_t[pktbufRecvTaskPacket[pktbufRecvTaskIndex].length];
-        os_memcpy(pktbufRecvTaskPacket[pktbufRecvTaskIndex].data, pkt->payload, pktbufRecvTaskPacket[pktbufRecvTaskIndex].length);
+        memcpy(pktbufRecvTaskPacket[pktbufRecvTaskIndex].data, pkt->payload, pktbufRecvTaskPacket[pktbufRecvTaskIndex].length);
         pktbufRecvTaskPacket[pktbufRecvTaskIndex].rssi = pkt->rx_ctrl.rssi;
 #ifdef IDF_VER
         xQueueSend(mRecvQueue, &pktbufRecvTaskIndex, 0);
 #else
-        system_os_post(PACKETBUF_TASK_PRIO, 0, pktbufRecvTaskIndex);
+        system_post(PACKETBUF_TASK_PRIO, 0, pktbufRecvTaskIndex);
 #endif
         if(++pktbufRecvTaskIndex >= PACKETBUF_TASK_QUEUE_LEN) pktbufRecvTaskIndex = 0;
     } else if(ieee80211_hdr->frame_control.Type == FRAME_TYPE_MANAGEMENT && ieee80211_hdr->frame_control.Subtype == FRAME_SUBTYPE_PROBE_REQUEST) {

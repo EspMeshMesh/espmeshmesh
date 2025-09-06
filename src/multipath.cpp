@@ -1,4 +1,5 @@
 #include "multipath.h"
+#include <cstring>
 #ifdef USE_MULTIPATH_PROTOCOL
 #include "log.h"
 
@@ -21,7 +22,7 @@ void MultiPathPacket::allocClearData(uint16_t size, uint8_t pathlen) {
 }
 
 void MultiPathPacket::setPayload(const uint8_t *payoad) {
-	os_memcpy(clearData()+sizeof(MultiPathHeaderSt)+sizeof(uint32_t)*multipathHeader()->pathLength, payoad, multipathHeader()->dataLength);
+	memcpy(clearData()+sizeof(MultiPathHeaderSt)+sizeof(uint32_t)*multipathHeader()->pathLength, payoad, multipathHeader()->dataLength);
 }
 
 void MultiPath::loop() {

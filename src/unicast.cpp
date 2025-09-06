@@ -1,5 +1,6 @@
 #include "unicast.h"
 #include "log.h"
+#include <cstring>
 
 namespace espmeshmesh {
 
@@ -41,7 +42,7 @@ uint8_t Unicast::send(const uint8_t *data, uint16_t size, uint32_t target, uint1
   UnicastPacket *pkt = new UnicastPacket(nullptr, nullptr);
   pkt->allocClearData(size);
   pkt->unicastHeader()->port = port;
-  os_memcpy(pkt->unicastPayload(), data, size);
+  memcpy(pkt->unicastPayload(), data, size);
   return send(pkt, target, true);
 }
 

@@ -1,4 +1,5 @@
 #include "broadcast.h"
+#include <cstring>
 
 namespace espmeshmesh {
 
@@ -11,7 +12,7 @@ uint8_t Broadcast::send(const uint8_t *data, uint16_t size) {
 	pkt->allocClearData(size);
 	pkt->broadcastHeader()->protocol = PROTOCOL_BROADCAST;
 	pkt->broadcastHeader()->lenght = size;
-	os_memcpy(pkt->broadcastPayload(), data, size);
+	memcpy(pkt->broadcastPayload(), data, size);
 
     pkt->encryptClearData();
     pkt->fill80211(nullptr, packetbuf->nodeIdPtr());

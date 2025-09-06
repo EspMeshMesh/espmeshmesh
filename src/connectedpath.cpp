@@ -38,7 +38,7 @@ void ConnectedPathPacket::allocClearData(uint16_t size) {
 }
 
 void ConnectedPathPacket::setPayload(const uint8_t *payoad) {
-  os_memcpy(clearData() + sizeof(ConnectedPathHeaderSt), payoad, getHeader()->dataLength);
+  memcpy(clearData() + sizeof(ConnectedPathHeaderSt), payoad, getHeader()->dataLength);
 }
 
 void ConnectedPathPacket::setTarget(uint32_t target, uint16_t handle) {
@@ -49,7 +49,7 @@ void ConnectedPathPacket::setTarget(uint32_t target, uint16_t handle) {
 
 void ConnectedPath::setup(void) {
   mRadioOutputBuffer.resize(1024);
-  os_memset((uint8_t *) mConnectsions, 0x0, sizeof(mConnectsions));
+  memset((uint8_t *) mConnectsions, 0x0, sizeof(mConnectsions));
   for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++)
     connectionSetInvalid(i);
   mConnectionsCheckTime = millis();
@@ -367,7 +367,7 @@ void ConnectedPath::openConnection(uint32_t from, uint16_t handle, uint16_t data
         uint16toBuffer(newdata, port);
         newdata[2] = newPathLen;
         if (newPathLen)
-          os_memcpy(newdata + 3, data + 7, newPathLen * sizeof(uint32_t));
+          memcpy(newdata + 3, data + 7, newPathLen * sizeof(uint32_t));
         enqueueRadioPacket(CONNPATH_OPEN_CONNECTION_REQ, connid, FORWARD, newdatasize, newdata);
         delete[] newdata;
       } else {

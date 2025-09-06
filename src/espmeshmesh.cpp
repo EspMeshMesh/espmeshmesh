@@ -638,7 +638,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
   uint8_t err = HANDLE_UART_ERROR;
 
   uint8_t *buf = new uint8_t[len];
-  os_memcpy(buf, data, len);
+  memcpy(buf, data, len);
 
   // LIB_LOGD(TAG, "MeshmeshComponent::handleFrame src %d cmd %02X:%02X len %d", src, buf[0], buf[1], len);
   // print_hex_array("handleFrame ", buf, len);
@@ -663,7 +663,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
         uint32_t id = Discovery::chipId();
         uint8_t rep[5] = {0};
         rep[0] = CMD_NODE_ID_REP;
-        os_memcpy(rep + 1, (uint8_t *) &id, 4);
+        memcpy(rep + 1, (uint8_t *) &id, 4);
         commandReply(rep, 5);
         err = 0;
       }
@@ -750,7 +750,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
     // Don't reply errors when commd came from broadcast
     uint8_t *rep = new uint8_t[len + 1];
     rep[0] = CMD_ERROR_REP;
-    os_memcpy(rep + 1, buf, len);
+    memcpy(rep + 1, buf, len);
     commandReply(rep, len + 1);
     LIB_LOGD(TAG, "EspMeshMesh::handleFrame error frame %02X %02X size %d", buf[0], buf[1], len);
     delete[] rep;
@@ -764,7 +764,7 @@ void EspMeshMesh::replyHandleFrame(uint8_t *buf, uint16_t len, DataSrc src, uint
   switch (buf[0]) {
     case CMD_LOGEVENT_REP:
       // Add the source to the log essage
-      os_memcpy(buf + 3, (uint8_t *) &from, 4);
+      memcpy(buf + 3, (uint8_t *) &from, 4);
       uartSendData(buf, len);
       break;
     case CMD_BEACONS_RECV:
@@ -796,7 +796,7 @@ void EspMeshMesh::user_broadcast_recv(uint8_t *data, uint16_t size, uint8_t *fro
   // Ignore error frame frmo broadcast
   if (size == 0 || data[0] == 0x7F)
     return;
-  os_memcpy(&mBroadcastFromAddress, from, 4);
+  memcpy(&mBroadcastFromAddress, from, 4);
   mRssiHandle = rssi;
   uint32_t *addr = (uint32_t *) from;
   LIB_LOGD(TAG, "MeshmeshComponent::user_broadcast_recv from %06lX size %d cmd %02X", *addr, size, data[0]);
@@ -809,7 +809,7 @@ void EspMeshMesh::unicastRecvCb(void *arg, uint8_t *data, uint16_t size, uint32_
 
 void EspMeshMesh::unicastRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
   // LIB_LOGD(TAG, "unicastRecv %d", size);
-  os_memcpy(mRecvFromId, (uint8_t *) &from, 4);
+  memcpy(mRecvFromId, (uint8_t *) &from, 4);
   mRssiHandle = rssi;
   handleFrame(data, size, SRC_UNICAST, from);
 }
@@ -821,10 +821,10 @@ void EspMeshMesh::multipathRecvCb(void *arg, uint8_t *data, uint16_t size, uint3
 
 void EspMeshMesh::multipathRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path,
                                       uint8_t pathSize) {
-  os_memcpy(mRecvFromId, (uint8_t *) &from, 4);
+  memcpy(mRecvFromId, (uint8_t *) &from, 4);
   mRecvPathSize = pathSize;
   if (mRecvPathSize)
-    os_memcpy(mRecvPath, path, mRecvPathSize * sizeof(uint32_t));
+    memcpy(mRecvPath, path, mRecvPathSize * sizeof(uint32_t));
   mRssiHandle = rssi;
   handleFrame(data, size, SRC_MULTIPATH, from);
 }
@@ -882,7 +882,7 @@ void EspMeshMesh::sendLog(int level, const char *tag, const char *payload, size_
   buffer_ptr += 4;
 
   if (payload_len > 0)
-    os_memcpy(buffer_ptr, payload, payload_len);
+    memcpy(buffer_ptr, payload, payload_len);
   if (mBaudRate > 0)
     uartSendData(buffer, buffersize);
   if (mLogDestination == 1) {
