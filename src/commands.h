@@ -1,5 +1,4 @@
 #pragma once
-#define CMD_MAGICK 0xFE
 #define CMD_MAX_BUFFER_SIZE 1024
 
 #define CMD_UART_ECHO_REQ 0x00
