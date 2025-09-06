@@ -2,6 +2,7 @@
 #include <algorithm>
 
 #include "log.h"
+#include "crc16.h"
 #include "commands.h"
 #include "packetbuf.h"
 #include "broadcast.h"
@@ -27,6 +28,7 @@
 #include <esp_wifi.h>
 #include <esp_event.h>
 #include <esp_rom_md5.h>
+#include <cstring>
 #endif
 
 extern "C" uint32_t _FS_start;
@@ -454,13 +456,19 @@ void EspMeshMesh::uartSendData(const uint8_t *buff, uint16_t len) {
     return;
 
   uint16_t i;
-  mUartTxBuffer.pushByte(0xFE);
+  uint16_t crc16 = 0;
+  mUartTxBuffer.pushByte(CODE_DATA_START_CRC16);
   for (i = 0; i < len; i++) {
-    if (buff[i] == 0xEA || buff[i] == 0xEF || buff[i] == 0xFE)
-      mUartTxBuffer.pushByte(0xEA);
+    if (buff[i] == 0xEA || buff[i] == 0xEF || buff[i] == 0xFE) {
+      mUartTxBuffer.pushByte(CODE_DATA_ESCAPE);
+      crc16 = crc_ibm_byte(crc16, CODE_DATA_ESCAPE);
+    }
     mUartTxBuffer.pushByte(buff[i]);
+    crc16 = crc_ibm_byte(crc16, buff[i]);
   }
-  mUartTxBuffer.pushByte(0xEF);
+  mUartTxBuffer.pushByte(CODE_DATA_END);
+  mUartTxBuffer.pushByte(crc16 >> 8);
+  mUartTxBuffer.pushByte(crc16 & 0xFF);
   flushUartTxBuffer();
 }
 
@@ -513,35 +521,55 @@ void EspMeshMesh::initIdfUart() {
 #endif
 
 void EspMeshMesh::user_uart_recv_data(uint8_t byte) {
+  static uint16_t computed_crc16 = 0;
+  static uint16_t received_crc16 = 0;
+
   switch (mRecvState) {
-    case WAIT_MAGICK:
-      if (byte == CMD_MAGICK) {
+    case WAIT_START:
+      if (byte == CODE_DATA_START_CRC16) {
         // LIB_LOGD(TAG, "MeshmeshComponent::user_uart_recv_data find start");
+        computed_crc16 = 0;
         mRecvState = WAIT_DATA;
         if (!mRecvBuffer) {
           mRecvBuffer = new uint8_t[DEF_CMD_BUFFER_SIZE];
         }
-        os_memset(mRecvBuffer, 0, DEF_CMD_BUFFER_SIZE);
+        memset(mRecvBuffer, 0, DEF_CMD_BUFFER_SIZE);
         mRecvBufferPos = 0;
       }
       break;
     case WAIT_DATA:
-      if (byte == 0xEF) {
-        handleFrame(mRecvBuffer, mRecvBufferPos, SRC_SERIAL, 0xFFFFFFFF);
-        mRecvState = WAIT_MAGICK;
+      if (byte == CODE_DATA_END) {
+        mRecvState = WAIT_CRC16_1;
       } else {
-        if (byte == 0xEA) {
+        if (byte == CODE_DATA_ESCAPE) {
+          computed_crc16 = crc_ibm_byte(computed_crc16, byte);
           mRecvState = WAIT_ESCAPE;
         } else {
+          computed_crc16 = crc_ibm_byte(computed_crc16, byte);
           mRecvBuffer[mRecvBufferPos++] = byte;
         }
       }
       break;
     case WAIT_ESCAPE:
-      if (byte == 0xEA || byte == 0xEF || byte == 0xFE) {
+      if (byte == CODE_DATA_ESCAPE || byte == CODE_DATA_END || byte == CODE_DATA_START) {
+        computed_crc16 = crc_ibm_byte(computed_crc16, byte);
         mRecvBuffer[mRecvBufferPos++] = byte;
       }
       mRecvState = WAIT_DATA;
+      break;
+    case WAIT_CRC16_1:
+      received_crc16 = uint16_t(byte) << 8;
+      mRecvState = WAIT_CRC16_2;
+      break;
+    case WAIT_CRC16_2:
+      received_crc16 = received_crc16 | uint16_t(byte);
+      if (computed_crc16 == received_crc16) {
+        handleFrame(mRecvBuffer, mRecvBufferPos, SRC_SERIAL, 0xFFFFFFFF);
+      } else {
+        //handleFrame(mRecvBuffer, mRecvBufferPos, SRC_SERIAL, 0xFFFFFFFF);
+        LIB_LOGE(TAG, "CRC16 mismatch %04X %04X", computed_crc16, received_crc16);
+      }
+      mRecvState = WAIT_START;
       break;
   }
 }

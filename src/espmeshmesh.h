@@ -20,7 +20,8 @@ namespace espmeshmesh {
 typedef std::function<int8_t(uint8_t *data, uint16_t len, uint32_t from)> HandleFrameCbFn;
 typedef void (*EspHomeDataReceivedCbFn)(uint16_t, uint8_t *, uint16_t);
 
-typedef enum { WAIT_MAGICK, WAIT_DATA, WAIT_ESCAPE } RecvState;
+typedef enum { WAIT_START, WAIT_DATA, WAIT_ESCAPE, WAIT_CRC16_1, WAIT_CRC16_2 } RecvState;
+typedef enum { CODE_DATA_START=0xFE, CODE_DATA_START_CRC16=0xFD, CODE_DATA_END = 0xEF, CODE_DATA_ESCAPE = 0xEA } SpcialByteCodes;
 
 class Broadcast;
 class Unicast;
@@ -158,7 +159,7 @@ public:
   int mUartNum{0};
 #endif
 
-  RecvState mRecvState = WAIT_MAGICK;
+  RecvState mRecvState = WAIT_START;
   uint8_t *mRecvBuffer = nullptr;
   uint16_t mRecvBufferPos = 0;
   uint8_t mRecvFromId[4];
