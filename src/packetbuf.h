@@ -6,10 +6,12 @@
 typedef struct _event_ {
   uint32_t _tevent;
   uint32_t _tparam;
-} event_t;
+} os_event_t;
 #endif
 #ifdef ESP8266
+#include <osapi.h>
 #include <user_interface.h>
+#include <user_config.h>
 #endif
 
 #include <list>
@@ -227,8 +229,8 @@ class PacketBuf {
   static void wifiTxDoneCb(uint8_t ifidx, uint8_t *data, uint16_t *data_len, bool txStatus);
 #else
   static void freedomCallback_cb(uint8_t status);
-  static void recvTask_cb(event_t *events);
-  void recvTask(event_t *events);
+  static void recvTask_cb(os_event_t *events);
+  void recvTask(os_event_t *events);
 #endif
 
  public:
@@ -249,7 +251,9 @@ class PacketBuf {
   uint16_t lastpktLen = 0;
   
  private:
-  event_t pktbufRecvTaskQueue[PACKETBUF_TASK_QUEUE_LEN];
+#ifndef IDF_VER
+  os_event_t pktbufRecvTaskQueue[PACKETBUF_TASK_QUEUE_LEN];
+#endif
   pktbuf_recvTask_packet_t pktbufRecvTaskPacket[PACKETBUF_TASK_QUEUE_LEN];
   uint32_t pktbufRecvTaskIndex;
 

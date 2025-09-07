@@ -277,13 +277,13 @@ void PacketBuf::freedomCallback(uint8_t status) {
 void PacketBuf::recvTask(uint32_t index) {
     {
 #else
-void PacketBuf::recvTask_cb(event_t *events) {
+void PacketBuf::recvTask_cb(os_event_t *events) {
     if(singleton) {
         singleton->recvTask(events);
     }
 }
 
-void PacketBuf::recvTask(event_t *events) {
+void PacketBuf::recvTask(os_event_t *events) {
     if(events->sig == 0) {
         uint32_t index = events->par;
 #endif
@@ -377,7 +377,7 @@ void PacketBuf::setup(const uint8_t *aeskey, int aeskeylen) {
     }
     mRecvQueue = xQueueCreate(16,sizeof(uint32_t));
 #else
-    system_task(recvTask_cb, PACKETBUF_TASK_PRIO, pktbufRecvTaskQueue, PACKETBUF_TASK_QUEUE_LEN);
+    system_os_task(recvTask_cb, PACKETBUF_TASK_PRIO, pktbufRecvTaskQueue, PACKETBUF_TASK_QUEUE_LEN);
 #endif
     encryption_init(aeskey, aeskeylen);
     for(i=0; i< PACKETBUF_TASK_QUEUE_LEN;    i++) {
@@ -463,7 +463,7 @@ void IRAM_ATTR __attribute__((hot)) PacketBuf::rawRecv(RxPacket *pkt) {
 #ifdef IDF_VER
         xQueueSend(mRecvQueue, &pktbufRecvTaskIndex, 0);
 #else
-        system_post(PACKETBUF_TASK_PRIO, 0, pktbufRecvTaskIndex);
+        system_os_post(PACKETBUF_TASK_PRIO, 0, pktbufRecvTaskIndex);
 #endif
         if(++pktbufRecvTaskIndex >= PACKETBUF_TASK_QUEUE_LEN) pktbufRecvTaskIndex = 0;
     } else if(ieee80211_hdr->frame_control.Type == FRAME_TYPE_MANAGEMENT && ieee80211_hdr->frame_control.Subtype == FRAME_SUBTYPE_PROBE_REQUEST) {
