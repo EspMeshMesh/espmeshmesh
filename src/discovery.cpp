@@ -180,7 +180,7 @@ uint32_t Discovery::chipId() {
 #ifdef IDF_VER
   uint64_t macAddress;
   esp_efuse_mac_get_default((uint8_t *) &macAddress);
-  return (uint32_t) (macAddress & 0xFFFFFF);
+  return __builtin_bswap32((uint32_t) ((macAddress & 0xFFFFFF0000000000) >> 16));
 #else
   return system_get_chip_id();
 #endif
