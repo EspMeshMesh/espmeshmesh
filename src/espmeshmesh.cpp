@@ -6,6 +6,7 @@
 #include "commands.h"
 #include "packetbuf.h"
 #include "broadcast.h"
+#include "broadcast2.h"
 #include "unicast.h"
 #ifdef USE_MULTIPATH_PROTOCOL
 #include "multipath.h"
@@ -38,6 +39,7 @@ namespace espmeshmesh {
 
 static const char *TAG = "espmeshmesh";
 
+#define BROADCAST_DEFAULT_PORT 0
 #define UNICAST_DEFAULT_PORT 0
 
 EspMeshMesh *EspMeshMesh::singleton = nullptr;
@@ -345,6 +347,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
   packetbuf = PacketBuf::getInstance();
   packetbuf->setup(aespassword, 16);
   broadcast = new Broadcast(packetbuf);
+  broadcast2 = new Broadcast2(packetbuf);
   unicast = new Unicast(packetbuf);
 
 #ifdef USE_MULTIPATH_PROTOCOL
@@ -369,6 +372,8 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
   mDiscovery.init();
   broadcast->open();
   broadcast->setRecv_cb(user_broadcast_recv_cb);
+  broadcast2->open();
+  broadcast2->bindPort(0, std::bind(&EspMeshMesh::user_broadcast2_recv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
   unicast->setup();
   unicast->bindPort(unicastRecvCb, this, UNICAST_DEFAULT_PORT);
   dump_config();
@@ -477,9 +482,24 @@ void EspMeshMesh::broadCastSendData(const uint8_t *buff, uint16_t len) {
     broadcast->send(buff, len);
 }
 
+void EspMeshMesh::broadcast2SendData(const uint8_t *buff, uint16_t len, bool port) {
+  if (broadcast2)
+    broadcast2->send(buff, len, port);
+}
+
+void EspMeshMesh::registerBroadcast2Port(uint16_t port, Broadcast2ReceiveRadioPacketHandler handler) {
+  if (broadcast2)
+    broadcast2->bindPort(port, handler);
+}
+
 void EspMeshMesh::uniCastSendData(const uint8_t *buff, uint16_t len, uint32_t addr) {
   if (unicast)
     unicast->send(buff, len, addr, UNICAST_DEFAULT_PORT);
+}
+
+void EspMeshMesh::unicastSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint16_t port) {
+  if (unicast)
+    unicast->send(buff, len, addr, port);
 }
 
 #ifdef USE_MULTIPATH_PROTOCOL
@@ -606,6 +626,9 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
       break;
     case SRC_BROADCAST:
       err = unicast->send(buff, len, uint32FromBuffer(mRecvFromId), UNICAST_DEFAULT_PORT);
+      break;
+    case SRC_BROADCAST2:
+      err = broadcast2->send(buff, len, BROADCAST_DEFAULT_PORT);
       break;
     case SRC_UNICAST:
       err = unicast->send(buff, len, uint32FromBuffer(mRecvFromId), UNICAST_DEFAULT_PORT);
@@ -802,6 +825,16 @@ void EspMeshMesh::user_broadcast_recv(uint8_t *data, uint16_t size, uint8_t *fro
   uint32_t *addr = (uint32_t *) from;
   //LIB_LOGD(TAG, "MeshmeshComponent::user_broadcast_recv from %06lX size %d cmd %02X", *addr, size, data[0]);
   handleFrame(data, size, SRC_BROADCAST, *(uint32_t *) from);
+}
+
+void EspMeshMesh::user_broadcast2_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
+  // Ignore error frame frmo broadcast
+  if (size == 0 || data[0] == 0x7F)
+    return;
+  memcpy(mRecvFromId, (uint8_t *) &from, 4);
+  mRssiHandle = rssi;
+  LIB_LOGD(TAG, "MeshmeshComponent::user_broadcast2_recv from %06lX size %d cmd %02X", from, size, data[0]);
+  handleFrame(data, size, SRC_BROADCAST2, from);
 }
 
 void EspMeshMesh::unicastRecvCb(void *arg, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {

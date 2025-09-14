@@ -84,14 +84,14 @@ struct pktbuf_recvTask_packet_st {
 
 typedef struct pktbuf_recvTask_packet_st pktbuf_recvTask_packet_t;
 
-#define PROTOCOL_BROADCAST 1
-#define PROTOCOL_UNICAST 2
-#define PROTOCOL_PREROUTED 3
-#define PROTOCOL_MULTIPATH 4
-#define PROTOCOL_POLITEBRD 5
-//#define PROTOCOL_SOCKET		6
-#define PROTOCOL_CONNPATH 7
-#define PROTOCOL_LAST 8
+#define PROTOCOL_BROADCAST    1
+#define PROTOCOL_UNICAST      2
+#define PROTOCOL_PREROUTED    3
+#define PROTOCOL_MULTIPATH    4
+#define PROTOCOL_POLITEBRD    5
+#define PROTOCOL_BROADCAST_V2 6
+#define PROTOCOL_CONNPATH     7
+#define PROTOCOL_LAST         8
 
 #define PKT_SEND_OK 0
 #define PKT_SEND_ERR 1
@@ -124,6 +124,7 @@ class RadioPacket;
 typedef void (*pktbufSentCbFn)(void *arg, uint8_t status, RadioPacket *data);
 
 class Broadcast;
+class Broadcast2;
 class Unicast;
 #ifdef USE_MULTIPATH_PROTOCOL
 class MultiPath;
@@ -200,6 +201,8 @@ class PacketBuf {
  public:
   Broadcast *getBroadcast(void) const { return broadcast; }
   void setBroadcast(Broadcast *b) { broadcast = b; }
+  Broadcast2 *getBroadcast2(void) const { return broadcast2; }
+  void setBroadcast2(Broadcast2 *b) { broadcast2 = b; }
   Unicast *getUnicast(void) const { return unicast; }
   void setUnicast(Unicast *u) { unicast = u; }
 #ifdef USE_MULTIPATH_PROTOCOL
@@ -259,6 +262,7 @@ class PacketBuf {
 
  private:
   Broadcast *broadcast = nullptr;
+  Broadcast2 *broadcast2 = nullptr;
   Unicast *unicast = nullptr;
 #ifdef USE_MULTIPATH_PROTOCOL
   MultiPath *multipath = nullptr;
