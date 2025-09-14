@@ -4,6 +4,7 @@
 #include "defines.h"
 #include "discovery.h"
 #include "broadcast.h"
+#include "broadcast2.h"
 #include "unicast.h"
 #ifdef USE_MULTIPATH_PROTOCOL
 #include "multipath.h"
@@ -323,6 +324,9 @@ void PacketBuf::recvTask(os_event_t *events) {
         switch(prot) {
         case PROTOCOL_BROADCAST:
             if(broadcast) broadcast->recv(clear, lastpktLen, fromptr, lastpktRssi);
+            break;
+        case PROTOCOL_BROADCAST_V2:
+            if(broadcast2) broadcast2->recv(clear, lastpktLen, from, lastpktRssi);
             break;
         case PROTOCOL_UNICAST:
             if(unicast) unicast->receiveRadioPacket(clear, lastpktLen, from, lastpktRssi);
