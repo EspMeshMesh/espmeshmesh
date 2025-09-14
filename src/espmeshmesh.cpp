@@ -605,7 +605,7 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
       uartSendData(buff, len);
       break;
     case SRC_BROADCAST:
-      err = broadcast->send(buff, len);
+      err = unicast->send(buff, len, uint32FromBuffer(mRecvFromId), UNICAST_DEFAULT_PORT);
       break;
     case SRC_UNICAST:
       err = unicast->send(buff, len, uint32FromBuffer(mRecvFromId), UNICAST_DEFAULT_PORT);
@@ -797,6 +797,7 @@ void EspMeshMesh::user_broadcast_recv(uint8_t *data, uint16_t size, uint8_t *fro
   if (size == 0 || data[0] == 0x7F)
     return;
   memcpy(&mBroadcastFromAddress, from, 4);
+  memcpy(mRecvFromId, from, 4);
   mRssiHandle = rssi;
   uint32_t *addr = (uint32_t *) from;
   LIB_LOGD(TAG, "MeshmeshComponent::user_broadcast_recv from %06lX size %d cmd %02X", *addr, size, data[0]);
