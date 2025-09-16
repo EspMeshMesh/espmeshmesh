@@ -81,6 +81,8 @@ class EspMeshMesh {
   void commandReply(const uint8_t *buff, uint16_t len);
   void uartSendData(const uint8_t *buff, uint16_t len);
   int16_t lastPacketRssi() const { return mRssiHandle; }
+  DataSrc lastCommandSourceProtocol() const { return commandSource; }
+  bool lastCommandFromBroadcast() const { return commandSource == SRC_BROADCAST || commandSource == SRC_POLITEBRD; }
   uint32_t broadcastFromAddress() const { return mBroadcastFromAddress; }
   void broadCastSendData(const uint8_t *buff, uint16_t len);
   void uniCastSendData(const uint8_t *buff, uint16_t len, uint32_t addr);
