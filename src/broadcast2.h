@@ -36,7 +36,8 @@ class Broadcast2 {
 public:
 	Broadcast2(PacketBuf *pbuf) { packetbuf = pbuf; packetbuf->setBroadcast2(this); }
 	uint8_t send(const uint8_t *data, uint16_t size, bool port);
-	void bindPort(uint16_t port, Broadcast2ReceiveRadioPacketHandler h);
+	bool isPortAvailable(uint16_t port) const;
+	bool bindPort(uint16_t port, Broadcast2ReceiveRadioPacketHandler h);
 	void open();
 	void recv(uint8_t *p, uint16_t size, uint32_t from, int16_t rssi);
 private:

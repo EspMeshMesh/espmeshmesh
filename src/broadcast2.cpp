@@ -26,7 +26,20 @@ uint8_t Broadcast2::send(const uint8_t *data, uint16_t size, bool port) {
     return res;
 }
 
-void Broadcast2::bindPort(uint16_t port, Broadcast2ReceiveRadioPacketHandler h) {
+bool Broadcast2::isPortAvailable(uint16_t port) const {
+	for (Broadcast2BindedPort_t bindedPort : mBindedPorts) {
+		if (bindedPort.port == port) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool Broadcast2::bindPort(uint16_t port, Broadcast2ReceiveRadioPacketHandler h) {
+	if(!isPortAvailable(port)) {
+		LIB_LOGE(TAG, "Broadcast2::bindPort port %d already binded", port);
+		return false;
+	}
 	LIB_LOGD(TAG, "Broadcast2::bindPort port %d", port);
 	Broadcast2BindedPort_t newhandler = {h, port};
 	mBindedPorts.push_back(newhandler);

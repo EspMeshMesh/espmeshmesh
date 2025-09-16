@@ -61,15 +61,29 @@ void Unicast::receiveRadioPacket(uint8_t *p, uint16_t size, uint32_t f, int16_t 
 
   for (UnicastBindedPort_t port : mBindedPorts) {
     if (port.port == header->port) {
-      port.handler(port.arg, p + sizeof(UnicastHeaderSt), header->lenght, f, r);
+      port.handler(p + sizeof(UnicastHeaderSt), header->lenght, f, r);
     }
   }
 }
 
-void Unicast::bindPort(UnicastReceiveRadioPacketHandler h, void *arg, uint16_t port) {
+bool Unicast::isPortAvailable(uint16_t port) const {
+  for (UnicastBindedPort_t bindedPort : mBindedPorts) {
+    if (bindedPort.port == port) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Unicast::bindPort(uint16_t port, UnicastReceiveRadioPacketHandler h) {
+  if(!isPortAvailable(port)) {
+    LIB_LOGE(TAG, "Unicast::bindPort port %d already binded", port);
+    return false;
+  }
   LIB_LOGD(TAG, "Unicast::bindPort port %d", port);
-  UnicastBindedPort_t newhandler = {h, arg, port};
+  UnicastBindedPort_t newhandler = {h, port};
   mBindedPorts.push_back(newhandler);
+  return true;
 }
 
 void Unicast::radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt) {
