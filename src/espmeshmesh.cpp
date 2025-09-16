@@ -373,9 +373,9 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
   broadcast->open();
   broadcast->setRecv_cb(user_broadcast_recv_cb);
   broadcast2->open();
-  broadcast2->bindPort(0, std::bind(&EspMeshMesh::user_broadcast2_recv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+  broadcast2->bindPort(BROADCAST_DEFAULT_PORT, std::bind(&EspMeshMesh::user_broadcast2_recv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
   unicast->setup();
-  unicast->bindPort(unicastRecvCb, this, UNICAST_DEFAULT_PORT);
+  unicast->bindPort(UNICAST_DEFAULT_PORT, std::bind(&EspMeshMesh::unicastRecv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
   dump_config();
   mElapsed1 = millis();
 
@@ -835,10 +835,6 @@ void EspMeshMesh::user_broadcast2_recv(uint8_t *data, uint16_t size, uint32_t fr
   mRssiHandle = rssi;
   LIB_LOGD(TAG, "MeshmeshComponent::user_broadcast2_recv from %06lX size %d cmd %02X", from, size, data[0]);
   handleFrame(data, size, SRC_BROADCAST2, from);
-}
-
-void EspMeshMesh::unicastRecvCb(void *arg, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
-  ((EspMeshMesh *) arg)->unicastRecv(data, size, from, rssi);
 }
 
 void EspMeshMesh::unicastRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {

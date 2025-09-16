@@ -54,11 +54,12 @@ uint8_t MultiPath::send(MultiPathPacket *pkt, bool initHeader) {
     return res;
 }
 
-uint8_t MultiPath::send(const uint8_t *data, uint16_t size, uint8_t *target, uint8_t *path, uint8_t pathSize, bool pathRev) {
+uint8_t MultiPath::send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, bool pathRev, uint8_t port) {
 	MultiPathPacket *pkt = new MultiPathPacket(nullptr, nullptr);
 	pkt->allocClearData(size, pathSize);
-	pkt->multipathHeader()->trargetAddress = uint32FromBuffer(target);
-	for(int i=0;i<pathSize;i++) pkt->setPathItem(uint32FromBuffer(path+i*sizeof(uint32_t)), pathRev ? pathSize-i-1 : i);
+	pkt->multipathHeader()->port = port;
+	pkt->multipathHeader()->trargetAddress = target;
+	for(int i=0;i<pathSize;i++) pkt->setPathItem(path[i], pathRev ? pathSize-i-1 : i);
 	pkt->setPayload(data);
 	return send(pkt, true);
 }
@@ -79,9 +80,17 @@ void MultiPath::receiveRadioPacket(uint8_t *buf, uint16_t size, uint32_t f, int1
 				pkt->fromRawData(buf, size);
 				pkt->multipathHeader()->pathIndex++;
 				send(pkt, false);
-			} else if(mRecevieCallback) {
-				uint8_t *path = header->pathLength>0 ? buf+sizeof(MultiPathHeaderSt) : nullptr;
-				mRecevieCallback(mRecevieCallbackArg, buf+sizeof(MultiPathHeaderSt)+sizeof(uint32_t)*header->pathLength, header->dataLength, header->sourceAddress, r, path, header->pathLength);
+			} else {
+				for (MultiPathBindedPort_t port : mBindedPorts) {
+					if (port.port == header->port) {
+						port.handler(buf + sizeof(MultiPathHeaderSt) + sizeof(uint32_t) * header->pathLength,   // Payload is at size of the header + size of the path
+						header->dataLength, 
+						header->sourceAddress, 
+						r, 
+						buf+sizeof(MultiPathHeaderSt),  // Path is at size of the header
+						header->pathLength);
+					}
+				}
 			}
 
 		} else {
@@ -90,11 +99,6 @@ void MultiPath::receiveRadioPacket(uint8_t *buf, uint16_t size, uint32_t f, int1
 	} else {
         LIB_LOGE(TAG, "MultiPath::recv invalid size %d but required at least %d", size, sizeof(MultiPathHeaderSt));
 	}
-}
-
-void MultiPath::setReceiveCallback(MultiPathReceiveHandler recvCb, void *arg) {
-	mRecevieCallback = recvCb;
-	mRecevieCallbackArg = arg;
 }
 
 void MultiPath::radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt) {

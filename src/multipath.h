@@ -11,11 +11,12 @@
 
 namespace espmeshmesh {
 
-typedef std::function<void(void *arg, uint8_t *data, uint16_t size, uint32_t from, int16_t  rssi, uint8_t *path, uint8_t pathSize)> MultiPathReceiveHandler;
+typedef std::function<void(uint8_t *data, uint16_t size, uint32_t from, int16_t  rssi, uint8_t *path, uint8_t pathSize)> MultiPathReceiveRadioPacketHandler;
 
 struct MultiPathHeaderSt {
 	uint8_t protocol;
 	uint8_t flags;
+    uint8_t port;
 	uint16_t seqno;
     uint8_t pathLength;
     uint8_t pathIndex;
@@ -39,24 +40,33 @@ public:
 	uint8_t *unicastPayload() { return (uint8_t *)(clearData()+sizeof(MultiPathHeaderSt)); }
 };
 
+struct MultiPathBindedPort_st {
+    MultiPathReceiveRadioPacketHandler handler;
+    uint16_t port;
+};
+
+typedef MultiPathBindedPort_st MultiPathBindedPort_t;
+
 class MultiPath {
 public:
 	MultiPath(PacketBuf *pbuf): mRecvDups() { packetbuf = pbuf; packetbuf->setMultiPath(this); }
     void setup() {}
     void loop();
     uint8_t send(MultiPathPacket *pkt, bool initHeader);
-    uint8_t send(const uint8_t *data, uint16_t size, uint8_t *target, uint8_t *path, uint8_t pathSize, bool pathRev);
+    uint8_t send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, bool pathRev, uint8_t port);
     void receiveRadioPacket(uint8_t *p, uint16_t size, uint32_t f, int16_t  r);
-    void setReceiveCallback(MultiPathReceiveHandler recvCb, void *arg);
+    bool isPortAvailable(uint16_t port) const;
+    bool bindPort(uint16_t port, MultiPathReceiveRadioPacketHandler h);
 private:
     static void radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt);
     void radioPacketSent(uint8_t status, RadioPacket *pkt);
 private:
     PacketBuf *packetbuf;
-    MultiPathReceiveHandler mRecevieCallback = nullptr;
     void *mRecevieCallbackArg = nullptr;
     uint16_t mLastSequenceNum = 0;
     RecvDups mRecvDups;
+private:
+    std::list<MultiPathBindedPort_t> mBindedPorts;
 };
 
 } // namespace espmeshmesh
