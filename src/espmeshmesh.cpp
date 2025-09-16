@@ -41,6 +41,7 @@ static const char *TAG = "espmeshmesh";
 
 #define BROADCAST_DEFAULT_PORT 0
 #define UNICAST_DEFAULT_PORT 0
+#define MULTIPATH_DEFAULT_PORT 0
 
 EspMeshMesh *EspMeshMesh::singleton = nullptr;
 
@@ -353,7 +354,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 #ifdef USE_MULTIPATH_PROTOCOL
   multipath = new MultiPath(packetbuf);
   multipath->setup();
-  multipath->setReceiveCallback(multipathRecvCb, this);
+  multipath->bindPort(MULTIPATH_DEFAULT_PORT, std::bind(&EspMeshMesh::multipathRecv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6));
 #endif
 
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
@@ -635,7 +636,7 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
       break;
     case SRC_MULTIPATH:
 #ifdef USE_MULTIPATH_PROTOCOL
-      err = multipath->send(buff, len, mRecvFromId, mRecvPath, mRecvPathSize, true);
+      err = multipath->send(buff, len, uint32FromBuffer(mRecvFromId), (uint32_t *)&mRecvPath[0], mRecvPathSize, true, MULTIPATH_DEFAULT_PORT);
 #endif
       break;
     case SRC_POLITEBRD:
@@ -842,11 +843,6 @@ void EspMeshMesh::unicastRecv(uint8_t *data, uint16_t size, uint32_t from, int16
   memcpy(mRecvFromId, (uint8_t *) &from, 4);
   mRssiHandle = rssi;
   handleFrame(data, size, SRC_UNICAST, from);
-}
-
-void EspMeshMesh::multipathRecvCb(void *arg, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi,
-                                        uint8_t *path, uint8_t pathSize) {
-  ((EspMeshMesh *) arg)->multipathRecv(data, size, from, rssi, path, pathSize);
 }
 
 void EspMeshMesh::multipathRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path,
