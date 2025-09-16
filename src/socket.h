@@ -80,6 +80,16 @@ public:
      */
     ~Socket();
     /**
+     * @brief Return the target address of the socket
+     * @return Target address of the socket
+     */
+    uint32_t getTargetAddress() const { return mTarget; }
+    /**
+     * @brief Return true if the target address is the broadcast address
+     * @return True if the target address is the broadcast address
+     */
+    bool isBradcastTarget() const { return mTarget == broadCastAddress; }
+    /**
      * @brief Return the status of the socket
      * @return Status of the socket
      */
