@@ -34,6 +34,7 @@ class PoliteBroadcastProtocol;
 #ifdef USE_CONNECTED_PROTOCOL
 class ConnectedPath;
 #endif
+class Socket;
 
 #define HANDLE_UART_OK 0
 #define HANDLE_UART_ERROR 1
@@ -144,8 +145,6 @@ public:
   void user_broadcast_recv(uint8_t *data, uint16_t size, uint8_t *from, int16_t rssi);
   void user_broadcast2_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
   void unicastRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-  static void multipathRecvCb(void *arg, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path,
-                              uint8_t pathSize);
   void multipathRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path, uint8_t pathSize);
   static void politeBroadcastReceive(void *arg, uint8_t *data, uint16_t size, uint32_t from);
   void politeBroadcastReceiveCb(uint8_t *data, uint16_t size, uint32_t from);
@@ -225,7 +224,7 @@ private:
 public:
   void setLogCb(LogCbFn cb) { setLibLogCb(cb); }
 public:
-  friend class espmeshmesh::Socket;
+  friend class Socket;
 };
 
 }  // namespace espmeshmesh

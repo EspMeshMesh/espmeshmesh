@@ -43,6 +43,7 @@ bool Broadcast2::bindPort(uint16_t port, Broadcast2ReceiveRadioPacketHandler h) 
 	LIB_LOGD(TAG, "Broadcast2::bindPort port %d", port);
 	Broadcast2BindedPort_t newhandler = {h, port};
 	mBindedPorts.push_back(newhandler);
+	return true;
 }
 
 void Broadcast2::recv(uint8_t *p, uint16_t size, uint32_t from, int16_t rssi) {

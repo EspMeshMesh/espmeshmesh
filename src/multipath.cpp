@@ -101,6 +101,25 @@ void MultiPath::receiveRadioPacket(uint8_t *buf, uint16_t size, uint32_t f, int1
 	}
 }
 
+bool MultiPath::isPortAvailable(uint16_t port) const {
+	for (MultiPathBindedPort_t bindedPort : mBindedPorts) {
+		if (bindedPort.port == port) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool MultiPath::bindPort(uint16_t port, MultiPathReceiveRadioPacketHandler h) {
+	if(!isPortAvailable(port)) {
+		LIB_LOGE(TAG, "MultiPath::bindPort port %d already binded", port);
+		return false;
+	}
+	MultiPathBindedPort_t newhandler = {h, port};
+	mBindedPorts.push_back(newhandler);
+	return true;
+}
+
 void MultiPath::radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt) {
     ((MultiPath *)arg)->radioPacketSent(status, pkt);
 }

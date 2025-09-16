@@ -161,7 +161,7 @@ private:
 private:
     EspMeshMesh *mParent{0};
 private:
-    SocketProtocol mProtocol{broadcast};
+    SocketProtocol mProtocol{broadcastProtocol};
     StatusFlags mStatus{Closed};
     uint8_t mPort{0};
     uint32_t mTarget{0};

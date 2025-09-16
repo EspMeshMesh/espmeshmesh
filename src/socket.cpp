@@ -35,8 +35,12 @@ Socket::Socket(uint8_t port, uint32_t target, uint32_t *repeaters): mPort(port),
     }
 }
 
-Socket::StatusFlags Socket::status() const {
+Socket::~Socket() {
     delete[] mRepeaters;
+}
+
+Socket::StatusFlags Socket::status() const {
+    return mStatus;
 }
 
 uint8_t Socket::listen(SocketNewConnectionHandler handler) {
