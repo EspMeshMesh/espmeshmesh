@@ -752,7 +752,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
     rep[0] = CMD_ERROR_REP;
     memcpy(rep + 1, buf, len);
     commandReply(rep, len + 1);
-    LIB_LOGD(TAG, "EspMeshMesh::handleFrame error frame %02X %02X size %d", buf[0], buf[1], len);
+    LIB_LOGE(TAG, "EspMeshMesh::handleFrame error frame %02X %02X size %d", buf[0], buf[1], len);
     delete[] rep;
   }
 
@@ -800,7 +800,7 @@ void EspMeshMesh::user_broadcast_recv(uint8_t *data, uint16_t size, uint8_t *fro
   memcpy(mRecvFromId, from, 4);
   mRssiHandle = rssi;
   uint32_t *addr = (uint32_t *) from;
-  LIB_LOGD(TAG, "MeshmeshComponent::user_broadcast_recv from %06lX size %d cmd %02X", *addr, size, data[0]);
+  //LIB_LOGD(TAG, "MeshmeshComponent::user_broadcast_recv from %06lX size %d cmd %02X", *addr, size, data[0]);
   handleFrame(data, size, SRC_BROADCAST, *(uint32_t *) from);
 }
 
