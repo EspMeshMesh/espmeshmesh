@@ -92,7 +92,7 @@ void Unicast::radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt) {
 
 void Unicast::radioPacketSent(uint8_t status, RadioPacket *pkt) {
   if (status) {
-    // Handle transmission error onyl with packets with clean data
+    // Handle transmission error only with packets with clean data
     UnicastPacket *oldpkt = (UnicastPacket *) pkt;
     UnicastHeader *header = oldpkt->unicastHeader();
     if (header != nullptr) {
@@ -104,8 +104,14 @@ void Unicast::radioPacketSent(uint8_t status, RadioPacket *pkt) {
       } else {
         LIB_LOGE(TAG, "Unicast::radioPacketSent transmission error for %06lX after %d try", pkt->target8211(),
                  header->flags & UNICAST_FLAG_RETRANSMIT_MASK);
-        // FIXME: Signal error to packet creator
+        if(mSentStatusHandler) {
+          mSentStatusHandler(false);
+        }
       }
+    }
+  } else {
+    if(mSentStatusHandler) {
+      mSentStatusHandler(true);
     }
   }
 }

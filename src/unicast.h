@@ -26,6 +26,7 @@ public:
 	uint8_t *unicastPayload() { return (uint8_t *)(clearData()+sizeof(UnicastHeaderSt)); }
 };
 
+typedef std::function<void(bool status)> UnicastSentStatusHandler;
 typedef std::function<void(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi)> UnicastReceiveRadioPacketHandler;
 
 struct UnicastBindedPort_st {
@@ -45,6 +46,7 @@ public:
     void receiveRadioPacket(uint8_t *p, uint16_t size, uint32_t f, int16_t  r);
     bool isPortAvailable(uint16_t port) const;
     bool bindPort(uint16_t port, UnicastReceiveRadioPacketHandler h);
+    void sentStatusCb(UnicastSentStatusHandler h) { mSentStatusHandler = h; }
 private:
     static void radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt);
     void radioPacketSent(uint8_t status, RadioPacket *pkt);
@@ -56,6 +58,8 @@ private:
 private: // For multipath
     uint32_t *mRepeaters{nullptr};
     uint8_t mRepeatersSize{0};
+private:
+    UnicastSentStatusHandler mSentStatusHandler = nullptr;
 };
 
 } // namespace espmeshmesh
