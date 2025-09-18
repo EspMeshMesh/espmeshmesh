@@ -34,7 +34,7 @@ class PoliteBroadcastProtocol;
 #ifdef USE_CONNECTED_PROTOCOL
 class ConnectedPath;
 #endif
-class Socket;
+class MeshSocket;
 
 #define HANDLE_UART_OK 0
 #define HANDLE_UART_ERROR 1
@@ -224,7 +224,7 @@ private:
 public:
   void setLogCb(LogCbFn cb) { setLibLogCb(cb); }
 public:
-  friend class Socket;
+  friend class MeshSocket;
 };
 
 }  // namespace espmeshmesh

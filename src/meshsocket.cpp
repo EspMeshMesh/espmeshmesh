@@ -1,4 +1,4 @@
-#include "socket.h"
+#include "meshsocket.h"
 #include "espmeshmesh.h"
 #include "log.h"
 #include "broadcast2.h"
@@ -6,6 +6,7 @@
 #include "multipath.h"
 
 #include <functional>
+#include <cstring>
 
 #define TAG "espmeshmesh.socket"
 
@@ -21,29 +22,30 @@ SocketDatagram::~SocketDatagram() {
     delete[] mData;
 }
 
-Socket::Socket(uint8_t port, uint32_t target, uint32_t *repeaters): mPort(port), mTarget(target) {
-    mRepeatersCount = 0;
-    while(repeaters[mRepeatersCount] != 0) {
-        mRepeatersCount++;
-        if(mRepeatersCount > maxRepeaters) {
-            break;
+MeshSocket::MeshSocket(uint8_t port, uint32_t target, uint32_t *repeaters): mPort(port), mTarget(target) {
+    if(repeaters) {
+        while(repeaters[mRepeatersCount] != 0) {
+            mRepeatersCount++;
+            if(mRepeatersCount > maxRepeaters) {
+                break;
+            }
         }
-    }
-    mRepeaters = new uint32_t[mRepeatersCount];
-    for(uint8_t i = 0; i < mRepeatersCount; i++) {
-        mRepeaters[i] = repeaters[i];
+        mRepeaters = new uint32_t[mRepeatersCount];
+        for(uint8_t i = 0; i < mRepeatersCount; i++) {
+            mRepeaters[i] = repeaters[i];
+        }
     }
 }
 
-Socket::~Socket() {
+MeshSocket::~MeshSocket() {
     delete[] mRepeaters;
 }
 
-Socket::StatusFlags Socket::status() const {
+MeshSocket::StatusFlags MeshSocket::status() const {
     return mStatus;
 }
 
-uint8_t Socket::listen(SocketNewConnectionHandler handler) {
+uint8_t MeshSocket::listen(SocketNewConnectionHandler handler) {
     if(mStatus != Closed) {
         return errIsNotClosed;
     }
@@ -54,7 +56,7 @@ uint8_t Socket::listen(SocketNewConnectionHandler handler) {
     return errSuccess;
 }
 
-int8_t Socket::open(SocketType type) {
+int8_t MeshSocket::open(SocketType type) {     
     if(mParent == nullptr) {
         mParent = EspMeshMesh::getInstance();
     }
@@ -71,6 +73,10 @@ int8_t Socket::open(SocketType type) {
         return errTooManyRepeaters;
     }
 
+    if(mTarget == 0 ) {
+        return errInvalidTargetAddress;
+    }
+
     if(mTarget == broadCastAddress) {
         // Broadcast address
         Broadcast2 *broadcast2 = mParent->broadcast2;
@@ -80,7 +86,7 @@ int8_t Socket::open(SocketType type) {
         if(mRepeatersCount > 0) {
             return errRepeatersNotAllowed;
         }
-        bool res = broadcast2->bindPort(mPort, std::bind(&Socket::recvFromBroadcast, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+        bool res = broadcast2->bindPort(mPort, std::bind(&MeshSocket::recvFromBroadcast, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
         if(!res) {
             return errProtCantBeBinded;
         }
@@ -93,8 +99,8 @@ int8_t Socket::open(SocketType type) {
             Unicast *unicast = mParent->unicast;
             if(unicast == nullptr) {
                 return errNoParentNetworkAvailable;
-            }
-            bool res = unicast->bindPort(mPort, std::bind(&Socket::recvFromUnicast, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+            }   
+            bool res = unicast->bindPort(mPort, std::bind(&MeshSocket::recvFromUnicast, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
             if(!res) {
                 return errProtCantBeBinded;
             }
@@ -106,7 +112,7 @@ int8_t Socket::open(SocketType type) {
             if(multipath == nullptr) {
                 return errNoParentNetworkAvailable;
             }
-            bool res = multipath->bindPort(mPort, std::bind(&Socket::recvFromMultipath, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6));
+            bool res = multipath->bindPort(mPort, std::bind(&MeshSocket::recvFromMultipath, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6));
             if(!res) {
                 return errProtCantBeBinded;
             }
@@ -115,10 +121,11 @@ int8_t Socket::open(SocketType type) {
         }
     }
 
+    LIB_LOGD(TAG, "Socket opened successfully %d", mStatus);
     return errSuccess;
 }
 
-int8_t Socket::send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler) {
+int8_t MeshSocket::send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler) {
     if(mStatus != Connected) {
         return errIsNotConnected;
     }
@@ -141,33 +148,33 @@ int8_t Socket::send(const uint8_t *data, uint16_t size, SocketSentStatusHandler 
     return 0;
 }
 
-void Socket::sentStatusCb(SocketSentStatusHandler handler) {
+void MeshSocket::sentStatusCb(SocketSentStatusHandler handler) {
     // TODO: Implement
 }
 
-int8_t Socket::recv(uint8_t *data, uint16_t size) {
-    // TODO: Implement
-    return 0;
-}
-
-int8_t Socket::recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, int16_t &rssi) {
+int8_t MeshSocket::recv(uint8_t *data, uint16_t size) {
     // TODO: Implement
     return 0;
 }
 
-int16_t Socket::recvAvail() const {
+int8_t MeshSocket::recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, int16_t &rssi) {
+    // TODO: Implement
     return 0;
 }
 
-void Socket::recvCb(SocketReceiveHandler handler) {
+int16_t MeshSocket::recvAvail() const {
+    return 0;
+}
+
+void MeshSocket::recvCb(SocketReceiveHandler handler) {
     mRecvHandler = handler;
 }
 
-void Socket::recvDatagramCb(SocketRecvDatagramHandler handler) {
+void MeshSocket::recvDatagramCb(SocketRecvDatagramHandler handler) {
     mRecvDatagramHandler = handler;
 }
 
-uint8_t Socket::close() {
+uint8_t MeshSocket::close() {
     if(mStatus == Closed) {
         return errAlreadyClosed;
     }
@@ -180,7 +187,7 @@ uint8_t Socket::close() {
     return 0;
 }
 
-void Socket::recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
+void MeshSocket::recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
     if(mRecvDatagramHandler) {
         mRecvDatagramHandler(data, size, from, rssi);
     } else if(mRecvHandler) {
@@ -188,7 +195,7 @@ void Socket::recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int1
     }
 }
 
-void Socket::recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
+void MeshSocket::recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
     if(mRecvDatagramHandler) {
         mRecvDatagramHandler(data, size, from, rssi);
     } else if(mRecvHandler) {
@@ -196,7 +203,7 @@ void Socket::recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, int16_
     }
 }
 
-void Socket::recvFromMultipath(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path, uint8_t pathSize) {
+void MeshSocket::recvFromMultipath(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path, uint8_t pathSize) {
     if(mRepeatersCount != pathSize) {
         memcpy(mRepeaters, path, pathSize * sizeof(uint32_t));
         mRepeatersCount = pathSize;

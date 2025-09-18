@@ -28,7 +28,7 @@ private:
     int16_t mRssi;
 };
 
-class Socket {
+class MeshSocket {
 private:
     enum SocketProtocol {broadcastProtocol, unicastProtocol, multipathProtocol, politeProtocol, connpathProtocol};
 public:
@@ -55,6 +55,7 @@ public:
         errTooManyRepeaters = -6,
         errIsNotClosed = -7,
         errIsNotConnected = -8,
+        errInvalidTargetAddress = -9,
     };
 
     /**
@@ -74,11 +75,11 @@ public:
      * @param type Type of socket
      * @param zero terminated array of addresses of the repeaters  to use for multihop protocols
      */
-    Socket(uint8_t port, uint32_t target, uint32_t *repeaters = nullptr);
+    MeshSocket(uint8_t port, uint32_t target, uint32_t *repeaters = nullptr);
     /**
      * @brief Destructor
      */
-    ~Socket();
+    virtual ~MeshSocket();
     /**
      * @brief Return the target address of the socket
      * @return Target address of the socket
@@ -113,26 +114,31 @@ public:
      */
     int8_t send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler=nullptr);
     /**
-     * @brief Set the sent status callback. This callback is called when the has been sent with true argument 
-     * if the data has been sent correctly, otherwise with false.
+     * @brief Set the sent status callback. This callback is called when a packet has been sent from raidio layer. The callback will be called with true argument 
+     * if the packet has been sent correctly, otherwise with false.
      * @param handler Sent status callback
      */
     void sentStatusCb(SocketSentStatusHandler handler);
     /**
-     * @brief Receive data from the socket the function is not blocking and returns the number of bytes
-     * available or -1 if ther is an error.
+     * @brief Receive data from the socket the function is not blocking and will fill the buffer with the received data up to size. 
+     * If the type of socket is not SOCK_DGRAM or SOCK_FLOOD, the function will return the data coorresponding to one or more received datagrams. 
+     * IF the size of the biffer is not enough to contain the first received datagram, the function will return an error code. 
+     * If the sieze of buffer is enough, the function will return more the one datagram concatenated. If you need to receive only one datagram, 
+     * you can use the recvDatagram function.
      * @param data Data to receive
      * @param size Size of the data
      * @return Number of bytes received or -1 if there is an error
      */
     int8_t recv(uint8_t *data, uint16_t size);
     /**
-     * @brief Receive a datagram from the socket
-     * @param data Data to receive
-     * @param size Size of the data
-     * @param from Source address of the datagram
-     * @param rssi Received signal strength indication
-     * @return 0 if socket is opened, otherwise an error code
+     * @brief Receive a datagram using the opened socket, the function is not blocking and will return the last received datagram.
+     * If the socket is not opened, the function will return an error code, if the type of socket is not SOCK_DGRAM or SOCK_FLOOD, 
+     * the function will return an error code.
+     * @param data buffer that will contain the received data
+     * @param size the maximum size of the data to receive
+     * @param from a variable that will contain the source address of the datagram
+     * @param rssi a variable that will contain the received signal strength indication
+     * @return in case of error, the function will return an error code, otherwise it will return the number of bytes received
      */
     int8_t recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, int16_t &rssi);
     /**
