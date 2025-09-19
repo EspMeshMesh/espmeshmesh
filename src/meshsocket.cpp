@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <cstring>
+#include <list>
 
 #define TAG "espmeshmesh.socket"
 
@@ -35,6 +36,7 @@ MeshSocket::MeshSocket(uint8_t port, uint32_t target, uint32_t *repeaters): mPor
             mRepeaters[i] = repeaters[i];
         }
     }
+    LIB_LOGD(TAG, "Creating socket port %d target %06lX repeaters %d", mPort, mTarget, mRepeatersCount);
 }
 
 MeshSocket::~MeshSocket() {
@@ -92,6 +94,7 @@ int8_t MeshSocket::open(SocketType type) {
         }
         mProtocol = broadcastProtocol;
         mStatus = Connected;
+        mType = type;
     } else {
         // Not a broadcast address
         if(mRepeatersCount == 0) {
@@ -106,6 +109,7 @@ int8_t MeshSocket::open(SocketType type) {
             }
             mProtocol = unicastProtocol;
             mStatus = Connected;
+            mType = type;
         } else {
             // With repeaters --> multipath
             MultiPath *multipath = mParent->multipath;
@@ -118,6 +122,7 @@ int8_t MeshSocket::open(SocketType type) {
             }
             mProtocol = multipathProtocol;
             mStatus = Connected;
+            mType = type;
         }
     }
 
@@ -125,7 +130,7 @@ int8_t MeshSocket::open(SocketType type) {
     return errSuccess;
 }
 
-int8_t MeshSocket::send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler) {
+int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler) {
     if(mStatus != Connected) {
         return errIsNotConnected;
     }
@@ -152,14 +157,54 @@ void MeshSocket::sentStatusCb(SocketSentStatusHandler handler) {
     // TODO: Implement
 }
 
-int8_t MeshSocket::recv(uint8_t *data, uint16_t size) {
-    // TODO: Implement
-    return 0;
+// TODO: Implement Stream recv and receive multiple datagrams
+int16_t MeshSocket::recv(uint8_t *data, uint16_t size) {
+    if(mStatus != Connected) {
+        return errIsNotConnected;
+    }
+
+    if(mRecvDatagrams.size() == 0) {
+        return 0;
+    }
+
+    if(mRecvDatagrams.front()->size() > size) {
+        return errBufferTooSmall;
+    }
+
+    SocketDatagram *datagram = mRecvDatagrams.front();
+    int16_t datagramSize = datagram->size();
+    memcpy(data, datagram->data(), datagram->size());
+
+    mRecvDatagrams.pop_front();
+    delete datagram;
+    return datagramSize;
 }
 
-int8_t MeshSocket::recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, int16_t &rssi) {
-    // TODO: Implement
-    return 0;
+int16_t MeshSocket::recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, int16_t &rssi) {
+    if(mStatus != Connected) {
+        return errIsNotConnected;
+    }
+
+    if( mType == SOCK_STREAM) {
+        return errIsNotDatagram;
+    }
+    
+    if(mRecvDatagrams.size() == 0) {
+        return 0;
+    }
+
+    SocketDatagram *datagram = mRecvDatagrams.front();
+    int16_t datagramSize = datagram->size();
+
+    if(datagramSize > size) {
+        return errBufferTooSmall;
+    }
+
+    memcpy(data, datagram->data(), datagramSize);
+
+    mRecvDatagrams.pop_front();
+    delete datagram;
+    return datagramSize;
 }
 
 int16_t MeshSocket::recvAvail() const {
@@ -184,6 +229,11 @@ uint8_t MeshSocket::close() {
     mRecvHandler = nullptr;
     mRecvDatagramHandler = nullptr;
     mSentStatusHandler = nullptr;
+    // Delete all the queued datagrams
+    while(mRecvDatagrams.size() > 0) {
+        delete mRecvDatagrams.front();
+        mRecvDatagrams.pop_front();
+    }
     return 0;
 }
 
@@ -192,6 +242,9 @@ void MeshSocket::recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, 
         mRecvDatagramHandler(data, size, from, rssi);
     } else if(mRecvHandler) {
         mRecvHandler(data, size);
+    } else {
+        // TODO: Limit memory of RX buffer
+        mRecvDatagrams.push_back(new SocketDatagram(data, size, from, rssi));
     }
 }
 
@@ -200,6 +253,9 @@ void MeshSocket::recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, in
         mRecvDatagramHandler(data, size, from, rssi);
     } else if(mRecvHandler) {
         mRecvHandler(data, size);
+    } else {
+        // TODO: Limit memory of RX buffer
+        mRecvDatagrams.push_back(new SocketDatagram(data, size, from, rssi));
     }
 }
 
@@ -212,6 +268,9 @@ void MeshSocket::recvFromMultipath(uint8_t *data, uint16_t size, uint32_t from, 
         mRecvDatagramHandler(data, size, from, rssi);
     } else if(mRecvHandler) {
         mRecvHandler(data, size);
+    } else {
+        // TODO: Limit memory of RX buffer
+        mRecvDatagrams.push_back(new SocketDatagram(data, size, from, rssi));
     }
 }
 
