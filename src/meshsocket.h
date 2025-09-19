@@ -56,6 +56,8 @@ public:
         errIsNotClosed = -7,
         errIsNotConnected = -8,
         errInvalidTargetAddress = -9,
+        errBufferTooSmall = -10,
+        errIsNotDatagram = -11,
     };
 
     /**
@@ -112,7 +114,7 @@ public:
      * @param optional callback to receive the sent status information.
      * @return 0 if the data is sent correctly, otherwise an error code
      */
-    int8_t send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler=nullptr);
+    int16_t send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler=nullptr);
     /**
      * @brief Set the sent status callback. This callback is called when a packet has been sent from raidio layer. The callback will be called with true argument 
      * if the packet has been sent correctly, otherwise with false.
@@ -129,7 +131,7 @@ public:
      * @param size Size of the data
      * @return Number of bytes received or -1 if there is an error
      */
-    int8_t recv(uint8_t *data, uint16_t size);
+    int16_t recv(uint8_t *data, uint16_t size);
     /**
      * @brief Receive a datagram using the opened socket, the function is not blocking and will return the last received datagram.
      * If the socket is not opened, the function will return an error code, if the type of socket is not SOCK_DGRAM or SOCK_FLOOD, 
@@ -140,7 +142,7 @@ public:
      * @param rssi a variable that will contain the received signal strength indication
      * @return in case of error, the function will return an error code, otherwise it will return the number of bytes received
      */
-    int8_t recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, int16_t &rssi);
+    int16_t recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, int16_t &rssi);
     /**
      * @brief Return the number of bytes available to receive
      * @return Number of bytes available to receive
@@ -174,6 +176,10 @@ private:
     uint32_t *mRepeaters{0};
     uint8_t mRepeatersCount{0};
     bool mIsReversePath{false};
+    // TODO: Implement SOCK_STREAM and SOCK_FLOOD
+    SocketType mType{SOCK_DGRAM};
+private:
+    std::list<SocketDatagram *> mRecvDatagrams;
 private:
     SocketReceiveHandler mRecvHandler{nullptr};
     SocketRecvDatagramHandler mRecvDatagramHandler{nullptr};

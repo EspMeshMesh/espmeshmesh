@@ -10,7 +10,8 @@ void BroadCast2Packet::allocClearData(uint16_t size) {
 	RadioPacket::allocClearData(size+sizeof(broadcast2_header_st));
 }
 
-uint8_t Broadcast2::send(const uint8_t *data, uint16_t size, bool port) {
+uint8_t Broadcast2::send(const uint8_t *data, uint16_t size, uint8_t port) {
+	LIB_LOGV(TAG, "Broadcast2::send port %d size %d", port, size);
 	BroadCast2Packet *pkt = new BroadCast2Packet(nullptr, nullptr);
 	pkt->allocClearData(size);
 	pkt->broadcastHeader()->protocol = PROTOCOL_BROADCAST_V2;
@@ -48,7 +49,7 @@ bool Broadcast2::bindPort(uint16_t port, Broadcast2ReceiveRadioPacketHandler h) 
 
 void Broadcast2::recv(uint8_t *p, uint16_t size, uint32_t from, int16_t rssi) {
 	broadcast2_header_t *header = (broadcast2_header_t *)p;
-	LIB_LOGD(TAG, "Broadcast2::recv port %d", header->port);
+	LIB_LOGV(TAG, "Broadcast2::recv port %d size %d", header->port, header->lenght);
 
 	for (Broadcast2BindedPort_t port : mBindedPorts) {
 		if (port.port == header->port) {
