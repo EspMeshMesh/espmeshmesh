@@ -80,10 +80,23 @@ bool Unicast::bindPort(uint16_t port, UnicastReceiveRadioPacketHandler h) {
     LIB_LOGE(TAG, "Unicast::bindPort port %d already binded", port);
     return false;
   }
-  LIB_LOGD(TAG, "Unicast::bindPort port %d", port);
+  LIB_LOGV(TAG, "Unicast::bindPort port %d", port);
   UnicastBindedPort_t newhandler = {h, port};
   mBindedPorts.push_back(newhandler);
   return true;
+}
+
+void Unicast::unbindPort(uint16_t port) {
+	LIB_LOGV(TAG, "Unicast::unbindPort ports size %d", mBindedPorts.size());
+	for(std::list<UnicastBindedPort_t>::iterator it = mBindedPorts.begin(); it != mBindedPorts.end(); it++) {
+		if (it->port == port) {
+			LIB_LOGD(TAG, "Unicast::unbindPort port %d found", port);
+			mBindedPorts.erase(it);
+			return;
+		}
+	}
+
+	LIB_LOGE(TAG, "Unicast::unbindPort port %d is not binded", port);
 }
 
 void Unicast::radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt) {

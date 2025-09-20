@@ -38,6 +38,7 @@ public:
 	uint8_t send(const uint8_t *data, uint16_t size, uint8_t port);
 	bool isPortAvailable(uint16_t port) const;
 	bool bindPort(uint16_t port, Broadcast2ReceiveRadioPacketHandler h);
+	void unbindPort(uint16_t port);
 	void open();
 	void recv(uint8_t *p, uint16_t size, uint32_t from, int16_t rssi);
 private:

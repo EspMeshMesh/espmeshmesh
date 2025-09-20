@@ -120,6 +120,19 @@ bool MultiPath::bindPort(uint16_t port, MultiPathReceiveRadioPacketHandler h) {
 	return true;
 }
 
+void MultiPath::unbindPort(uint16_t port) {
+	LIB_LOGV(TAG, "MultiPath::unbindPort ports size %d", mBindedPorts.size());
+	for(std::list<MultiPathBindedPort_t>::iterator it = mBindedPorts.begin(); it != mBindedPorts.end(); it++) {
+		if (it->port == port) {
+			LIB_LOGD(TAG, "MultiPath::unbindPort port %d found", port);
+			mBindedPorts.erase(it);
+			return;
+		}
+	}
+
+	LIB_LOGE(TAG, "MultiPath::unbindPort port %d is not binded", port);
+}
+
 void MultiPath::radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt) {
     ((MultiPath *)arg)->radioPacketSent(status, pkt);
 }
