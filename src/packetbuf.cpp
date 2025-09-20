@@ -234,21 +234,6 @@ PacketBuf *PacketBuf::getInstance() {
 }
 
 uint8_t PacketBuf::send(RadioPacket *pkt) {
-#ifdef USE_ESP32
-    if(!pktbufSent) {
-        pktbufSent = pkt;
-        pktbufSent->sendFreedom();
-        /* Not true anymore... code pending for deletion
-        // Bradcast packets don't call the callback
-        if(pktbufSent->isBroadcast()) {
-            freedomCallback(1);
-        }
-        */
-    } else {
-        // FIXME: Limit maximum queue size
-        mPacketQueue.push_back(pkt);
-    }
-#else
     if(!pktbufSent) {
         pktbufSent = pkt;
         pktbufSent->sendFreedom();
@@ -256,7 +241,6 @@ uint8_t PacketBuf::send(RadioPacket *pkt) {
         // FIXME: Limit maximum queue size
         mPacketQueue.push_back(pkt);
     }
-#endif
 	return PKT_SEND_OK;
 }
 
