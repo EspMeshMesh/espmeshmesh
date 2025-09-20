@@ -57,6 +57,7 @@ public:
     void receiveRadioPacket(uint8_t *p, uint16_t size, uint32_t f, int16_t  r);
     bool isPortAvailable(uint16_t port) const;
     bool bindPort(uint16_t port, MultiPathReceiveRadioPacketHandler h);
+    void unbindPort(uint16_t port);
 private:
     static void radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt);
     void radioPacketSent(uint8_t status, RadioPacket *pkt);

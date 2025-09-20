@@ -41,10 +41,22 @@ bool Broadcast2::bindPort(uint16_t port, Broadcast2ReceiveRadioPacketHandler h) 
 		LIB_LOGE(TAG, "Broadcast2::bindPort port %d already binded", port);
 		return false;
 	}
-	LIB_LOGD(TAG, "Broadcast2::bindPort port %d", port);
+	LIB_LOGV(TAG, "Broadcast2::bindPort port %d", port);
 	Broadcast2BindedPort_t newhandler = {h, port};
 	mBindedPorts.push_back(newhandler);
 	return true;
+}
+
+void Broadcast2::unbindPort(uint16_t port) {
+	LIB_LOGV(TAG, "Broadcast2::unbindPort ports size %d", mBindedPorts.size());
+	for(std::list<Broadcast2BindedPort_t>::iterator it = mBindedPorts.begin(); it != mBindedPorts.end(); it++) {
+		if (it->port == port) {
+			mBindedPorts.erase(it);
+			return;
+		}
+	}
+
+	LIB_LOGE(TAG, "Broadcast2::unbindPort port %d is not binded", port);
 }
 
 void Broadcast2::recv(uint8_t *p, uint16_t size, uint32_t from, int16_t rssi) {

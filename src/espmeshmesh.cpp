@@ -449,7 +449,7 @@ void EspMeshMesh::loop() {
 
   if (elapsedMillis(now, mElapsed1) > 60000) {
 #ifdef IDF_VER
-    LIB_LOGI(TAG, "Fre  e Heap %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
+    LIB_LOGI(TAG, "Free Heap %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
 #else
     LIB_LOGI(TAG, "Free Heap %d", ESP.getFreeHeap());
 #endif

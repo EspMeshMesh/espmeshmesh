@@ -108,6 +108,10 @@ public:
      */
     int8_t open(SocketType type = SOCK_DGRAM);
     /**
+     * @brief Close the socket and release the resources
+     */
+    uint8_t close();
+    /**
      * @brief Send data to the target
      * @param data Data to send
      * @param size Size of the data
@@ -158,10 +162,6 @@ public:
      * @param handler Receive datagram callback
     **/
     void recvDatagramCb(SocketRecvDatagramHandler handler);
-    /**
-     * @brief Close the socket and release the resources
-     */
-    uint8_t close();
 private:
     void recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
     void recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
@@ -180,6 +180,8 @@ private:
     SocketType mType{SOCK_DGRAM};
 private:
     std::list<SocketDatagram *> mRecvDatagrams;
+    uint32_t mRecvDatagramsSize{0};
+    uint32_t mRecvDatagramsMaxSize{2048};
 private:
     SocketReceiveHandler mRecvHandler{nullptr};
     SocketRecvDatagramHandler mRecvDatagramHandler{nullptr};
