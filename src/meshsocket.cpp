@@ -14,13 +14,11 @@
 namespace espmeshmesh {
 
 SocketDatagram::SocketDatagram(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi): mData(new uint8_t[size]), mSize(size), mFrom(from), mRssi(rssi) {
-    mSize = size;
-    mData = new uint8_t[mSize];
     memcpy(mData, data, size);
 }
 
 SocketDatagram::~SocketDatagram() {
-    delete[] mData;
+    delete mData;
 }
 
 MeshSocket::MeshSocket(uint8_t port, uint32_t target, uint32_t *repeaters): mPort(port), mTarget(target) {
@@ -36,12 +34,14 @@ MeshSocket::MeshSocket(uint8_t port, uint32_t target, uint32_t *repeaters): mPor
             mRepeaters[i] = repeaters[i];
         }
     }
-    LIB_LOGD(TAG, "Creating socket port %d target %06lX repeaters %d", mPort, mTarget, mRepeatersCount);
+    LIB_LOGV(TAG, "Creating socket port %d target %06lX repeaters %d", mPort, mTarget, mRepeatersCount);
 }
 
 MeshSocket::~MeshSocket() {
     close();
-    delete[] mRepeaters;
+    if(mRepeaters) {
+        delete[] mRepeaters;
+    }
 }
 
 MeshSocket::StatusFlags MeshSocket::status() const {
@@ -127,7 +127,7 @@ int8_t MeshSocket::open(SocketType type) {
         }
     }
 
-    LIB_LOGD(TAG, "Socket opened successfully %d", mStatus);
+    LIB_LOGV(TAG, "Socket opened successfully %d", mStatus);
     return errSuccess;
 }
 
@@ -154,7 +154,7 @@ uint8_t MeshSocket::close() {
                 MultiPath *multipath = mParent->multipath;
                 if(multipath) multipath->unbindPort(mPort);
             }
-             break;
+            break;
     }
     
     mStatus = Closed;
@@ -208,11 +208,11 @@ int16_t MeshSocket::recv(uint8_t *data, uint16_t size) {
         return 0;
     }
 
-    if(mRecvDatagrams.front()->size() > size) {
+    SocketDatagram *datagram = mRecvDatagrams.front();
+    if(datagram->size() > size) {
         return errBufferTooSmall;
     }
 
-    SocketDatagram *datagram = mRecvDatagrams.front();
     int16_t datagramSize = datagram->size();
     memcpy(data, datagram->data(), datagram->size());
 
@@ -243,10 +243,13 @@ int16_t MeshSocket::recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, i
     }
 
     memcpy(data, datagram->data(), datagramSize);
+    from = datagram->from();
+    rssi = datagram->rssi();
 
     mRecvDatagrams.pop_front();
     mRecvDatagramsSize -= datagramSize;
     delete datagram;
+
     return datagramSize;
 }
 
@@ -273,7 +276,8 @@ void MeshSocket::recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, 
             LIB_LOGE(TAG, "recvFromBroadcast buffer overflow %d %d", mRecvDatagramsSize, size);
             return;
         }
-        mRecvDatagrams.push_back(new SocketDatagram(data, size, from, rssi));
+        SocketDatagram *datagram = new SocketDatagram(data, size, from, rssi);
+        mRecvDatagrams.push_back(datagram);
         mRecvDatagramsSize += size;
     }
 }
