@@ -26,6 +26,8 @@ struct MultiPathHeaderSt {
 } __attribute__ ((packed));
 typedef struct MultiPathHeaderSt MultiPathHeader;
 
+typedef std::function<void(bool status)> MultiPathSentStatusHandler;
+
 class MultiPathPacket: public RadioPacket {
 public:
 	explicit MultiPathPacket(pktbufSentCbFn cb, void *arg): RadioPacket(cb, arg) {}
@@ -38,6 +40,12 @@ public:
     void setPathItem(uint32_t address, uint8_t index) { uint32toBuffer(clearData()+sizeof(MultiPathHeaderSt)+(sizeof(uint32_t)*index), address); }
     void setPayload(const uint8_t *payoad);
 	uint8_t *unicastPayload() { return (uint8_t *)(clearData()+sizeof(MultiPathHeaderSt)); }
+public:
+    void setSentStatusHandler(MultiPathSentStatusHandler handler) { mSentStatusHandler = handler; }
+    MultiPathSentStatusHandler sentStatusHandler() const { return mSentStatusHandler; }
+    void notifySentStatusHandler(bool status) const { if(mSentStatusHandler) mSentStatusHandler(status); }
+private:
+    MultiPathSentStatusHandler mSentStatusHandler = nullptr;
 };
 
 struct MultiPathBindedPort_st {
@@ -52,8 +60,8 @@ public:
 	MultiPath(PacketBuf *pbuf): mRecvDups() { packetbuf = pbuf; packetbuf->setMultiPath(this); }
     void setup() {}
     void loop();
-    uint8_t send(MultiPathPacket *pkt, bool initHeader);
-    uint8_t send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, bool pathRev, uint8_t port);
+    uint8_t send(MultiPathPacket *pkt, bool initHeader, MultiPathSentStatusHandler handler);
+    uint8_t send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, bool pathRev, uint8_t port, MultiPathSentStatusHandler handler);
     void receiveRadioPacket(uint8_t *p, uint16_t size, uint32_t f, int16_t  r);
     bool isPortAvailable(uint16_t port) const;
     bool bindPort(uint16_t port, MultiPathReceiveRadioPacketHandler h);

@@ -495,12 +495,12 @@ void EspMeshMesh::registerBroadcast2Port(uint16_t port, Broadcast2ReceiveRadioPa
 
 void EspMeshMesh::uniCastSendData(const uint8_t *buff, uint16_t len, uint32_t addr) {
   if (unicast)
-    unicast->send(buff, len, addr, UNICAST_DEFAULT_PORT);
+    unicast->send(buff, len, addr, UNICAST_DEFAULT_PORT, nullptr);
 }
 
 void EspMeshMesh::unicastSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint16_t port) {
   if (unicast)
-    unicast->send(buff, len, addr, port);
+    unicast->send(buff, len, addr, port, nullptr);
 }
 
 #ifdef USE_MULTIPATH_PROTOCOL
@@ -514,7 +514,7 @@ void EspMeshMesh::multipathSendData(const uint8_t *buff, uint16_t len, uint32_t 
   for (int i = 0; i < pathlen; i++)
     pkt->setPathItem(uint32FromBuffer(path) + i * sizeof(uint32_t), i);
   pkt->setPayload(buff);
-  multipath->send(pkt, true);
+  multipath->send(pkt, true, nullptr);
 }
 #endif
 
@@ -626,17 +626,17 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
       uartSendData(buff, len);
       break;
     case SRC_BROADCAST:
-      err = unicast->send(buff, len, uint32FromBuffer(mRecvFromId), UNICAST_DEFAULT_PORT);
+      err = unicast->send(buff, len, uint32FromBuffer(mRecvFromId), UNICAST_DEFAULT_PORT, nullptr);
       break;
     case SRC_BROADCAST2:
       err = broadcast2->send(buff, len, BROADCAST_DEFAULT_PORT);
       break;
     case SRC_UNICAST:
-      err = unicast->send(buff, len, uint32FromBuffer(mRecvFromId), UNICAST_DEFAULT_PORT);
+      err = unicast->send(buff, len, uint32FromBuffer(mRecvFromId), UNICAST_DEFAULT_PORT, nullptr);
       break;
     case SRC_MULTIPATH:
 #ifdef USE_MULTIPATH_PROTOCOL
-      err = multipath->send(buff, len, uint32FromBuffer(mRecvFromId), (uint32_t *)&mRecvPath[0], mRecvPathSize, true, MULTIPATH_DEFAULT_PORT);
+      err = multipath->send(buff, len, uint32FromBuffer(mRecvFromId), (uint32_t *)&mRecvPath[0], mRecvPathSize, true, MULTIPATH_DEFAULT_PORT, nullptr);
 #endif
       break;
     case SRC_POLITEBRD:
@@ -706,7 +706,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
     case CMD_UNICAST_SEND:  // 72 0000XXYY AABBCCDDEE...ZZ
       if (len > 5) {
         LIB_LOGD(TAG, "CMD_UNICAST_SEND len %d", len);
-        unicast->send(buf + 5, len - 5, uint32FromBuffer(buf + 1), UNICAST_DEFAULT_PORT);
+        unicast->send(buf + 5, len - 5, uint32FromBuffer(buf + 1), UNICAST_DEFAULT_PORT, nullptr);
         err = 0;
       }
       break;
@@ -723,7 +723,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
           for (int i = 0; i < pathlen; i++)
             pkt->setPathItem(uint32FromBuffer(buf + 6) + i * sizeof(uint32_t), i);
           pkt->setPayload(buf + 6 + sizeof(uint32_t) * pathlen);
-          multipath->send(pkt, true);
+          multipath->send(pkt, true, nullptr);
           err = 0;
         }
       }
@@ -916,7 +916,7 @@ void EspMeshMesh::sendLog(int level, const char *tag, const char *payload, size_
       broadcast->send(buffer, buffersize);
   } else if (mLogDestination > 1) {
     if (unicast)
-      unicast->send(buffer, buffersize, mLogDestination, UNICAST_DEFAULT_PORT);
+      unicast->send(buffer, buffersize, mLogDestination, UNICAST_DEFAULT_PORT, nullptr);
   }
 
   delete[] buffer;
