@@ -26,6 +26,10 @@ struct MultiPathHeaderSt {
 } __attribute__ ((packed));
 typedef struct MultiPathHeaderSt MultiPathHeader;
 
+/**
+ * @brief MultiPath sent status handler
+ * @param status true if the packet has been sent correctly, false otherwise
+ */
 typedef std::function<void(bool status)> MultiPathSentStatusHandler;
 
 class MultiPathPacket: public RadioPacket {

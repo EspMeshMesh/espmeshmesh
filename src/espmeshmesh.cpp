@@ -371,9 +371,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 #endif
 
   mDiscovery.init();
-  broadcast->open();
   broadcast->setRecv_cb(user_broadcast_recv_cb);
-  broadcast2->open();
   broadcast2->bindPort(BROADCAST_DEFAULT_PORT, std::bind(&EspMeshMesh::user_broadcast2_recv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
   unicast->setup();
   unicast->bindPort(UNICAST_DEFAULT_PORT, std::bind(&EspMeshMesh::unicastRecv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
@@ -485,7 +483,7 @@ void EspMeshMesh::broadCastSendData(const uint8_t *buff, uint16_t len) {
 
 void EspMeshMesh::broadcast2SendData(const uint8_t *buff, uint16_t len, bool port) {
   if (broadcast2)
-    broadcast2->send(buff, len, port);
+    broadcast2->send(buff, len, port, nullptr);
 }
 
 void EspMeshMesh::registerBroadcast2Port(uint16_t port, Broadcast2ReceiveRadioPacketHandler handler) {
@@ -626,11 +624,7 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
       uartSendData(buff, len);
       break;
     case SRC_BROADCAST:
-      err = unicast->send(buff, len, uint32FromBuffer(mRecvFromId), UNICAST_DEFAULT_PORT, nullptr);
-      break;
     case SRC_BROADCAST2:
-      err = broadcast2->send(buff, len, BROADCAST_DEFAULT_PORT);
-      break;
     case SRC_UNICAST:
       err = unicast->send(buff, len, uint32FromBuffer(mRecvFromId), UNICAST_DEFAULT_PORT, nullptr);
       break;

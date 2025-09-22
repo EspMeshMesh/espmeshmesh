@@ -151,7 +151,6 @@ void MultiPath::radioPacketSent(uint8_t status, RadioPacket *pkt) {
 				send(newpkt, false, oldpkt->sentStatusHandler());
 			} else {
 				LIB_LOGE(TAG, "MultiPath::radioPacketSent transmission error for %06lX via %06lX path %d/%d after %d try", header->trargetAddress, pkt->target8211(), header->pathIndex, header->pathLength, header->flags & 0xF);
-				// FIXME: Signal error to packet creator
 				oldpkt->notifySentStatusHandler(false);
 			}
 

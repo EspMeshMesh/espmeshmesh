@@ -11,6 +11,10 @@ struct broadcast2_header_st {
 	uint16_t lenght;
 } __attribute__ ((packed));
 
+/**
+ * @brief Broadcast2 sent status handler
+ * @param status true if the packet has been sent correctly, false otherwise
+ */
 typedef std::function<void(bool status)> Broadcast2SentStatusHandler;
 
 typedef struct broadcast2_header_st broadcast2_header_t;
@@ -43,12 +47,14 @@ typedef Broadcast2BindedPort_st Broadcast2BindedPort_t;
 class Broadcast2 {
 public:
 	Broadcast2(PacketBuf *pbuf) { packetbuf = pbuf; packetbuf->setBroadcast2(this); }
-	uint8_t send(const uint8_t *data, uint16_t size, uint8_t port);
+	uint8_t send(const uint8_t *data, uint16_t size, uint8_t port, Broadcast2SentStatusHandler handler);
 	bool isPortAvailable(uint16_t port) const;
 	bool bindPort(uint16_t port, Broadcast2ReceiveRadioPacketHandler h);
 	void unbindPort(uint16_t port);
-	void open();
 	void recv(uint8_t *p, uint16_t size, uint32_t from, int16_t rssi);
+private:
+	static void radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt);
+	void radioPacketSent(uint8_t status, RadioPacket *pkt);
 private:
 	PacketBuf *packetbuf;
     std::list<Broadcast2BindedPort_t> mBindedPorts;

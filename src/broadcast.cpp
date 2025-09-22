@@ -30,8 +30,4 @@ void Broadcast::setRecv_cb(breadcast_recv_cb_fn rx_fn) {
 	rx_func = rx_fn;
 }
 
-void Broadcast::open() {
-	seqno = 0;
-}
-
 }  // namespace espmeshmesh
