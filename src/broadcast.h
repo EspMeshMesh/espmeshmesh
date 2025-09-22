@@ -32,7 +32,6 @@ public:
 private:
 	PacketBuf *packetbuf;
 	breadcast_recv_cb_fn rx_func = nullptr;
-	uint8_t seqno;
 };
 
 } // namespace espmeshmesh

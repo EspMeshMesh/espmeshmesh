@@ -10,7 +10,7 @@ void BroadCast2Packet::allocClearData(uint16_t size) {
 	RadioPacket::allocClearData(size+sizeof(broadcast2_header_st));
 }
 
-uint8_t Broadcast2::send(const uint8_t *data, uint16_t size, uint8_t port) {
+uint8_t Broadcast2::send(const uint8_t *data, uint16_t size, uint8_t port, Broadcast2SentStatusHandler handler) {
 	LIB_LOGV(TAG, "Broadcast2::send port %d size %d", port, size);
 	BroadCast2Packet *pkt = new BroadCast2Packet(nullptr, nullptr);
 	pkt->allocClearData(size);
@@ -22,6 +22,8 @@ uint8_t Broadcast2::send(const uint8_t *data, uint16_t size, uint8_t port) {
 
     pkt->encryptClearData();
     pkt->fill80211(nullptr, packetbuf->nodeIdPtr());
+	pkt->setSentStatusHandler(handler);
+	pkt->setCallback(radioPacketSentCb, this);
 	uint8_t res = packetbuf->send(pkt);
 	if(res == PKT_SEND_ERR) delete pkt;
     return res;
@@ -70,7 +72,13 @@ void Broadcast2::recv(uint8_t *p, uint16_t size, uint32_t from, int16_t rssi) {
 	}
 }
 
-void Broadcast2::open() {
+void Broadcast2::radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt) {
+    ((Broadcast2 *)arg)->radioPacketSent(status, pkt);
+}
+
+void Broadcast2::radioPacketSent(uint8_t status, RadioPacket *pkt) {
+	BroadCast2Packet *oldpkt = (BroadCast2Packet *)pkt;
+	oldpkt->notifySentStatusHandler(!status);
 }
 
 }  // namespace espmeshmesh

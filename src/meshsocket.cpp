@@ -182,7 +182,7 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SocketSentStatusHan
 
     int8_t err = 0;
     if(mProtocol == broadcastProtocol) {
-        err = mParent->broadcast2->send(data, size, mPort);
+        err = mParent->broadcast2->send(data, size, mPort, handler ? handler : mSentStatusHandler);
     } else if(mProtocol == unicastProtocol) {
         err = mParent->unicast->send(data, size, mTarget, mPort, handler ? handler : mSentStatusHandler);
     } else if(mProtocol == multipathProtocol) {
@@ -205,7 +205,7 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, uint32_t ta
 
     SocketProtocol protocol = calcProtocolFromTarget(target, repeaters);
     if(protocol == broadcastProtocol) {
-        uint8_t err = mParent->broadcast2->send(data, size, port);
+        uint8_t err = mParent->broadcast2->send(data, size, port, handler ? handler : mSentStatusHandler);
         if(err) {
             return errCantSendData;
         }

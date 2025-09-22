@@ -16,8 +16,18 @@ struct UnicastHeaderSt {
 } __attribute__ ((packed));
 typedef struct UnicastHeaderSt UnicastHeader;
 
+/**
+ * @brief Unicast sent status handler
+ * @param status true if the packet has been sent correctly, false otherwise
+ */
 typedef std::function<void(bool status)> UnicastSentStatusHandler;
 
+
+/**
+ * @brief Unicast packet
+ * This class mantains the sent status of the current sent unicast packet
+ * The packet will be deleted automatically when the packet is sent
+ */
 class UnicastPacket: public RadioPacket {
 public:
 	explicit UnicastPacket(): RadioPacket(nullptr, nullptr) {}
