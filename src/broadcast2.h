@@ -11,6 +11,8 @@ struct broadcast2_header_st {
 	uint16_t lenght;
 } __attribute__ ((packed));
 
+typedef std::function<void(bool status)> Broadcast2SentStatusHandler;
+
 typedef struct broadcast2_header_st broadcast2_header_t;
 
 typedef void (*breadcast_recv_cb_fn)(uint8_t *data, uint16_t size, uint8_t *from, int16_t r);
@@ -22,6 +24,12 @@ public:
 public:
 	broadcast2_header_t *broadcastHeader() { return (broadcast2_header_t *)clearData(); }
 	uint8_t *broadcastPayload() { return (uint8_t *)clearData()+sizeof(broadcast2_header_st); }
+public:
+	void setSentStatusHandler(Broadcast2SentStatusHandler handler) { mSentStatusHandler = handler; }
+	Broadcast2SentStatusHandler sentStatusHandler() const { return mSentStatusHandler; }
+	void notifySentStatusHandler(bool status) const { if(mSentStatusHandler) mSentStatusHandler(status); }
+private:
+	Broadcast2SentStatusHandler mSentStatusHandler = nullptr;
 };
 
 typedef std::function<void(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi)> Broadcast2ReceiveRadioPacketHandler;

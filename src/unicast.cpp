@@ -17,7 +17,7 @@ void UnicastPacket::allocClearData(uint16_t size) {
 
 void Unicast::loop() { mRecvDups.loop(); }
 
-uint8_t Unicast::send(UnicastPacket *pkt, uint32_t target, bool initHeader) {
+uint8_t Unicast::send(UnicastPacket *pkt, uint32_t target, bool initHeader, UnicastSentStatusHandler handler) {
   UnicastHeader *header = pkt->unicastHeader();
   // Fill protocol header...
   header->protocol = PROTOCOL_UNICAST;
@@ -29,6 +29,7 @@ uint8_t Unicast::send(UnicastPacket *pkt, uint32_t target, bool initHeader) {
     header->seqno = ++mLastSequenceNum;
   }
   // Set this class as destination sent callback for retransmisisons
+  pkt->setSentStatusHandler(handler);
   pkt->setCallback(radioPacketSentCb, this);
   pkt->encryptClearData();
   pkt->fill80211((uint8_t *) &target, packetbuf->nodeIdPtr());
@@ -38,12 +39,12 @@ uint8_t Unicast::send(UnicastPacket *pkt, uint32_t target, bool initHeader) {
   return res;
 }
 
-uint8_t Unicast::send(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port) {
-  UnicastPacket *pkt = new UnicastPacket(nullptr, nullptr);
+uint8_t Unicast::send(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, UnicastSentStatusHandler handler) {
+  UnicastPacket *pkt = new UnicastPacket();
   pkt->allocClearData(size);
   pkt->unicastHeader()->port = port;
   memcpy(pkt->unicastPayload(), data, size);
-  return send(pkt, target, true);
+  return send(pkt, target, true, handler);
 }
 
 void Unicast::receiveRadioPacket(uint8_t *p, uint16_t size, uint32_t f, int16_t r) {
@@ -104,28 +105,29 @@ void Unicast::radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt) {
 }
 
 void Unicast::radioPacketSent(uint8_t status, RadioPacket *pkt) {
+  UnicastPacket *oldpkt = (UnicastPacket *) pkt;
+
   if (status) {
     // Handle transmission error only with packets with clean data
     UnicastPacket *oldpkt = (UnicastPacket *) pkt;
     UnicastHeader *header = oldpkt->unicastHeader();
     if (header != nullptr) {
       if ((header->flags & UNICAST_FLAG_RETRANSMIT_MASK) < UNICAST_MAX_RETRANSMISSIONS) {
-        UnicastPacket *newpkt = new UnicastPacket(radioPacketSentCb, this);
+        UnicastPacket *newpkt = new UnicastPacket();
+        newpkt->setCallback(radioPacketSentCb, this);
         newpkt->fromRawData(pkt->clearData(), pkt->clearDataSize());
         newpkt->unicastHeader()->flags++;
-        send(newpkt, pkt->target8211(), false);
+        send(newpkt, pkt->target8211(), false, oldpkt->sentStatusHandler());
       } else {
         LIB_LOGE(TAG, "Unicast::radioPacketSent transmission error for %06lX after %d try", pkt->target8211(),
                  header->flags & UNICAST_FLAG_RETRANSMIT_MASK);
-        if(mSentStatusHandler) {
-          mSentStatusHandler(false);
-        }
+        // Notify error to packet creator
+        oldpkt->notifySentStatusHandler(false);
       }
     }
   } else {
-    if(mSentStatusHandler) {
-      mSentStatusHandler(true);
-    }
+    // Notify success to packet creator
+    oldpkt->notifySentStatusHandler(true);
   }
 }
 

@@ -113,16 +113,33 @@ public:
     uint8_t close();
     /**
      * @brief Send data to the target
-     * @param data Data to send
-     * @param size Size of the data
-     * @param optional callback to receive the sent status information.
+     * @param data A buffer containing the data to send
+     * @param size The size of the buffer
+     * @param Optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise). 
+     * this callback is prioritary over the callback set the sentStatusCb function. If this parameter is prvided the sentStatusCb 
+     * function will not be called for this packet.
      * @return 0 if the data is sent correctly, otherwise an error code
      */
     int16_t send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler=nullptr);
     /**
-     * @brief Set the sent status callback. This callback is called when a packet has been sent from raidio layer. The callback will be called with true argument 
-     * if the packet has been sent correctly, otherwise with false.
-     * @param handler Sent status callback
+     * @brief Send data to the target
+     * @param data A buffer containing the data to send
+     * @param size The size of the buffer
+     * @param target The address of the target node
+     * @param port The destination port of this message
+     * @param repeaters A list with the addresses of the repeaters to use in multipath protocol. This list must be zero terminated.
+     * @param optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise). 
+     * this callback is prioritary over the callback set the sentStatusCb function. If this parameter is prvided the sentStatusCb 
+     * function will not be called for this packet.
+     * @return 0 if the data is sent correctly, otherwise an error code
+     */
+    int16_t sendDatagram(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, uint32_t *repeaters = nullptr, SocketSentStatusHandler handler=nullptr);
+    /**
+     * @brief Set the sent status callback for all the packets sent from this socket. 
+     * This callback is called when a packet has been sent from radio layer. 
+     * The callback will be called with true argument if the packet has been sent correctly, otherwise with false. This callback function 
+     * is not called if a prioritary handler is provided with the send or sendDatagram functions.
+     * @param handler Sent status callback.
      */
     void sentStatusCb(SocketSentStatusHandler handler);
     /**
@@ -162,6 +179,9 @@ public:
      * @param handler Receive datagram callback
     **/
     void recvDatagramCb(SocketRecvDatagramHandler handler);
+private:
+    static SocketProtocol calcProtocolFromTarget(uint32_t target, uint32_t *repeaters);
+    static uint8_t calcRepeatersCount(uint32_t *repeaters);
 private:
     void recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
     void recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);

@@ -184,13 +184,44 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SocketSentStatusHan
     if(mProtocol == broadcastProtocol) {
         err = mParent->broadcast2->send(data, size, mPort);
     } else if(mProtocol == unicastProtocol) {
-        err = mParent->unicast->send(data, size, mTarget, mPort);
+        err = mParent->unicast->send(data, size, mTarget, mPort, handler ? handler : mSentStatusHandler);
     } else if(mProtocol == multipathProtocol) {
-        err = mParent->multipath->send(data, size, mTarget, mRepeaters, mIsReversePath, mRepeatersCount, mPort);
+        err = mParent->multipath->send(data, size, mTarget, mRepeaters, mIsReversePath, mRepeatersCount, mPort, handler ? handler : mSentStatusHandler);
     }
     if(err) {
         return errCantSendData;
     }
+    return 0;
+}
+
+int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, uint32_t *repeaters, SocketSentStatusHandler handler) {
+    if(mStatus != Connected) {
+        return errIsNotConnected;
+    }
+
+    if(target == 0) {
+        return errInvalidTargetAddress;
+    }
+
+    SocketProtocol protocol = calcProtocolFromTarget(target, repeaters);
+    if(protocol == broadcastProtocol) {
+        uint8_t err = mParent->broadcast2->send(data, size, port);
+        if(err) {
+            return errCantSendData;
+        }
+    } else if(protocol == unicastProtocol) {
+        uint8_t err = mParent->unicast->send(data, size, target, port, handler ? handler : mSentStatusHandler);
+        if(err) {
+            return errCantSendData;
+        }
+    } else if(protocol == multipathProtocol) {
+        uint8_t repeatersCount = calcRepeatersCount(repeaters);
+        uint8_t err = mParent->multipath->send(data, size, target, repeaters, false, repeatersCount, port, handler ? handler : mSentStatusHandler);
+        if(err) {
+            return errCantSendData;
+        }
+    }
+
     return 0;
 }
 
@@ -265,6 +296,25 @@ void MeshSocket::recvDatagramCb(SocketRecvDatagramHandler handler) {
     mRecvDatagramHandler = handler;
 }
 
+MeshSocket::SocketProtocol MeshSocket::calcProtocolFromTarget(uint32_t target, uint32_t *repeaters) {
+    if(target == broadCastAddress) {
+        return broadcastProtocol;
+    }
+    if(repeaters == nullptr) {
+        return unicastProtocol;
+    }
+    return multipathProtocol;
+}
+
+uint8_t MeshSocket::calcRepeatersCount(uint32_t *repeaters) {
+    uint8_t count = 0;
+    if(repeaters != nullptr) {
+        while(repeaters[count] != 0) {
+            count++;
+        }
+    }
+    return count;
+}
 
 void MeshSocket::recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
     if(mRecvDatagramHandler) {
