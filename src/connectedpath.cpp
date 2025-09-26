@@ -320,15 +320,18 @@ void ConnectedPath::radioPacketError(uint32_t address, uint16_t handle, uint8_t 
   bool forward;
   uint8_t connid = findConnectionIndex(address, handle, &forward);
   if (CONN_EXISTS(connid)) {
-    uint8_t _subprot = handle == CONNPATH_OPEN_CONNECTION_REQ
+    uint8_t _subprot = subprot == CONNPATH_OPEN_CONNECTION_REQ
                            ? CONNPATH_OPEN_CONNECTION_NACK
                            : (subprot == CONNPATH_SEND_DATA ? CONNPATH_SEND_DATA_NACK : CONNPATH_INVALID_REQ);
 
     if (_subprot != CONNPATH_INVALID_REQ)
       sendPacket(_subprot, connid, forward, 0, nullptr);
     connectionSetInoperative(connid);
+    LIB_LOGD(TAG, "ConnectedPath::radioPacketError prot %d connid %d from %06X:%04X %s to %06X:%04X", subprot,
+      connid, mConnectsions[connid].sourceAddr, mConnectsions[connid].sourceHandle, FORWARD2TXT(forward),
+      mConnectsions[connid].destAddr, mConnectsions[connid].destHandle);
   } else {
-    LIB_LOGD(TAG, "ConnectedPath::radioPacketError %06lX:%04X handle not found", address, handle);
+    LIB_LOGE(TAG, "ConnectedPath::radioPacketError %06lX:%04X handle for this packet is not found", address, handle);
   }
 }
 
