@@ -25,6 +25,11 @@ void MultiPathPacket::setPayload(const uint8_t *payoad) {
 	memcpy(clearData()+sizeof(MultiPathHeaderSt)+sizeof(uint32_t)*multipathHeader()->pathLength, payoad, multipathHeader()->dataLength);
 }
 
+MultiPath::MultiPath(PacketBuf *pbuf): mRecvDups() {
+	packetbuf = pbuf;
+	packetbuf->setRecvHandler(PROTOCOL_MULTIPATH, std::bind(&MultiPath::receiveRadioPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+}
+
 void MultiPath::loop() {
 	mRecvDups.loop();
 }

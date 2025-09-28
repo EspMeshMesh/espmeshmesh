@@ -10,6 +10,11 @@ void BroadCast2Packet::allocClearData(uint16_t size) {
 	RadioPacket::allocClearData(size+sizeof(broadcast2_header_st));
 }
 
+Broadcast2::Broadcast2(PacketBuf *pbuf) {
+	mPacketbuf = pbuf;
+	mPacketbuf->setRecvHandler(PROTOCOL_BROADCAST_V2, std::bind(&Broadcast2::recv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+}
+
 uint8_t Broadcast2::send(const uint8_t *data, uint16_t size, uint8_t port, Broadcast2SentStatusHandler handler) {
 	LIB_LOGV(TAG, "Broadcast2::send port %d size %d", port, size);
 	BroadCast2Packet *pkt = new BroadCast2Packet(nullptr, nullptr);
@@ -21,15 +26,15 @@ uint8_t Broadcast2::send(const uint8_t *data, uint16_t size, uint8_t port, Broad
 	memcpy(pkt->broadcastPayload(), data, size);
 
     pkt->encryptClearData();
-    pkt->fill80211(nullptr, packetbuf->nodeIdPtr());
+    pkt->fill80211(nullptr, mPacketbuf->nodeIdPtr());
 	pkt->setSentStatusHandler(handler);
 	pkt->setCallback(radioPacketSentCb, this);
-	uint8_t res = packetbuf->send(pkt);
+	uint8_t res = mPacketbuf->send(pkt);
 	if(res == PKT_SEND_ERR) delete pkt;
     return res;
 }
 
-bool Broadcast2::isPortAvailable(uint16_t port) const {
+bool Broadcast2::isPortAvailable(uint8_t port) const {
 	for (Broadcast2BindedPort_t bindedPort : mBindedPorts) {
 		if (bindedPort.port == port) {
 			return false;
@@ -38,7 +43,7 @@ bool Broadcast2::isPortAvailable(uint16_t port) const {
 	return true;
 }
 
-bool Broadcast2::bindPort(uint16_t port, Broadcast2ReceiveRadioPacketHandler h) {
+bool Broadcast2::bindPort(uint8_t port, Broadcast2ReceiveRadioPacketHandler h) {
 	if(!isPortAvailable(port)) {
 		LIB_LOGE(TAG, "Broadcast2::bindPort port %d already binded", port);
 		return false;
@@ -49,7 +54,7 @@ bool Broadcast2::bindPort(uint16_t port, Broadcast2ReceiveRadioPacketHandler h) 
 	return true;
 }
 
-void Broadcast2::unbindPort(uint16_t port) {
+void Broadcast2::unbindPort(uint8_t port) {
 	LIB_LOGV(TAG, "Broadcast2::unbindPort ports size %d", mBindedPorts.size());
 	for(std::list<Broadcast2BindedPort_t>::iterator it = mBindedPorts.begin(); it != mBindedPorts.end(); it++) {
 		if (it->port == port) {
