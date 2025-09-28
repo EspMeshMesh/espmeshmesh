@@ -19,8 +19,6 @@ typedef std::function<void(bool status)> Broadcast2SentStatusHandler;
 
 typedef struct broadcast2_header_st broadcast2_header_t;
 
-typedef void (*breadcast_recv_cb_fn)(uint8_t *data, uint16_t size, uint8_t *from, int16_t r);
-
 class BroadCast2Packet: public RadioPacket {
 public:
 	explicit BroadCast2Packet(pktbufSentCbFn cb, void *arg): RadioPacket(cb, arg) { setIsBroadcast(); }
@@ -40,23 +38,23 @@ typedef std::function<void(uint8_t *data, uint16_t size, uint32_t from, int16_t 
 
 struct Broadcast2BindedPort_st {
     Broadcast2ReceiveRadioPacketHandler handler;
-    uint16_t port;
+    uint8_t port;
 };
 typedef Broadcast2BindedPort_st Broadcast2BindedPort_t;
 
-class Broadcast2 {
+class Broadcast2: public PacketBufProtocol {
 public:
-	Broadcast2(PacketBuf *pbuf) { packetbuf = pbuf; packetbuf->setBroadcast2(this); }
+	Broadcast2(PacketBuf *pbuf);
 	uint8_t send(const uint8_t *data, uint16_t size, uint8_t port, Broadcast2SentStatusHandler handler);
-	bool isPortAvailable(uint16_t port) const;
-	bool bindPort(uint16_t port, Broadcast2ReceiveRadioPacketHandler h);
-	void unbindPort(uint16_t port);
+	bool isPortAvailable(uint8_t port) const;
+	bool bindPort(uint8_t port, Broadcast2ReceiveRadioPacketHandler h);
+	void unbindPort(uint8_t port);
 	void recv(uint8_t *p, uint16_t size, uint32_t from, int16_t rssi);
 private:
 	static void radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt);
 	void radioPacketSent(uint8_t status, RadioPacket *pkt);
 private:
-	PacketBuf *packetbuf;
+	PacketBuf *mPacketbuf;
     std::list<Broadcast2BindedPort_t> mBindedPorts;
 };
 

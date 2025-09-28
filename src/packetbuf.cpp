@@ -3,18 +3,6 @@
 #include "log.h"
 #include "defines.h"
 #include "discovery.h"
-#include "broadcast.h"
-#include "broadcast2.h"
-#include "unicast.h"
-#ifdef USE_MULTIPATH_PROTOCOL
-#include "multipath.h"
-#endif
-#ifdef USE_POLITE_BROADCAST_PROTOCOL
-#include "polite.h"
-#endif
-#ifdef USE_CONNECTED_PROTOCOL
-#include "connectedpath.h"
-#endif
 
 #ifdef ESP8266
 #include <Esp.h>
@@ -33,6 +21,8 @@
 extern "C" {
     #include "encryption.h"
 }
+
+#include <cstring>
 
 #define FRAME_TYPE_MANAGEMENT 0
 #define FRAME_TYPE_CONTROL 1
@@ -305,32 +295,9 @@ void PacketBuf::recvTask(os_event_t *events) {
         uint8_t prot = clear[0];
         //LIB_LOGD(TAG, "recvTask sk %d len %d prot %d", index, pktbufRecvTaskPacket[index].length, prot);
 
-        switch(prot) {
-        case PROTOCOL_BROADCAST:
-            if(broadcast) broadcast->recv(clear, lastpktLen, fromptr, lastpktRssi);
-            break;
-        case PROTOCOL_BROADCAST_V2:
-            if(broadcast2) broadcast2->recv(clear, lastpktLen, from, lastpktRssi);
-            break;
-        case PROTOCOL_UNICAST:
-            if(unicast) unicast->receiveRadioPacket(clear, lastpktLen, from, lastpktRssi);
-            break;
-        case PROTOCOL_MULTIPATH:
-#ifdef USE_MULTIPATH_PROTOCOL
-            if(multipath) multipath->receiveRadioPacket(clear, lastpktLen, from, lastpktRssi);
-#endif
-            break;
-        case PROTOCOL_POLITEBRD:
-#ifdef USE_POLITE_BROADCAST_PROTOCOL
-            if(mPoliteBroadcast) mPoliteBroadcast->receiveRadioPacket(clear, lastpktLen, fromptr, lastpktRssi);
-#endif
-            break;
-        case PROTOCOL_CONNPATH:
-#ifdef USE_CONNECTED_PROTOCOL
-            if(mConnectedPath) mConnectedPath->receiveRadioPacket(clear, lastpktLen, from, lastpktRssi);
-#endif
-            break;
-        default:
+        if(prot < mRecvHandlerCount && mRecvHandler[prot] != nullptr) {
+            mRecvHandler[prot](clear, lastpktLen, from, lastpktRssi);
+        } else {
             LIB_LOGVV(TAG, "Unknow protocol %d from %06X size %d %d %d", prot, from, lastpktLen, ieee80211_hdr->frame_control.Type, ieee80211_hdr->frame_control.Subtype);
             //DEBUG_ARRAY("Pay: ", pktbufRecvTaskPacket[events->par].data, pktbufRecvTaskPacket[events->par].length);
             LIB_LOGVV(TAG, "Bytes %02X %02X %02X %02X %02X %02X", clear[0], clear[1], clear[2], clear[3], clear[4], clear[5]);

@@ -15,6 +15,10 @@ void UnicastPacket::allocClearData(uint16_t size) {
   unicastHeader()->lenght = size;
 }
 
+Unicast::Unicast(PacketBuf *pbuf): packetbuf(pbuf), mRecvDups() {
+  packetbuf->setRecvHandler(PROTOCOL_UNICAST, std::bind(&Unicast::receiveRadioPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+}
+
 void Unicast::loop() { mRecvDups.loop(); }
 
 uint8_t Unicast::send(UnicastPacket *pkt, uint32_t target, bool initHeader, UnicastSentStatusHandler handler) {

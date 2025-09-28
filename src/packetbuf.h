@@ -15,6 +15,7 @@ typedef struct _event_ {
 #endif
 
 #include <list>
+#include <functional>
 
 /* -------------------------------------------------------
  * 0x00 | 2 | Frame control
@@ -193,35 +194,40 @@ class RadioPacket {
   bool mIsBroadcast = false;
 };
 
+/**
+ * @brief PacketBuf recv handler
+ * @param status true if the packet has been sent correctly, false otherwise
+ */
+typedef std::function<void(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi)> PacketBufRecvHandler;
+
+/**
+ * @brief PacketBuf base class for all protocols
+ */
+class PacketBufProtocol {
+public:
+  virtual ~PacketBufProtocol() {}
+  virtual void setup() {};
+  virtual void loop() {};
+};
+
+/**
+ * @brief PacketBuf 802.11 packet buffer implementation
+ */
 class PacketBuf {
- public:
+public:
   static PacketBuf *singleton;
   static PacketBuf *getInstance();
 
- public:
-  Broadcast *getBroadcast(void) const { return broadcast; }
-  void setBroadcast(Broadcast *b) { broadcast = b; }
-  Broadcast2 *getBroadcast2(void) const { return broadcast2; }
-  void setBroadcast2(Broadcast2 *b) { broadcast2 = b; }
-  Unicast *getUnicast(void) const { return unicast; }
-  void setUnicast(Unicast *u) { unicast = u; }
-#ifdef USE_MULTIPATH_PROTOCOL
-  void setMultiPath(MultiPath *m) { multipath = m; }
-#endif
-#ifdef USE_POLITE_BROADCAST_PROTOCOL
-  void setPoliteBroadcast(PoliteBroadcastProtocol *protocol) { mPoliteBroadcast = protocol; }
-#endif
-#ifdef USE_CONNECTED_PROTOCOL
-  void setConnectedPath(ConnectedPath *protocol) { mConnectedPath = protocol; }
-#endif
+public:
   uint32_t nodeId() const { return pktbufNodeId; }
   uint8_t *nodeIdPtr() const { return (uint8_t *) &pktbufNodeId; }
 
- public:
+public:
   bool sendBusy() { return pktbufSent != nullptr; }
   uint8_t send(RadioPacket *pkt);
   void rawRecv(RxPacket *pkt);
   void setup(const uint8_t *aeskey, int aeskeylen);
+  void setRecvHandler(uint8_t protocol, PacketBufRecvHandler handler) { mRecvHandler[protocol] = handler; }
 #ifdef IDF_VER
   void loop();
 #endif
@@ -238,7 +244,7 @@ class PacketBuf {
 
  public:
   void setLockdownMode(bool active) { isLockdownModeActive = active; }
- private:
+private:
   bool isLockdownModeActive = false;
 
  private:
@@ -253,26 +259,16 @@ class PacketBuf {
   uint8_t *pktbufNodeIdPtr = nullptr;
   uint16_t lastpktLen = 0;
   
- private:
+private:
 #ifndef IDF_VER
   os_event_t pktbufRecvTaskQueue[PACKETBUF_TASK_QUEUE_LEN];
 #endif
   pktbuf_recvTask_packet_t pktbufRecvTaskPacket[PACKETBUF_TASK_QUEUE_LEN];
   uint32_t pktbufRecvTaskIndex;
 
- private:
-  Broadcast *broadcast = nullptr;
-  Broadcast2 *broadcast2 = nullptr;
-  Unicast *unicast = nullptr;
-#ifdef USE_MULTIPATH_PROTOCOL
-  MultiPath *multipath = nullptr;
-#endif
-#ifdef USE_POLITE_BROADCAST_PROTOCOL
-  PoliteBroadcastProtocol *mPoliteBroadcast = nullptr;
-#endif
-#ifdef USE_CONNECTED_PROTOCOL
-  ConnectedPath *mConnectedPath = nullptr;
-#endif
+private:
+  const uint8_t mRecvHandlerCount = 8;
+  PacketBufRecvHandler mRecvHandler[8] = {nullptr};
 };
 
 }  // namespace espmeshmesh

@@ -53,16 +53,16 @@ private:
     uint32_t mReceived[POLITE_RECEIVED_BY];
 };
 
-class PoliteBroadcastProtocol {
+class PoliteBroadcastProtocol: public PacketBufProtocol {
 public:
     enum PoliteState { StateIdle, StateWaitEnd };
-	PoliteBroadcastProtocol(PacketBuf *pbuf) { mPacketBuf = pbuf; }
+	PoliteBroadcastProtocol(PacketBuf *pbuf);
 public:
-    void setup();
-    void loop();
+    virtual void setup() override;
+    virtual void loop() override;
 public:
     void setReceivedHandler(PoliteBroadcastReceiveHandler h, void *arg);
-    void receiveRadioPacket(uint8_t *data, uint16_t size, uint8_t *fromptr, int16_t rssi);
+    void receiveRadioPacket(uint8_t *data, uint16_t size, uint32_t fromptr, int16_t rssi);
     void send(const uint8_t *data, uint16_t size, uint32_t target);
 private:
     static void _packetSentCb(void *arg, uint8_t status, RadioPacket *pkt);

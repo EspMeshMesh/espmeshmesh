@@ -61,6 +61,10 @@ bool PolitePacket::checkReceived(uint32_t source) {
 	return true;
 }
 
+PoliteBroadcastProtocol::PoliteBroadcastProtocol(PacketBuf *pbuf): mPacketBuf(pbuf) {
+	mPacketBuf->setRecvHandler(PROTOCOL_POLITEBRD, std::bind(&PoliteBroadcastProtocol::receiveRadioPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+}
+
 void PoliteBroadcastProtocol::setup() {
 }
 
@@ -89,9 +93,7 @@ void PoliteBroadcastProtocol::setReceivedHandler(PoliteBroadcastReceiveHandler h
 	mReceiveHandlerArg = arg;
 }
 
-void PoliteBroadcastProtocol::receiveRadioPacket(uint8_t *data, uint16_t size, uint8_t *fromptr, int16_t rssi) {
-
-	uint32_t from = *(uint32_t *)fromptr;
+void PoliteBroadcastProtocol::receiveRadioPacket(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
 	if(mState == StateIdle) {
 		uint32_t now = millis();
 		if(mTimeStamp0 != 0) {

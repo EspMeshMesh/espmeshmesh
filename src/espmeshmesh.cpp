@@ -360,7 +360,6 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
   mPoliteBroadcast = new PoliteBroadcastProtocol(packetbuf);
   mPoliteBroadcast->setup();
-  packetbuf->setPoliteBroadcast(mPoliteBroadcast);
   mPoliteBroadcast->setReceivedHandler(politeBroadcastReceive, this);
 #endif
 
@@ -804,22 +803,22 @@ void EspMeshMesh::replyHandleFrame(uint8_t *buf, uint16_t len, DataSrc src, uint
 #define CMD_FLASH_EBOOT 0x04
 #define CMD_FLASH_PREPARE 0x05
 
-void EspMeshMesh::user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint8_t *from, int16_t rssi) {
+void EspMeshMesh::user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
   if (singleton) {
     singleton->user_broadcast_recv(data, size, from, rssi);
   }
 }
 
-void EspMeshMesh::user_broadcast_recv(uint8_t *data, uint16_t size, uint8_t *from, int16_t rssi) {
+void EspMeshMesh::user_broadcast_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
   // Ignore error frame frmo broadcast
   if (size == 0 || data[0] == 0x7F)
     return;
-  memcpy(&mBroadcastFromAddress, from, 4);
-  memcpy(mRecvFromId, from, 4);
+  memcpy(&mBroadcastFromAddress, (uint8_t *) &from, 4);
+  memcpy(mRecvFromId, &from, 4);
   mRssiHandle = rssi;
   uint32_t *addr = (uint32_t *) from;
   //LIB_LOGD(TAG, "MeshmeshComponent::user_broadcast_recv from %06lX size %d cmd %02X", *addr, size, data[0]);
-  handleFrame(data, size, SRC_BROADCAST, *(uint32_t *) from);
+  handleFrame(data, size, SRC_BROADCAST, from);
 }
 
 void EspMeshMesh::user_broadcast2_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
