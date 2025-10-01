@@ -52,11 +52,10 @@ struct UnicastBindedPort_st {
 };
 typedef UnicastBindedPort_st UnicastBindedPort_t;
 
-class Unicast {
+class Unicast: public PacketBufProtocol {
 public:
-	Unicast(PacketBuf *pbuf) { packetbuf = pbuf; packetbuf->setUnicast(this); }
-    void setup(void) {}
-    void loop(void);
+	Unicast(PacketBuf *pbuf);
+    virtual void loop(void) override;
 public:
     uint8_t send(UnicastPacket *pkt, uint32_t target, bool initHeader, UnicastSentStatusHandler handler);
     uint8_t send(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, UnicastSentStatusHandler handler);

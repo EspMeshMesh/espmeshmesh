@@ -59,9 +59,9 @@ struct MultiPathBindedPort_st {
 
 typedef MultiPathBindedPort_st MultiPathBindedPort_t;
 
-class MultiPath {
+class MultiPath: public PacketBufProtocol {
 public:
-	MultiPath(PacketBuf *pbuf): mRecvDups() { packetbuf = pbuf; packetbuf->setMultiPath(this); }
+	MultiPath(PacketBuf *pbuf);
     void setup() {}
     void loop();
     uint8_t send(MultiPathPacket *pkt, bool initHeader, MultiPathSentStatusHandler handler);
