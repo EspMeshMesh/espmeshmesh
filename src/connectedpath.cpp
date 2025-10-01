@@ -481,8 +481,7 @@ void ConnectedPath::sendDataNack(uint32_t source, uint16_t sourceHandle) {
   bool forward;
   int8_t connid = findConnectionIndex(source, sourceHandle, &forward);
   if (CONN_OPERATIVE(connid)) {
-    LIB_LOGD(TAG, "ConnectedPath::sendDataNack connid %d source %06X:%04X direction %s", connid, source,
-             FORWARD2TXT(forward));
+    LIB_LOGD(TAG, "ConnectedPath::sendDataNack connid %d source %06X:%04X direction %s", connid, source, sourceHandle, FORWARD2TXT(forward));
     sendPacket(CONNPATH_SEND_DATA_NACK, connid, forward, 0, nullptr);
     connectionSetInoperative(connid);
   }
