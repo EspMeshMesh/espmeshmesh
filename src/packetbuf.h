@@ -16,7 +16,7 @@ typedef struct _event_ {
 
 #include <list>
 
-/**********************************************************
+/* -------------------------------------------------------
  * 0x00 | 2 | Frame control
  * 0x02 | 2 | Duration ID
  * 0x04 | 6 | Address1
@@ -27,7 +27,7 @@ typedef struct _event_ {
  * Address1 = FF FF FF FF FF FF
  * Address2 = FF 7X FF FF FF FF
  * Address3 = FF FF FF FF FF FF
- *********************************************************/
+------------------------------------------------------- */
 
 #ifdef USE_ESP32
 extern "C" {
@@ -140,7 +140,7 @@ class ConnectedPath;
 
 class RadioPacket {
  public:
-  explicit RadioPacket(pktbufSentCbFn cb, void *arg) : mCallback(cb), mCallbackArg(arg){};
+  explicit RadioPacket(pktbufSentCbFn cb, void *arg) : mCallback(cb), mCallbackArg(arg) {}
   virtual ~RadioPacket();
   bool isAutoDelete() const { return mAutoDelete; }
   bool isBroadcast() const { return mIsBroadcast; }
