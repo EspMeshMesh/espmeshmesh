@@ -47,6 +47,10 @@ void ConnectedPathPacket::setTarget(uint32_t target, uint16_t handle) {
     getHeader()->sourceHandle = handle;
 }
 
+ConnectedPath::ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf): mMeshMesh(meshmesh), mPacketBuf(packetbuf), mRecvDups(), mRadioOutputBuffer(256) {
+  mPacketBuf->setRecvHandler(PROTOCOL_CONNPATH, std::bind(&ConnectedPath::receiveRadioPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+}
+
 void ConnectedPath::setup(void) {
   mRadioOutputBuffer.resize(1024);
   memset((uint8_t *) mConnectsions, 0x0, sizeof(mConnectsions));

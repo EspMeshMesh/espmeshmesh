@@ -141,8 +141,8 @@ public:
   void replyHandleFrame(uint8_t *buf, uint16_t len, DataSrc src, uint32_t from);
 
  private:
-  static void user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint8_t *from, int16_t rssi);
-  void user_broadcast_recv(uint8_t *data, uint16_t size, uint8_t *from, int16_t rssi);
+  static void user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
+  void user_broadcast_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
   void user_broadcast2_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
   void unicastRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
   void multipathRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path, uint8_t pathSize);
