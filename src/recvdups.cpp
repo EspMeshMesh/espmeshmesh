@@ -18,6 +18,17 @@ RecvDups::RecvDups() {
     clear();
 };
 
+void RecvDups::printDuplicateTable(uint32_t now) {
+    int usedRows = 0;
+    LIB_LOGD(TAG, "Duplicate table size: %d", mDuplicateTableSize);
+    for(int i=0; i<mDuplicateTableSize; i++) {
+        if(mDuplicates[i].address == TABLE_INVALID_ADDRESS) continue;
+        LIB_LOGD(TAG, "Duplicate table[%d]: address: %06lX:%d, seqno: %d, time: %d", i, mDuplicates[i].address, mDuplicates[i].handle, mDuplicates[i].seqno, now-mDuplicates[i].time);
+        usedRows++;
+    }
+    LIB_LOGD(TAG, "Duplicate table size: Used rows: %d", usedRows);
+}
+
 void RecvDups::loop() {
     uint32_t now=millis();
     if(EspMeshMesh::elapsedMillis(now, mDuplicateTableTime) > 300000) {
@@ -28,6 +39,12 @@ void RecvDups::loop() {
             }
         }
     }
+#if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_VERBOSE
+    if(mDebug && EspMeshMesh::elapsedMillis(now, mLastPrintTime) > 30000) {
+        mLastPrintTime = now;
+        printDuplicateTable(now);
+    }
+#endif
 }
 
 void RecvDups::clear() {
