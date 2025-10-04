@@ -18,6 +18,7 @@ RecvDups::RecvDups() {
     clear();
 };
 
+#if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_VERBOSE
 void RecvDups::printDuplicateTable(uint32_t now) {
     int usedRows = 0;
     LIB_LOGD(TAG, "Duplicate table size: %d", mDuplicateTableSize);
@@ -28,6 +29,7 @@ void RecvDups::printDuplicateTable(uint32_t now) {
     }
     LIB_LOGD(TAG, "Duplicate table size: Used rows: %d", usedRows);
 }
+#endif
 
 void RecvDups::loop() {
     uint32_t now=millis();

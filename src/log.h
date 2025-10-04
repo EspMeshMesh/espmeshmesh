@@ -29,11 +29,6 @@
  */
 #define LIB_LOG_LEVEL ESPHOME_LOG_LEVEL
 
-#define LIB_LOGE(tag, format, ...) libLog(LIB_LOG_LEVEL_ERROR, tag, __LINE__, format, ##__VA_ARGS__)
-#define LIB_LOGW(tag, format, ...) libLog(LIB_LOG_LEVEL_WARN, tag, __LINE__, format, ##__VA_ARGS__)
-#define LIB_LOGI(tag, format, ...) libLog(LIB_LOG_LEVEL_INFO, tag, __LINE__, format, ##__VA_ARGS__)
-#define LIB_LOGCONFIG(tag, format, ...) libLog(LIB_LOG_LEVEL_CONFIG, tag, __LINE__, format, ##__VA_ARGS__)
-
 // Define log macros
 
 #if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_VERY_VERBOSE
@@ -58,6 +53,12 @@
 #define LIB_LOGI(tag, format, ...) libLog(LIB_LOG_LEVEL_INFO, tag, __LINE__, format, ##__VA_ARGS__)
 #else
 #define LIB_LOGI(tag, format, ...)
+#endif
+
+#if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_CONFIG
+#define LIB_LOGCONFIG(tag, format, ...) libLog(LIB_LOG_LEVEL_CONFIG, tag, __LINE__, format, ##__VA_ARGS__)
+#else
+#define LIB_LOGCONFIG(tag, format, ...)
 #endif
 
 #if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_WARN

@@ -1,6 +1,6 @@
 #pragma once
+#include "log.h"
 #include <stdint.h>
-
 
 namespace espmeshmesh {
 
