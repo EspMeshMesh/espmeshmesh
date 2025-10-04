@@ -54,6 +54,24 @@
 #define LIB_LOGD(tag, format, ...)
 #endif
 
+#if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_INFO
+#define LIB_LOGI(tag, format, ...) libLog(LIB_LOG_LEVEL_INFO, tag, __LINE__, format, ##__VA_ARGS__)
+#else
+#define LIB_LOGI(tag, format, ...)
+#endif
+
+#if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_WARN
+#define LIB_LOGW(tag, format, ...) libLog(LIB_LOG_LEVEL_WARN, tag, __LINE__, format, ##__VA_ARGS__)
+#else
+#define LIB_LOGW(tag, format, ...)
+#endif
+
+#if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_ERROR
+#define LIB_LOGE(tag, format, ...) libLog(LIB_LOG_LEVEL_ERROR, tag, __LINE__, format, ##__VA_ARGS__)
+#else
+#define LIB_LOGE(tag, format, ...)
+#endif
+
 namespace espmeshmesh {
     typedef std::function<void(int level, const char *tag, int line, const char *format, va_list args)> LogCbFn;
     void setLibLogCb(LogCbFn cb);
