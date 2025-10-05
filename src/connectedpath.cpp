@@ -57,7 +57,7 @@ void ConnectedPath::setup(void) {
   for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++)
     connectionSetInvalid(i);
   mConnectionsCheckTime = millis();
-#if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_VERBOSE
+#if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_VERY_VERBOSE
   mRecvDups.setDebug(true);
 #endif
 }
