@@ -53,18 +53,18 @@ uint8_t MultiPath::send(MultiPathPacket *pkt, bool initHeader, MultiPathSentStat
     pkt->encryptClearData();
 	uint32_t target = header->pathIndex < header->pathLength ? pkt->getPathItem(header->pathIndex) : header->trargetAddress;
     pkt->fill80211((uint8_t *)&target, packetbuf->nodeIdPtr());
-	//LIB_LOGD(TAG, "MultiPath::send to %06X via %06X path %d/%d seq %d try %d", header->trargetAddress, target, header->pathIndex, header->pathLength, header->seqno, header->flags & MULTIPATH_FLAG_RETRANSMIT_MASK);
+	LIB_LOGV(TAG, "MultiPath::send to %06X port %d via %06X path %d/%d seq %d try %d", header->trargetAddress, header->port, target, header->pathIndex, header->pathLength, header->seqno, header->flags & MULTIPATH_FLAG_RETRANSMIT_MASK);
 	uint8_t res = packetbuf->send(pkt);
 	if(res == PKT_SEND_ERR) delete pkt;
     return res;
 }
 
-uint8_t MultiPath::send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, bool pathRev, uint8_t port, MultiPathSentStatusHandler handler) {
+uint8_t MultiPath::send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, Direction direction, uint8_t port, MultiPathSentStatusHandler handler) {
 	MultiPathPacket *pkt = new MultiPathPacket(nullptr, nullptr);
 	pkt->allocClearData(size, pathSize);
 	pkt->multipathHeader()->port = port;
 	pkt->multipathHeader()->trargetAddress = target;
-	for(int i=0;i<pathSize;i++) pkt->setPathItem(path[i], pathRev ? pathSize-i-1 : i);
+	for(int i=0;i<pathSize;i++) pkt->setPathItem(path[i], direction == Reverse ? pathSize-i-1 : i);
 	pkt->setPayload(data);
 	return send(pkt, true, handler);
 }
@@ -73,7 +73,7 @@ void MultiPath::receiveRadioPacket(uint8_t *buf, uint16_t size, uint32_t f, int1
 	if(size > sizeof(MultiPathHeaderSt)) {
 	    MultiPathHeader *header = (MultiPathHeader *)buf;
 		uint16_t wsize = sizeof(MultiPathHeaderSt)+header->dataLength+header->pathLength*sizeof(uint32_t);
-		// LIB_LOGD(TAG, "MultiPath src %06X from %06X with seq %d data %d path %d/%d", header->trargetAddress, f, header->seqno, header->dataLength, header->pathIndex, header->pathLength);
+		LIB_LOGV(TAG, "MultiPath for %06X port %d from %06X with seq %d data %d path %d/%d", header->trargetAddress, header->port, f, header->seqno, header->dataLength, header->pathIndex, header->pathLength);
 		if(size >= wsize) {
 			if(mRecvDups.checkDuplicateTable(header->sourceAddress, 0, header->seqno)) {
 				LIB_LOGE(TAG, "MultiPath duplicated packet received from %06lX with seq %d", header->sourceAddress, header->seqno);

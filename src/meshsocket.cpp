@@ -186,7 +186,7 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SocketSentStatusHan
     } else if(mProtocol == unicastProtocol) {
         err = mParent->unicast->send(data, size, mTarget, mPort, handler ? handler : mSentStatusHandler);
     } else if(mProtocol == multipathProtocol) {
-        err = mParent->multipath->send(data, size, mTarget, mRepeaters, mIsReversePath, mRepeatersCount, mPort, handler ? handler : mSentStatusHandler);
+        err = mParent->multipath->send(data, size, mTarget, mRepeaters, mRepeatersCount, mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, mPort, handler ? handler : mSentStatusHandler);
     }
     if(err) {
         return errCantSendData;
@@ -216,7 +216,7 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, uint32_t ta
         }
     } else if(protocol == multipathProtocol) {
         uint8_t repeatersCount = calcRepeatersCount(repeaters);
-        uint8_t err = mParent->multipath->send(data, size, target, repeaters, false, repeatersCount, port, handler ? handler : mSentStatusHandler);
+        uint8_t err = mParent->multipath->send(data, size, target, repeaters, repeatersCount, mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, port, handler ? handler : mSentStatusHandler);
         if(err) {
             return errCantSendData;
         }

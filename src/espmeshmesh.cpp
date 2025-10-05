@@ -501,17 +501,9 @@ void EspMeshMesh::unicastSendData(const uint8_t *buff, uint16_t len, uint32_t ad
 }
 
 #ifdef USE_MULTIPATH_PROTOCOL
-void EspMeshMesh::multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen,
-                                          uint8_t *path) {
-  if (!multipath)
-    return;
-  MultiPathPacket *pkt = new MultiPathPacket(nullptr, nullptr);
-  pkt->allocClearData(len, pathlen);
-  pkt->multipathHeader()->trargetAddress = addr;
-  for (int i = 0; i < pathlen; i++)
-    pkt->setPathItem(uint32FromBuffer(path) + i * sizeof(uint32_t), i);
-  pkt->setPayload(buff);
-  multipath->send(pkt, true, nullptr);
+void EspMeshMesh::multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen,                                          uint32_t *path) {
+  if (multipath) 
+    multipath->send(buff, len, addr, path, pathlen, MultiPath::Forward, MULTIPATH_DEFAULT_PORT, nullptr);
 }
 #endif
 
@@ -629,7 +621,7 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
       break;
     case SRC_MULTIPATH:
 #ifdef USE_MULTIPATH_PROTOCOL
-      err = multipath->send(buff, len, uint32FromBuffer(mRecvFromId), (uint32_t *)&mRecvPath[0], mRecvPathSize, true, MULTIPATH_DEFAULT_PORT, nullptr);
+      err = multipath->send(buff, len, uint32FromBuffer(mRecvFromId), (uint32_t *)&mRecvPath[0], mRecvPathSize, MultiPath::Reverse, MULTIPATH_DEFAULT_PORT, nullptr);
 #endif
       break;
     case SRC_POLITEBRD:
@@ -709,14 +701,15 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
         uint8_t pathlen = buf[5];
         if (len > 6 + pathlen * sizeof(uint32_t)) {
           uint16_t payloadsize = len - (6 + pathlen * sizeof(uint32_t));
-          MultiPathPacket *pkt = new MultiPathPacket(nullptr, nullptr);
-          pkt->allocClearData(payloadsize, pathlen);
-          pkt->multipathHeader()->sourceAddress = packetbuf->nodeId();
-          pkt->multipathHeader()->trargetAddress = uint32FromBuffer(buf + 1);
+          uint8_t *payload = buf + 6 + sizeof(uint32_t) * pathlen;
+          uint32_t target = uint32FromBuffer(buf + 1);
+          // We need to do this because the uint32 must be aligned to 4 bytes.
+          uint32_t *path = new uint32_t[pathlen];
           for (int i = 0; i < pathlen; i++)
-            pkt->setPathItem(uint32FromBuffer(buf + 6) + i * sizeof(uint32_t), i);
-          pkt->setPayload(buf + 6 + sizeof(uint32_t) * pathlen);
-          multipath->send(pkt, true, nullptr);
+            path[i] = uint32FromBuffer(buf + 6 + i * sizeof(uint32_t));
+          // Send the packet
+          multipath->send(payload, payloadsize, target, path, pathlen, MultiPath::Forward, UNICAST_DEFAULT_PORT, nullptr);
+          delete[] path;
           err = 0;
         }
       }

@@ -61,11 +61,12 @@ typedef MultiPathBindedPort_st MultiPathBindedPort_t;
 
 class MultiPath: public PacketBufProtocol {
 public:
+    enum Direction { Forward, Reverse };
 	MultiPath(PacketBuf *pbuf);
     void setup() {}
     void loop();
     uint8_t send(MultiPathPacket *pkt, bool initHeader, MultiPathSentStatusHandler handler);
-    uint8_t send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, bool pathRev, uint8_t port, MultiPathSentStatusHandler handler);
+    uint8_t send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, MultiPath::Direction direction, uint8_t port, MultiPathSentStatusHandler handler);
     void receiveRadioPacket(uint8_t *p, uint16_t size, uint32_t f, int16_t  r);
     bool isPortAvailable(uint16_t port) const;
     bool bindPort(uint16_t port, MultiPathReceiveRadioPacketHandler h);

@@ -119,7 +119,7 @@ class EspMeshMesh {
    */
   void unicastSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint16_t port);
 #ifdef USE_MULTIPATH_PROTOCOL
-  void multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint8_t *path);
+  void multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint32_t *path);
 #endif
 #ifdef USE_CONNECTED_PROTOCOL
   void connectedpathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint8_t *path);
