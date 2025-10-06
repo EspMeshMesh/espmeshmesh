@@ -1,9 +1,11 @@
 #pragma once
+#include "defines.h"
+
 #ifdef USE_MULTIPATH_PROTOCOL
 
 #include "packetbuf.h"
 #include "recvdups.h"
-#include "defines.h"
+
 
 #include <cstdint>
 

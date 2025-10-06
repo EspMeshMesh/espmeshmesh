@@ -1,11 +1,11 @@
 #pragma once
+#include "defines.h"
 
-#include "log.h"
 #include "packetbuf.h"
 #include "discovery.h"
 #include "broadcast2.h"
 #include "memringbuffer.h"
-#include "defines.h"
+#include "log.h"
 
 #include <string>
 

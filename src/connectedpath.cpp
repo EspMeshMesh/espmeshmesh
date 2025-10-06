@@ -1,4 +1,5 @@
 #include "connectedpath.h"
+
 #ifdef USE_CONNECTED_PROTOCOL
 #include "log.h"
 #include "espmeshmesh.h"

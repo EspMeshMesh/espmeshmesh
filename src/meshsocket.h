@@ -1,6 +1,7 @@
 #pragma once
-#ifdef USE_MESHSOCKET
+#include "defines.h"
 
+#ifdef USE_MESHSOCKET
 #include "packetbuf.h"
 #include <functional>
 

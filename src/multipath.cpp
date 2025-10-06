@@ -1,10 +1,11 @@
+
 #ifdef USE_MULTIPATH_PROTOCOL
 
 #include "multipath.h"
-#include "defines.h"
+#include "log.h"
+
 #include <cstring>
 
-#include "log.h"
 
 namespace espmeshmesh {
 

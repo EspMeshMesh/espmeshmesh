@@ -1,4 +1,6 @@
 #pragma once
+#include "defines.h"
+
 #include "packetbuf.h"
 #include "recvdups.h"
 

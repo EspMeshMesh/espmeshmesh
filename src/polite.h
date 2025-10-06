@@ -1,10 +1,8 @@
 #pragma once
-
-#define USE_POLITE_BROADCAST_PROTOCOL
-#ifdef USE_POLITE_BROADCAST_PROTOCOL
-
-#include "packetbuf.h"
 #include "defines.h"
+
+#ifdef USE_POLITE_BROADCAST_PROTOCOL
+#include "packetbuf.h"
 
 #include <cstdint>
 #include <functional>

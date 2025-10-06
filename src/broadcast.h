@@ -1,6 +1,6 @@
 #pragma once
-#include "packetbuf.h"
 #include "defines.h"
+#include "packetbuf.h"
 
 namespace espmeshmesh {
 

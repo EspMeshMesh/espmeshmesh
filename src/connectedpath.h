@@ -1,5 +1,4 @@
 #pragma once
-
 #include "defines.h"
 
 #ifdef USE_CONNECTED_PROTOCOL
