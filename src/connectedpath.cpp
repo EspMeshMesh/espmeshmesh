@@ -47,11 +47,8 @@ void ConnectedPathPacket::setTarget(uint32_t target, uint16_t handle) {
     getHeader()->sourceHandle = handle;
 }
 
-ConnectedPath::ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf): mMeshMesh(meshmesh), mPacketBuf(packetbuf), mRecvDups(), mRadioOutputBuffer(256) {
-  mPacketBuf->setRecvHandler(PROTOCOL_CONNPATH, std::bind(&ConnectedPath::receiveRadioPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-}
-
-void ConnectedPath::setup(void) {
+ConnectedPath::ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf)
+    : mMeshMesh(meshmesh), PacketBufProtocol(packetbuf, nullptr, SRC_CONNPATH), mRecvDups(), mRadioOutputBuffer(256) {
   mRadioOutputBuffer.resize(1024);
   memset((uint8_t *) mConnectsions, 0x0, sizeof(mConnectsions));
   for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++)
@@ -118,9 +115,6 @@ uint8_t ConnectedPath::sendRadioPacket(ConnectedPathPacket *pkt, bool forward, b
     // If is an ACK i use the last seqno
     header->seqno = ++mLastSequenceNum;
   }
-  // Set this class as destination sent callback for retransmisisons
-  pkt->setCallback(radioPacketSentCb, this);
-
   return sendRawRadioPacket(pkt);
 }
 
@@ -238,7 +232,7 @@ uint8_t ConnectedPath::receiveUartPacket(uint8_t *data, uint16_t size) {
  * @param source - The source address of the packet.
  * @param rssi - The RSSI of the packet.
  */
-void ConnectedPath::receiveRadioPacket(uint8_t *data, uint16_t size, uint32_t source, int16_t rssi) {
+void ConnectedPath::radioPacketRecv(uint8_t *data, uint16_t size, uint32_t source, int16_t rssi) {
   if (size >= sizeof(ConnectedPathHeaderSt)) {
     ConnectedPathHeader_t *header = (ConnectedPathHeader_t *) data;
     uint8_t *payload = data + sizeof(ConnectedPathHeader_t);
@@ -296,10 +290,6 @@ bool ConnectedPath::isConnectionActive(uint32_t from, uint16_t handle) const {
   return findConnection(from, handle) != nullptr;
 }
 
-void ConnectedPath::radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt) {
-  ((ConnectedPath *) arg)->radioPacketSent(status, pkt);
-}
-
 void ConnectedPath::radioPacketSent(uint8_t status, RadioPacket *pkt) {
   if (status) {
     // Handle transmission error onyl with packets with clean data
@@ -307,7 +297,7 @@ void ConnectedPath::radioPacketSent(uint8_t status, RadioPacket *pkt) {
     ConnectedPathHeader_t *header = oldpkt->getHeader();
     if (header != nullptr) {
       if ((header->flags & CONNPATH_FLAG_RETRANSMIT_MASK) < CONNPATH_MAX_RETRANSMISSIONS) {
-        mRetransmitPacket = new ConnectedPathPacket(radioPacketSentCb, this);
+        mRetransmitPacket = new ConnectedPathPacket(this, nullptr);
         mRetransmitPacket->fromRawData(pkt->clearData(), pkt->clearDataSize());
         mRetransmitPacket->getHeader()->flags++;
         mRetransmitPacket->setTarget(oldpkt->getTarget(), oldpkt->getHandle());
@@ -592,11 +582,11 @@ void ConnectedPath::processOutputBuffer() {
     if (CONN_EXISTS(lastHeader.connId)) {
       ConnectedPathConnections *conn = mConnectsions + lastHeader.connId;
       ConnectedPathPacket *pkt =
-          cratePacket(lastHeader.subProtocol, bufferTotalSize, lastHeader.forward ? conn->destAddr : conn->sourceAddr,
-                      lastHeader.forward ? conn->destHandle : conn->sourceHandle, buffer);
+          createPacket(lastHeader.subProtocol, bufferTotalSize, lastHeader.forward ? conn->destAddr : conn->sourceAddr,
+                       lastHeader.forward ? conn->destHandle : conn->sourceHandle, buffer);
       LIB_LOGVV(TAG, "ConnectedPath::processOutputBuffer prot %d num packets %d tot size %d after %dms",
-               lastHeader.subProtocol, numPktProcessed, bufferTotalSize,
-               EspMeshMesh::elapsedMillis(now, lastHeader.pkttime));
+                lastHeader.subProtocol, numPktProcessed, bufferTotalSize,
+                EspMeshMesh::elapsedMillis(now, lastHeader.pkttime));
       sendRadioPacket(pkt, false, true);
     } else {
       LIB_LOGE(TAG, "ConnectedPath::processOutputBuffer invalid connection id %d", lastHeader.connId);
@@ -715,9 +705,9 @@ void ConnectedPath::sendUartPacket(uint8_t command, uint16_t handle, const uint8
   }
 }
 
-ConnectedPathPacket *ConnectedPath::cratePacket(uint8_t subprot, uint16_t size, uint32_t target, uint16_t handle,
-                                                const uint8_t *payload) {
-  ConnectedPathPacket *pkt = new ConnectedPathPacket(nullptr, nullptr);
+ConnectedPathPacket *ConnectedPath::createPacket(uint8_t subprot, uint16_t size, uint32_t target, uint16_t handle,
+                                                 const uint8_t *payload) {
+  ConnectedPathPacket *pkt = new ConnectedPathPacket(this, nullptr);
   pkt->allocClearData(size);
   pkt->getHeader()->subprotocol = subprot;
   pkt->setTarget(target, handle);
@@ -760,7 +750,7 @@ void ConnectedPath::sendImmediatePacket(uint8_t subprot, uint32_t destination, u
     // FIXME: send to uart if we are the coordinator. Otherwise send to client
     sendUartPacket(subprot, destinationHandle, nullptr, 0);
   } else {
-    sendRadioPacket(cratePacket(subprot, 0, destination, destinationHandle, nullptr), true, true);
+    sendRadioPacket(createPacket(subprot, 0, destination, destinationHandle, nullptr), true, true);
   }
 }
 

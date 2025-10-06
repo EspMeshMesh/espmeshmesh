@@ -37,11 +37,16 @@ extern "C" uint32_t _SPIFFS_start;
 
 namespace espmeshmesh {
 
+using namespace std::placeholders;
+
 static const char *TAG = "espmeshmesh";
 
 #define BROADCAST_DEFAULT_PORT 0
 #define UNICAST_DEFAULT_PORT 0
 #define MULTIPATH_DEFAULT_PORT 0
+
+#define DEF_CMD_BUFFER_SIZE 0x440
+#define MAX_CMD_BUFFER_SIZE 0x440
 
 EspMeshMesh *EspMeshMesh::singleton = nullptr;
 
@@ -198,7 +203,6 @@ bool EspMeshMesh::setupIdfWifiAP(const char *hostname, uint8_t channel, uint8_t 
 bool EspMeshMesh::setupIdfWifiStation(const char *hostname, uint8_t channel, uint8_t txPower) {
   esp_err_t res;
 
-
   esp_netif_t *netif;
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   const wifi_promiscuous_filter_t filt = {.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT | WIFI_PROMIS_FILTER_MASK_DATA};
@@ -282,7 +286,7 @@ bool EspMeshMesh::setupIdfWifiStation(const char *hostname, uint8_t channel, uin
 
   LIB_LOGI(TAG, "Selected channel %d", channel);
   res = esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);
-  if(res != ESP_OK) {
+  if (res != ESP_OK) {
     LIB_LOGD(TAG, "esp_wifi_set_channel error %d", res);
     return false;
   }
@@ -342,38 +346,32 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
     esp_rom_md5_init(&md5);
     esp_rom_md5_update(&md5, (uint8_t *) mAesPassword.c_str(), mAesPassword.size());
     esp_rom_md5_final(aespassword, &md5);
-#endif  
+#endif
   }
-  
+  auto handler = std::bind(&EspMeshMesh::handleFrame, this, _1, _2, _3, _4, _5);
+
   packetbuf = PacketBuf::getInstance();
   packetbuf->setup(aespassword, 16);
-  broadcast = new Broadcast(packetbuf);
-  broadcast2 = new Broadcast2(packetbuf);
-  unicast = new Unicast(packetbuf);
+
+  broadcast = new Broadcast(packetbuf, handler);
+  broadcast2 = new Broadcast2(packetbuf, handler);
+
+  unicast = new Unicast(packetbuf, handler);
 
 #ifdef USE_MULTIPATH_PROTOCOL
-  multipath = new MultiPath(packetbuf);
-  multipath->setup();
-  multipath->bindPort(MULTIPATH_DEFAULT_PORT, std::bind(&EspMeshMesh::multipathRecv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6));
+  multipath = new MultiPath(packetbuf, handler);
 #endif
 
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
-  mPoliteBroadcast = new PoliteBroadcastProtocol(packetbuf);
-  mPoliteBroadcast->setup();
-  mPoliteBroadcast->setReceivedHandler(politeBroadcastReceive, this);
+  mPoliteBroadcast = new PoliteBroadcastProtocol(packetbuf, handler);
 #endif
 
 #ifdef USE_CONNECTED_PROTOCOL
   mConnectedPath = new ConnectedPath(this, packetbuf);
-  mConnectedPath->setup();
   mConnectedPath->bindPort(onConnectedPathNewClientCb, this, 0);
 #endif
 
   mDiscovery.init();
-  broadcast->setRecv_cb(user_broadcast_recv_cb);
-  broadcast2->bindPort(BROADCAST_DEFAULT_PORT, std::bind(&EspMeshMesh::user_broadcast2_recv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-  unicast->setup();
-  unicast->bindPort(UNICAST_DEFAULT_PORT, std::bind(&EspMeshMesh::unicastRecv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
   dump_config();
   mElapsed1 = millis();
 
@@ -389,8 +387,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 #endif
 }
 
-void EspMeshMesh::dump_config() {
-}
+void EspMeshMesh::dump_config() {}
 
 void EspMeshMesh::loop() {
   uint32_t now = millis();
@@ -475,24 +472,14 @@ void EspMeshMesh::uartSendData(const uint8_t *buff, uint16_t len) {
   flushUartTxBuffer();
 }
 
-void EspMeshMesh::broadCastSendData(const uint8_t *buff, uint16_t len) {
+void EspMeshMesh::broadcastSendData(const uint8_t *buff, uint16_t len) {
   if (broadcast)
     broadcast->send(buff, len);
 }
 
-void EspMeshMesh::broadcast2SendData(const uint8_t *buff, uint16_t len, bool port) {
+void EspMeshMesh::broadcastSendData(const uint8_t *buff, uint16_t len, uint16_t port) {
   if (broadcast2)
     broadcast2->send(buff, len, port, nullptr);
-}
-
-void EspMeshMesh::registerBroadcast2Port(uint16_t port, Broadcast2ReceiveRadioPacketHandler handler) {
-  if (broadcast2)
-    broadcast2->bindPort(port, handler);
-}
-
-void EspMeshMesh::uniCastSendData(const uint8_t *buff, uint16_t len, uint32_t addr) {
-  if (unicast)
-    unicast->send(buff, len, addr, UNICAST_DEFAULT_PORT, nullptr);
 }
 
 void EspMeshMesh::unicastSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint16_t port) {
@@ -501,11 +488,10 @@ void EspMeshMesh::unicastSendData(const uint8_t *buff, uint16_t len, uint32_t ad
 }
 
 #ifdef USE_MULTIPATH_PROTOCOL
-void EspMeshMesh::multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen,
-                                          uint8_t *path) {
+void EspMeshMesh::multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint8_t *path) {
   if (!multipath)
     return;
-  MultiPathPacket *pkt = new MultiPathPacket(nullptr, nullptr);
+  MultiPathPacket *pkt = new MultiPathPacket(multipath, nullptr);
   pkt->allocClearData(len, pathlen);
   pkt->multipathHeader()->trargetAddress = addr;
   for (int i = 0; i < pathlen; i++)
@@ -514,9 +500,6 @@ void EspMeshMesh::multipathSendData(const uint8_t *buff, uint16_t len, uint32_t 
   multipath->send(pkt, true, nullptr);
 }
 #endif
-
-#define DEF_CMD_BUFFER_SIZE 0x440
-#define MAX_CMD_BUFFER_SIZE 0x440
 
 #ifdef IDF_VER
 void EspMeshMesh::initIdfUart() {
@@ -582,9 +565,9 @@ void EspMeshMesh::user_uart_recv_data(uint8_t byte) {
     case WAIT_CRC16_2:
       received_crc16 = received_crc16 | uint16_t(byte);
       if (computed_crc16 == received_crc16) {
-        handleFrame(mRecvBuffer, mRecvBufferPos, SRC_SERIAL, 0xFFFFFFFF);
+        handleFrame(SRC_SERIAL, mRecvBuffer, mRecvBufferPos, 0xFFFFFFFF);
       } else {
-        //handleFrame(mRecvBuffer, mRecvBufferPos, SRC_SERIAL, 0xFFFFFFFF);
+        // handleFrame(SRC_SERIAL, mRecvBuffer, mRecvBufferPos, 0xFFFFFFFF);
         LIB_LOGE(TAG, "CRC16 mismatch %04X %04X", computed_crc16, received_crc16);
       }
       mRecvState = WAIT_START;
@@ -618,24 +601,24 @@ void EspMeshMesh::flushUartTxBuffer() {
 
 void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
   uint8_t err = 0;
-  switch (commandSource) {
+  switch (mCommandSource) {
     case SRC_SERIAL:
       uartSendData(buff, len);
       break;
     case SRC_BROADCAST:
     case SRC_BROADCAST2:
     case SRC_UNICAST:
-      err = unicast->send(buff, len, uint32FromBuffer(mRecvFromId), UNICAST_DEFAULT_PORT, nullptr);
+      err = unicast->send(buff, len, mFromAddress, UNICAST_DEFAULT_PORT, nullptr);
       break;
     case SRC_MULTIPATH:
 #ifdef USE_MULTIPATH_PROTOCOL
-      err = multipath->send(buff, len, uint32FromBuffer(mRecvFromId), (uint32_t *)&mRecvPath[0], mRecvPathSize, true, MULTIPATH_DEFAULT_PORT, nullptr);
+      err = multipath->send(buff, len, mFromAddress, (uint32_t *) &mRecvPath[0], mRecvPathSize, true, MULTIPATH_DEFAULT_PORT);
 #endif
       break;
     case SRC_POLITEBRD:
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
-      if (mPoliteFromAddress != POLITE_DEST_BROADCAST)
-        mPoliteBroadcast->send(buff, len, mPoliteFromAddress);
+      if (mFromAddress != POLITE_DEST_BROADCAST)
+        mPoliteBroadcast->send(buff, len, mFromAddress);
 #endif
       break;
     case SRC_CONNPATH:
@@ -648,21 +631,24 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
       break;
   }
 
-  commandSource = SRC_SERIAL;
+  mCommandSource = SRC_NONE;
 }
 
-void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, uint32_t from) {
+void EspMeshMesh::handleFrame(DataSrc src, const uint8_t *data, uint16_t len, uint32_t from, int16_t rssi) {
   uint8_t err = HANDLE_UART_ERROR;
+
+  if (len == 0 || data[0] == 0x7F)
+    return;
+
+  mCommandSource = src;
+  mFromAddress = from;
+  mRssiHandle = rssi;
 
   uint8_t *buf = new uint8_t[len];
   memcpy(buf, data, len);
 
-  // LIB_LOGD(TAG, "MeshmeshComponent::handleFrame src %d cmd %02X:%02X len %d", src, buf[0], buf[1], len);
-  // print_hex_array("handleFrame ", buf, len);
-
-  commandSource = src;
   if (buf[0] & 0x01) {
-    replyHandleFrame(buf, len, src, from);
+    replyHandleFrame(src, buf, len, from, rssi);
     delete[] buf;
     return;
   }
@@ -745,14 +731,14 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
           if (buf[i + 1] != 0xFF && (groups[i] == 0 || (groups[i] != 0xFF && groups[i] != buf[i + 1])))
             break;
         if (i == 4) {
-          handleFrame(buf + 5, len - 5, SRC_FILTER, 0);
+          handleFrame(SRC_FILTER, buf + 5, len - 5, from, rssi);
         }
         err = 0;
       }
       break;
     default:
       for (auto cb : mHandleFrameCbs) {
-        int8_t handled = cb(buf, len, from);
+        int8_t handled = cb(src, buf, len, from, rssi);
         // If callback handled the frame...
         if (handled >= 0) {
           // Keep status and exit loop
@@ -763,7 +749,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
       break;
   }
 
-  if (err == HANDLE_UART_ERROR && commandSource != SRC_BROADCAST) {
+  if (err == HANDLE_UART_ERROR && mCommandSource != SRC_BROADCAST) {
     // Don't reply errors when commd came from broadcast
     uint8_t *rep = new uint8_t[len + 1];
     rep[0] = CMD_ERROR_REP;
@@ -776,7 +762,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
   delete[] buf;
 }
 
-void EspMeshMesh::replyHandleFrame(uint8_t *buf, uint16_t len, DataSrc src, uint32_t from) {
+void EspMeshMesh::replyHandleFrame(DataSrc src, uint8_t *buf, uint16_t len, uint32_t from, int16_t rssi) {
   // All replies go to the serial, if the serial is active
   switch (buf[0]) {
     case CMD_LOGEVENT_REP:
@@ -797,79 +783,14 @@ void EspMeshMesh::replyHandleFrame(uint8_t *buf, uint16_t len, DataSrc src, uint
   }
 }
 
-#define CMD_FLASH_GETMD5 0x01
-#define CMD_FLASH_ERASE 0x02
-#define CMD_FLASH_WRITE 0x03
-#define CMD_FLASH_EBOOT 0x04
-#define CMD_FLASH_PREPARE 0x05
-
-void EspMeshMesh::user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
-  if (singleton) {
-    singleton->user_broadcast_recv(data, size, from, rssi);
-  }
-}
-
-void EspMeshMesh::user_broadcast_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
-  // Ignore error frame frmo broadcast
-  if (size == 0 || data[0] == 0x7F)
-    return;
-  memcpy(&mBroadcastFromAddress, (uint8_t *) &from, 4);
-  memcpy(mRecvFromId, &from, 4);
-  mRssiHandle = rssi;
-  uint32_t *addr = (uint32_t *) from;
-  //LIB_LOGD(TAG, "MeshmeshComponent::user_broadcast_recv from %06lX size %d cmd %02X", *addr, size, data[0]);
-  handleFrame(data, size, SRC_BROADCAST, from);
-}
-
-void EspMeshMesh::user_broadcast2_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
-  // Ignore error frame frmo broadcast
-  if (size == 0 || data[0] == 0x7F)
-    return;
-  memcpy(mRecvFromId, (uint8_t *) &from, 4);
-  mRssiHandle = rssi;
-  LIB_LOGD(TAG, "MeshmeshComponent::user_broadcast2_recv from %06lX size %d cmd %02X", from, size, data[0]);
-  handleFrame(data, size, SRC_BROADCAST2, from);
-}
-
-void EspMeshMesh::unicastRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
-  // LIB_LOGD(TAG, "unicastRecv %d", size);
-  memcpy(mRecvFromId, (uint8_t *) &from, 4);
-  mRssiHandle = rssi;
-  handleFrame(data, size, SRC_UNICAST, from);
-}
-
-void EspMeshMesh::multipathRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path,
-                                      uint8_t pathSize) {
-  memcpy(mRecvFromId, (uint8_t *) &from, 4);
-  mRecvPathSize = pathSize;
-  if (mRecvPathSize)
-    memcpy(mRecvPath, path, mRecvPathSize * sizeof(uint32_t));
-  mRssiHandle = rssi;
-  handleFrame(data, size, SRC_MULTIPATH, from);
-}
-
-void EspMeshMesh::politeBroadcastReceive(void *arg, uint8_t *data, uint16_t size, uint32_t from) {
-  ((EspMeshMesh *) arg)->politeBroadcastReceiveCb(data, size, from);
-}
-
-void EspMeshMesh::politeBroadcastReceiveCb(uint8_t *data, uint16_t size, uint32_t from) {
-#ifdef USE_POLITE_BROADCAST_PROTOCOL
-  if (size == 0 || data[0] == 0x7F)
-    return;
-  mPoliteFromAddress = from;
-  handleFrame(data, size, SRC_POLITEBRD, from);
-#endif
-}
-
+#ifdef USE_CONNECTED_PROTOCOL
 void EspMeshMesh::onConnectedPathNewClientCb(void *arg, uint32_t from, uint16_t handle) {
   ((EspMeshMesh *) arg)->onConnectedPathNewClient(from, handle);
 }
 
 void EspMeshMesh::onConnectedPathNewClient(uint32_t from, uint16_t handle) {
-#ifdef USE_CONNECTED_PROTOCOL
   LIB_LOGD(TAG, "MeshmeshComponent::onConnectedPathNewClien %06lX:%04X", from, handle);
   mConnectedPath->setReceiveCallback(onConnectedPathReceiveCb, nullptr, this, from, handle);
-#endif
 }
 
 void EspMeshMesh::onConnectedPathReceiveCb(void *arg, const uint8_t *data, uint16_t size, uint8_t connid) {
@@ -877,11 +798,10 @@ void EspMeshMesh::onConnectedPathReceiveCb(void *arg, const uint8_t *data, uint1
 }
 
 void EspMeshMesh::onConnectedPathReceive(const uint8_t *data, uint16_t size, uint8_t connid) {
-#ifdef USE_CONNECTED_PROTOCOL
   mConnectionId = connid;
-  handleFrame(data, size, SRC_CONNPATH, connid);
-#endif
+  handleFrame(SRC_CONNPATH, data, size, connid, 0);
 }
+#endif
 
 void EspMeshMesh::sendLog(int level, const char *tag, const char *payload, size_t payload_len) {
   if (mBaudRate == 0 && mLogDestination == 0)

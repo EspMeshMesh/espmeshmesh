@@ -1,3 +1,4 @@
+#ifdef USE_MESHSOCKET
 #include "meshsocket.h"
 #include "espmeshmesh.h"
 #include "log.h"
@@ -59,7 +60,7 @@ uint8_t MeshSocket::listen(SocketNewConnectionHandler handler) {
     return errSuccess;
 }
 
-int8_t MeshSocket::open(SocketType type) {     
+int8_t MeshSocket::open(SocketType type) {
     if(mParent == nullptr) {
         mParent = EspMeshMesh::getInstance();
     }
@@ -103,7 +104,7 @@ int8_t MeshSocket::open(SocketType type) {
             Unicast *unicast = mParent->unicast;
             if(unicast == nullptr) {
                 return errNoParentNetworkAvailable;
-            }   
+            }
             bool res = unicast->bindPort(mPort, std::bind(&MeshSocket::recvFromUnicast, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
             if(!res) {
                 return errProtCantBeBinded;
@@ -137,26 +138,26 @@ uint8_t MeshSocket::close() {
     }
 
     switch(mProtocol) {
-        case broadcastProtocol: 
+        case broadcastProtocol:
             {
                 Broadcast2 *broadcast2 = mParent->broadcast2;
                 if(broadcast2) broadcast2->unbindPort(mPort);
             }
             break;
-        case unicastProtocol: 
+        case unicastProtocol:
             {
                 Unicast *unicast = mParent->unicast;
                 if(unicast) unicast->unbindPort(mPort);
-            } 
+            }
             break;
-        case multipathProtocol: 
+        case multipathProtocol:
             {
                 MultiPath *multipath = mParent->multipath;
                 if(multipath) multipath->unbindPort(mPort);
             }
             break;
     }
-    
+
     mStatus = Closed;
     mProtocol = broadcastProtocol;
     mRecvHandler = nullptr;
@@ -171,7 +172,7 @@ uint8_t MeshSocket::close() {
     return 0;
 }
 
-int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler) {
+int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SentStatusHandler handler) {
     if(mStatus != Connected) {
         return errIsNotConnected;
     }
@@ -194,7 +195,7 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SocketSentStatusHan
     return 0;
 }
 
-int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, uint32_t *repeaters, SocketSentStatusHandler handler) {
+int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, uint32_t *repeaters, SentStatusHandler handler) {
     if(mStatus != Connected) {
         return errIsNotConnected;
     }
@@ -223,10 +224,6 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, uint32_t ta
     }
 
     return 0;
-}
-
-void MeshSocket::sentStatusCb(SocketSentStatusHandler handler) {
-    // TODO: Implement
 }
 
 // TODO: Implement Stream recv and receive multiple datagrams
@@ -258,10 +255,6 @@ int16_t MeshSocket::recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, i
         return errIsNotConnected;
     }
 
-    if( mType == SOCK_STREAM) {
-        return errIsNotDatagram;
-    }
-    
     if(mRecvDatagrams.size() == 0) {
         return 0;
     }
@@ -368,3 +361,4 @@ void MeshSocket::recvFromMultipath(uint8_t *data, uint16_t size, uint32_t from, 
 
 
 }  // namespace espmeshmesh
+#endif

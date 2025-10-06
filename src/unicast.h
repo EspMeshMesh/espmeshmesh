@@ -16,12 +16,6 @@ struct UnicastHeaderSt {
 } __attribute__ ((packed));
 typedef struct UnicastHeaderSt UnicastHeader;
 
-/**
- * @brief Unicast sent status handler
- * @param status true if the packet has been sent correctly, false otherwise
- */
-typedef std::function<void(bool status)> UnicastSentStatusHandler;
-
 
 /**
  * @brief Unicast packet
@@ -30,50 +24,27 @@ typedef std::function<void(bool status)> UnicastSentStatusHandler;
  */
 class UnicastPacket: public RadioPacket {
 public:
-	explicit UnicastPacket(): RadioPacket(nullptr, nullptr) {}
+	explicit UnicastPacket(PacketBufProtocol *owner, SentStatusHandler cb = nullptr): RadioPacket(owner, cb) {}
 public:
     virtual void allocClearData(uint16_t size);
 public:
 	UnicastHeader *unicastHeader() { return (UnicastHeader *)clearData(); }
 	uint8_t *unicastPayload() { return (uint8_t *)(clearData()+sizeof(UnicastHeaderSt)); }
-public:
-    void setSentStatusHandler(UnicastSentStatusHandler handler) { mSentStatusHandler = handler; }
-    UnicastSentStatusHandler sentStatusHandler() const { return mSentStatusHandler; }
-    void notifySentStatusHandler(bool status) const { if(mSentStatusHandler) mSentStatusHandler(status); }
-private:
-    UnicastSentStatusHandler mSentStatusHandler = nullptr;
 };
 
-typedef std::function<void(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi)> UnicastReceiveRadioPacketHandler;
-
-struct UnicastBindedPort_st {
-    UnicastReceiveRadioPacketHandler handler;
-    uint16_t port;
-};
-typedef UnicastBindedPort_st UnicastBindedPort_t;
 
 class Unicast: public PacketBufProtocol {
 public:
-	Unicast(PacketBuf *pbuf);
-    virtual void loop(void) override;
+	Unicast(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, SRC_UNICAST), mRecvDups() {}
+    void loop(void) override;
 public:
-    uint8_t send(UnicastPacket *pkt, uint32_t target, bool initHeader, UnicastSentStatusHandler handler);
-    uint8_t send(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, UnicastSentStatusHandler handler);
-    void receiveRadioPacket(uint8_t *p, uint16_t size, uint32_t f, int16_t  r);
-    bool isPortAvailable(uint16_t port) const;
-    bool bindPort(uint16_t port, UnicastReceiveRadioPacketHandler h);
-    void unbindPort(uint16_t port);
+    uint8_t send(UnicastPacket *pkt, uint32_t target, bool initHeader, SentStatusHandler handler = nullptr);
+    uint8_t send(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, SentStatusHandler handler = nullptr);
+    void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t  rssi) override;
+    void radioPacketSent(uint8_t status, RadioPacket *pkt) override;
 private:
-    static void radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt);
-    void radioPacketSent(uint8_t status, RadioPacket *pkt);
-private:
-    PacketBuf *packetbuf;
-    std::list<UnicastBindedPort_t> mBindedPorts;
     uint16_t mLastSequenceNum = 0;
     RecvDups mRecvDups;
-private: // For multipath
-    uint32_t *mRepeaters{nullptr};
-    uint8_t mRepeatersSize{0};
 };
 
 } // namespace espmeshmesh

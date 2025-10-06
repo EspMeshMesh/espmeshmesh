@@ -1,4 +1,5 @@
 #pragma once
+#ifdef USE_MESHSOCKET
 
 #include "packetbuf.h"
 #include <functional>
@@ -30,10 +31,9 @@ private:
 
 class MeshSocket {
 private:
-    enum SocketProtocol {broadcastProtocol, unicastProtocol, multipathProtocol, politeProtocol, connpathProtocol};
+    enum SocketProtocol {unicastProtocol, multipathProtocol, broadcastProtocol, politeProtocol};
 public:
     enum SocketType {
-        SOCK_STREAM,  // USe to create a stream socket. 
         SOCK_DGRAM,   // Use to create a datagram socket.
         SOCK_FLOOD    // Use to create a datagram socket that will flood the network.
     };
@@ -68,9 +68,9 @@ public:
      * @brief Maximum number of repeaters allowed for a socket
      */
     static const uint8_t maxRepeaters = 16;
-    
+
     /**
-     * @brief Create a new socket that will send and receive data from the target. 
+     * @brief Create a new socket that will send and receive data from the target.
      * If the target is the broadcast address, the socket will send and receive data to all neighboors.
      * @param port Port to use for the socket
      * @param target Target to send data to
@@ -91,7 +91,7 @@ public:
      * @brief Return true if the target address is the broadcast address
      * @return True if the target address is the broadcast address
      */
-    bool isBradcastTarget() const { return mTarget == broadCastAddress; }
+    bool isBroadcastTarget() const { return mTarget == broadCastAddress; }
     /**
      * @brief Return the status of the socket
      * @return Status of the socket
@@ -115,12 +115,12 @@ public:
      * @brief Send data to the target
      * @param data A buffer containing the data to send
      * @param size The size of the buffer
-     * @param Optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise). 
-     * this callback is prioritary over the callback set the sentStatusCb function. If this parameter is prvided the sentStatusCb 
+     * @param Optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise).
+     * this callback is prioritary over the callback set the sentStatusCb function. If this parameter is prvided the sentStatusCb
      * function will not be called for this packet.
      * @return 0 if the data is sent correctly, otherwise an error code
      */
-    int16_t send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler=nullptr);
+    int16_t send(const uint8_t *data, uint16_t size, SentStatusHandler handler=nullptr);
     /**
      * @brief Send data to the target
      * @param data A buffer containing the data to send
@@ -128,25 +128,17 @@ public:
      * @param target The address of the target node
      * @param port The destination port of this message
      * @param repeaters A list with the addresses of the repeaters to use in multipath protocol. This list must be zero terminated.
-     * @param optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise). 
-     * this callback is prioritary over the callback set the sentStatusCb function. If this parameter is prvided the sentStatusCb 
+     * @param optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise).
+     * this callback is prioritary over the callback set the sentStatusCb function. If this parameter is prvided the sentStatusCb
      * function will not be called for this packet.
      * @return 0 if the data is sent correctly, otherwise an error code
      */
-    int16_t sendDatagram(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, uint32_t *repeaters = nullptr, SocketSentStatusHandler handler=nullptr);
+    int16_t sendDatagram(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, uint32_t *repeaters = nullptr, SentStatusHandler handler=nullptr);
     /**
-     * @brief Set the sent status callback for all the packets sent from this socket. 
-     * This callback is called when a packet has been sent from radio layer. 
-     * The callback will be called with true argument if the packet has been sent correctly, otherwise with false. This callback function 
-     * is not called if a prioritary handler is provided with the send or sendDatagram functions.
-     * @param handler Sent status callback.
-     */
-    void sentStatusCb(SocketSentStatusHandler handler);
-    /**
-     * @brief Receive data from the socket the function is not blocking and will fill the buffer with the received data up to size. 
-     * If the type of socket is not SOCK_DGRAM or SOCK_FLOOD, the function will return the data coorresponding to one or more received datagrams. 
-     * IF the size of the biffer is not enough to contain the first received datagram, the function will return an error code. 
-     * If the sieze of buffer is enough, the function will return more the one datagram concatenated. If you need to receive only one datagram, 
+     * @brief Receive data from the socket the function is not blocking and will fill the buffer with the received data up to size.
+     * If the type of socket is not SOCK_DGRAM or SOCK_FLOOD, the function will return the data coorresponding to one or more received datagrams.
+     * IF the size of the biffer is not enough to contain the first received datagram, the function will return an error code.
+     * If the sieze of buffer is enough, the function will return more the one datagram concatenated. If you need to receive only one datagram,
      * you can use the recvDatagram function.
      * @param data Data to receive
      * @param size Size of the data
@@ -155,7 +147,7 @@ public:
     int16_t recv(uint8_t *data, uint16_t size);
     /**
      * @brief Receive a datagram using the opened socket, the function is not blocking and will return the last received datagram.
-     * If the socket is not opened, the function will return an error code, if the type of socket is not SOCK_DGRAM or SOCK_FLOOD, 
+     * If the socket is not opened, the function will return an error code, if the type of socket is not SOCK_DGRAM or SOCK_FLOOD,
      * the function will return an error code.
      * @param data buffer that will contain the received data
      * @param size the maximum size of the data to receive
@@ -196,7 +188,7 @@ private:
     uint32_t *mRepeaters{0};
     uint8_t mRepeatersCount{0};
     bool mIsReversePath{false};
-    // TODO: Implement SOCK_STREAM and SOCK_FLOOD
+    // TODO: Implement SOCK_FLOOD
     SocketType mType{SOCK_DGRAM};
 private:
     std::list<SocketDatagram *> mRecvDatagrams;
@@ -210,3 +202,4 @@ private:
 };
 
 } // namespace espmeshmesh
+#endif

@@ -1,5 +1,6 @@
 #pragma once
 #include "packetbuf.h"
+#include "defines.h"
 
 namespace espmeshmesh {
 
@@ -10,11 +11,9 @@ struct broadcast_header_st {
 
 typedef struct broadcast_header_st broadcast_header_t;
 
-typedef void (*breadcast_recv_cb_fn)(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-
 class BroadCastPacket: public RadioPacket {
 public:
-	explicit BroadCastPacket(pktbufSentCbFn cb, void *arg): RadioPacket(cb, arg) { setIsBroadcast(); }
+	explicit BroadCastPacket(PacketBufProtocol * owner, SentStatusHandler cb): RadioPacket(owner, cb) { setIsBroadcast(); }
 	virtual void allocClearData(uint16_t size);
 public:
 	broadcast_header_t *broadcastHeader() { return (broadcast_header_t *)clearData(); }
@@ -24,13 +23,10 @@ public:
 
 class Broadcast: public PacketBufProtocol {
 public:
-	Broadcast(PacketBuf *pbuf);
+	Broadcast(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, SRC_BROADCAST){}
 	uint8_t send(const uint8_t *data, uint16_t size);
-	void recv(uint8_t *p, uint16_t size, uint32_t from, int16_t rssi);
-	void setRecv_cb(breadcast_recv_cb_fn rx_fn);
-private:
-	PacketBuf *mPacketbuf;
-	breadcast_recv_cb_fn rx_func = nullptr;
+	void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) override;
+
 };
 
 } // namespace espmeshmesh

@@ -5,6 +5,7 @@
 #include "discovery.h"
 #include "broadcast2.h"
 #include "memringbuffer.h"
+#include "defines.h"
 
 #include <string>
 
@@ -18,11 +19,13 @@
 
 namespace espmeshmesh {
 
-typedef std::function<int8_t(uint8_t *data, uint16_t len, uint32_t from)> HandleFrameCbFn;
-typedef void (*EspHomeDataReceivedCbFn)(uint16_t, uint8_t *, uint16_t);
-
 typedef enum { WAIT_START, WAIT_DATA, WAIT_ESCAPE, WAIT_CRC16_1, WAIT_CRC16_2 } RecvState;
-typedef enum { CODE_DATA_START=0xFE, CODE_DATA_START_CRC16=0xFD, CODE_DATA_END = 0xEF, CODE_DATA_ESCAPE = 0xEA } SpcialByteCodes;
+typedef enum {
+  CODE_DATA_START = 0xFE,
+  CODE_DATA_START_CRC16 = 0xFD,
+  CODE_DATA_END = 0xEF,
+  CODE_DATA_ESCAPE = 0xEA
+} SpcialByteCodes;
 
 class Broadcast;
 class Broadcast2;
@@ -34,7 +37,10 @@ class PoliteBroadcastProtocol;
 #ifdef USE_CONNECTED_PROTOCOL
 class ConnectedPath;
 #endif
+
+#ifdef USE_MESHSOCKET
 class MeshSocket;
+#endif
 
 #define HANDLE_UART_OK 0
 #define HANDLE_UART_ERROR 1
@@ -48,17 +54,6 @@ typedef struct {
 
 class EspMeshMesh {
  public:
-  typedef enum {
-    SRC_SERIAL,
-    SRC_BROADCAST,
-    SRC_BROADCAST2,
-    SRC_UNICAST,
-    SRC_MULTIPATH,
-    SRC_POLITEBRD,
-    SRC_CONNPATH,
-    SRC_FILTER
-  } DataSrc;
-
  public:
   static EspMeshMesh *singleton;
   static EspMeshMesh *getInstance();
@@ -84,47 +79,32 @@ class EspMeshMesh {
   static void wifiInitMacAddr(uint8_t index);
   void commandReply(const uint8_t *buff, uint16_t len);
   void uartSendData(const uint8_t *buff, uint16_t len);
+
+  DataSrc lastCommandSourceProtocol() const { return mCommandSource; }
   int16_t lastPacketRssi() const { return mRssiHandle; }
-  DataSrc lastCommandSourceProtocol() const { return commandSource; }
-  bool lastCommandFromBroadcast() const { return commandSource == SRC_BROADCAST || commandSource == SRC_POLITEBRD; }
-  uint32_t broadcastFromAddress() const { return mBroadcastFromAddress; }
-  void broadCastSendData(const uint8_t *buff, uint16_t len);
+  uint32_t lastFromAddress() const { return mFromAddress; }
+  bool lastCommandFromBroadcast() const { return mCommandSource == SRC_BROADCAST || mCommandSource == SRC_POLITEBRD; }
+
   /**
    * @brief Send data using broadcast2 protocol with port selector.
    * @param buff Data to send
    * @param len Length of data to send
    * @param port Port to send data to. Data will be received only from callbacks registered with this port.
    */
-  void broadcast2SendData(const uint8_t *buff, uint16_t len, bool port);
-  /**
-   * @brief Register a callback to receive data from a specific port of broadcast2 protocol.
-   * @param port Port to register callback for
-   * @param handler Callback function
-   * @param arg Argument to pass to callback
-   */
-  void registerBroadcast2Port(uint16_t port, Broadcast2ReceiveRadioPacketHandler handler);
+  void broadcastSendData(const uint8_t *buff, uint16_t len);
+  void broadcastSendData(const uint8_t *buff, uint16_t len, uint16_t port);
   /**
    * @brief Send data using unicast protocol.
    * @param buff Data to send
    * @param len Length of data to send
    * @param addr Address to send data to
-   */
-  void uniCastSendData(const uint8_t *buff, uint16_t len, uint32_t addr);
-  /**
-   * @brief Send data using unicast protocol with port selector.
-   * @param buff Data to send
-   * @param len Length of data to send
-   * @param addr Address to send data to
    * @param port Port to send data to. Data will be received only from callbacks registered with this port.
    */
-  void unicastSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint16_t port);
+  void unicastSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint16_t port = 0);
 #ifdef USE_MULTIPATH_PROTOCOL
   void multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint8_t *path);
 #endif
-#ifdef USE_CONNECTED_PROTOCOL
-  void connectedpathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint8_t *path);
-#endif
-public:
+ public:
   static unsigned long elapsedMillis(unsigned long t2, unsigned long t1) {
     return t2 >= t1 ? t2 - t1 : (~(t1 - t2)) + 1;
   }
@@ -137,21 +117,17 @@ public:
   void flushUartTxBuffer();
 
  private:
-  void handleFrame(const uint8_t *data, uint16_t len, DataSrc src, uint32_t from);
-  void replyHandleFrame(uint8_t *buf, uint16_t len, DataSrc src, uint32_t from);
+  void handleFrame(DataSrc src, const uint8_t *data, uint16_t len, uint32_t from, int16_t rssi = 0);
+  void replyHandleFrame(DataSrc src, uint8_t *buf, uint16_t len, uint32_t from, int16_t rssi = 0);
 
  private:
-  static void user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-  void user_broadcast_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-  void user_broadcast2_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-  void unicastRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-  void multipathRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path, uint8_t pathSize);
-  static void politeBroadcastReceive(void *arg, uint8_t *data, uint16_t size, uint32_t from);
-  void politeBroadcastReceiveCb(uint8_t *data, uint16_t size, uint32_t from);
+#ifdef USE_CONNECTED_PROTOCOL
   static void onConnectedPathNewClientCb(void *arg, uint32_t from, uint16_t handle);
   void onConnectedPathNewClient(uint32_t from, uint16_t handle);
   static void onConnectedPathReceiveCb(void *arg, const uint8_t *data, uint16_t size, uint8_t connid);
   void onConnectedPathReceive(const uint8_t *data, uint16_t size, uint8_t connid);
+#endif
+
   void sendLog(int level, const char *tag, const char *payload, size_t payload_len);
 
  private:
@@ -162,7 +138,7 @@ public:
   int mRxBuffer;
 
  private:
-  DataSrc commandSource = SRC_SERIAL;
+  DataSrc mCommandSource = SRC_NONE;
   PacketBuf *packetbuf = nullptr;
   Broadcast *broadcast = nullptr;
   Broadcast2 *broadcast2 = nullptr;
@@ -195,7 +171,7 @@ public:
   RecvState mRecvState = WAIT_START;
   uint8_t *mRecvBuffer = nullptr;
   uint16_t mRecvBufferPos = 0;
-  uint8_t mRecvFromId[4];
+  uint32_t mFromAddress;
   uint8_t mRecvPath[32];
   uint8_t mRecvPathSize = 0;
 
@@ -216,16 +192,19 @@ public:
   bool mWorkAround{false};
 #endif
 
-public:
-  void addHandleFrameCb(HandleFrameCbFn cb) { mHandleFrameCbs.push_back(cb); }
-private:
-  std::list<HandleFrameCbFn> mHandleFrameCbs;
+ public:
+  void addHandleFrameCb(PacketFrameHandler cb) { mHandleFrameCbs.push_back(cb); }
 
-public:
+ private:
+  std::list<PacketFrameHandler> mHandleFrameCbs;
+
+ public:
   void setLogCb(LogCbFn cb) { setLibLogCb(cb); }
-public:
+
+ public:
+#ifdef USE_MESHSOCKET
   friend class MeshSocket;
+#endif
 };
 
 }  // namespace espmeshmesh
-
