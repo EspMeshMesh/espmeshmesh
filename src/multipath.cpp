@@ -1,7 +1,7 @@
+#include "multipath.h"
 
 #ifdef USE_MULTIPATH_PROTOCOL
 
-#include "multipath.h"
 #include "log.h"
 
 #include <cstring>
