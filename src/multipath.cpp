@@ -1,5 +1,4 @@
 #include "multipath.h"
-
 #ifdef USE_MULTIPATH_PROTOCOL
 
 #include "log.h"
