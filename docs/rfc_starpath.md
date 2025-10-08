@@ -3,26 +3,27 @@
 DRAFT DOCUMENT - WORK IN PROGRESS
 
 
-The StarPath protocol is defined to give each node if the mesh network the ability to send asynchronous messages to the coordinator.
-This protocol assumes that a packetbuf protocol is used as base protocol. This protocol will use broadcast protocol nad unicast protcol as
+The StarPath protocol is defined to give each node in the mesh network the ability to send asynchronous messages to the coordinator.
+This protocol assumes that a packetbuf protocol is used as base protocol. This protocol will use broadcast and unicast protcol as
 base protocol to self discovery and auto forming capabilities. 
 
-The protocol provides procedures and methods to give the application programs the ability to send datagram packets to the coordinator node of
-the network and the ability to receive back a reply.
+The protocol provides procedures and methods to give the application programs the ability to send datagram packets to the coordinator node of the network and the ability to receive back a reply.
 
 ## Definitions
 
 - **Node**: A generic device able to implement a StartPath protocol stack
 - **Coordinator**: A specific node that will be able receive packets from all nodes in a network.
+- **Hop**:
 - **Path**: A Sequence of nodes tha can be used to repeat the signal from the source node to the coordinator. 
-- **Association**: The association is the ability of a node to find a path the will allow the communication with the coordinator
-- **Bonding**: The bonding the ability to associate with a single coordinator network identified by the coordinator mac address.
+- **Association**: The association is the ability of a node to find the fastest path to communication with the coordinator
+- **Bonding**: Bonding is the ability to associate with a single coordinator network identified by the coordinator mac address.
 - **Transmit**: The ability of a node to send data from itself to a coordinator using a path
 - **Reply**: The ability of a coordinator to send a reply to an incoming data packet using the revere path of the transmit packet.
+- **Datagram packets**: 
 
 ## Star topology
 
-As the name state the protocol wil use a start network topology in which every node of the network will identify one (or more) path that can be used to reach the root node called coordinator. Considering the following figure N8 node can use the following path to reach the coordinator: *N8 --> N7 --> Coord* and the coordinator can reply back using the reverse of this path *Coord --> N7 --> N8* 
+As the name state the protocol wil use a star network topology in which every node of the network will identify one (or more) path that can be used to reach the root node called coordinator. Considering the following figure N8 node can use the following path to reach the coordinator: *N8 --> N7 --> Coord* and the coordinator can reply back using the reverse of this path *Coord --> N7 --> N8* 
 
 The protocol algorithm will convert a bidirectional connection graph like the following
 
@@ -36,12 +37,12 @@ in which each node know of to reach the coordinator using it's parent as repeate
 
 ## Hop definition
 
-When a node (Ex. **N4**) want to reach **N0** (Coordinator) but can't reach directly it can use an hop. In this case it will send a unicast packet to its neighbor parent **N2**.
-The node **N2** will receive an unicast packet that is not target for him but for N0 in that case the node must repeat the packets toward its parent using another unicast packet. 
-This loop is repeated until the target packet is the node N0 that will receive the packet.
+When a node (Ex. **N4**) want to reach **Coord** (Coordinator) but can't reach it directly it can use an hop. In this case it will send a unicast packet to its neighbor parent **N2**.
+The node **N2** will receive an unicast packet that is not target for him but for **Coord** in that case the node must repeat the packets toward its parent using another unicast packet. 
+This loop is repeated until the target packet is the node **Coord** that will receive the packet.
 
 
-**TODO**: The **N0** node don't know how to reply to **N4** because it don't know the path to descended the tree back to **N2** so when the packet travels up to N0 we have to keep note of every hop that the packet has done (like the breadcrumbs of hansel and gretel  :blush:) In that way the return route will be embedded in the header of the received packet. The problem of this reasoning is that we have to allocate space for the full routing table (max hops) in the header of every sent packet.
+**TODO**: The **Coord** node don't know how to reply to **N4** because it don't know the path to descended the tree back to **N2** so when the packet travels up to **Coord** we have to keep note of every hop that the packet has done (like the breadcrumbs of hansel and gretel  :blush:) In that way the return route will be embedded in the header of the received packet. The problem of this reasoning is that we have to allocate space for the full routing table (max hops) in the header of every sent packet.
 
 
 ## Routing table specification
