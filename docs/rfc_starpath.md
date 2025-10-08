@@ -24,19 +24,60 @@ To a tree connection graph
 
 in which each node know of to reach the coordinator using it's parent as repeater.
 
-
 ## Hop definition
 
 When a node (Ex. **N4**) want to reach **N0** (Coordinator) but can't reach directly it can use an hop. In this case it will send a unicast packet to its neighbor parent **N2**.
 The node **N2** will receive an unicast packet that is not target for him but for N0 in that case the node must repeat the packets toward its parent using another unicast packet. 
 This loop is repeated until the target packet is the node N0 that will receive the packet.
 
-TODO: The **N0** node don't know how to reply to **N4** because it don't know the path to descended the tree back to **N2** so when the packet travels up to N0 we have to keep note of every hop that the packet has done (like the breadcrumbs of hansel and gretel  :blush:) In that way the return route will be embedded in the header of the received packet. The problem of this reasoning is that we have to allocate space for the full routing table (max hops) in the header of every sent packet.
+
+**TODO**: The **N0** node don't know how to reply to **N4** because it don't know the path to descended the tree back to **N2** so when the packet travels up to N0 we have to keep note of every hop that the packet has done (like the breadcrumbs of hansel and gretel  :blush:) In that way the return route will be embedded in the header of the received packet. The problem of this reasoning is that we have to allocate space for the full routing table (max hops) in the header of every sent packet.
+
+
+## Routing table specification
+
+Every node can describe a remote node reachability in form a routing table. The minimum number of hops is 1 (when the target is a neighbors of the source node). The maximum number is a constant define by the protocol. This will impact the memory footprint of the protocol.
+
+| Row  |  Addr | RSSI  |
+|------|-------|-------|
+| 1    | N2    | Rssi1 |
+| 2    | N4    | Rssi2 |
+| 3    | N3    | Rssi3 |
+| 4    | N1    | Rssi4 |
+| 5    | N0    | Rssi5 |
+
+Each row in the routing table identify an address, the target address to go from the current address and an RSSI. The index of the row will be the current hops that a node will carry on:
+
+For example let say that **N5** what to reach the node **N0** using the previous routing table the path will be **N5** --> **N2** --> **N4** --> **N3** --> **N1** --> **N0**.
+
+The first row of the routing table will be representing the first hop from the node **N5** to the node **N2** the second row is the hop from the node **N2** to the node **N4** and so on.
+
+```mermaid
+---
+title: Route table memory footprint
+config:
+    packet:
+        bitsPerRow: 32
+---
+packet
++32: "address 1"
++16: "rssi 1"
++16: "unused 1"
++32: "address 2"
++16: "rssi 2"
++16: "unused 2"
++32: "address ..."
++16: "rssi ..."
++16: "unused .."
++32: "address N"
++16: "rssi N"
++16: "unused N"
+```
 
 
 ## State of the node
 
-Starpath is a state protocol this mean that the result is not only dependent from the source and the target of the protocol but it depends also from the internal state of the protocol.
+StarPath is a state protocol this mean that the result is not only dependent from the source and the target of the protocol but it depends also from the internal state of the protocol.
 
 There are two main internal states:
 
@@ -84,3 +125,4 @@ packet
 +16: "Not used"
 +32: "Data up to 1024 bytes (variable length)"
 ```
+
