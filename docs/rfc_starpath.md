@@ -1,5 +1,8 @@
 # Introduction
 
+DRAFT DOCUMENT - WORK IN PROGRESS
+
+
 The StarPath protocol is defined to give each node if the mesh network the ability to send asynchronous messages to the coordinator.
 This protocol assumes that a packetbuf protocol is used as base protocol. This protocol will use broadcast protocol nad unicast protcol as
 base protocol to self discovery and auto forming capabilities. 
@@ -20,6 +23,16 @@ To a tree connection graph
 ![Tree representation](media/starpath2.png)
 
 in which each node know of to reach the coordinator using it's parent as repeater.
+
+
+## Hop definition
+
+When a node (Ex. **N4**) want to reach **N0** (Coordinator) but can't reach directly it can use an hop. In this case it will send a unicast packet to its neighbor parent **N2**.
+The node **N2** will receive an unicast packet that is not target for him but for N0 in that case the node must repeat the packets toward its parent using another unicast packet. 
+This loop is repeated until the target packet is the node N0 that will receive the packet.
+
+TODO: The **N0** node don't know how to reply to **N4** because it don't know the path to descended the tree back to **N2** so when the packet travels up to N0 we have to keep note of every hop that the packet has done (like the breadcrumbs of hansel and gretel  :blush:) In that way the return route will be embedded in the header of the received packet. The problem of this reasoning is that we have to allocate space for the full routing table (max hops) in the header of every sent packet.
+
 
 ## State of the node
 
