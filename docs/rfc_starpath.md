@@ -10,6 +10,16 @@ base protocol to self discovery and auto forming capabilities.
 The protocol provides procedures and methods to give the application programs the ability to send datagram packets to the coordinator node of
 the network and the ability to receive back a reply.
 
+## Definitions
+
+- **Node**: A generic device able to implement a StartPath protocol stack
+- **Coordinator**: A specific node that will be able receive packets from all nodes in a network.
+- **Path**: A Sequence of nodes tha can be used to repeat the signal from the source node to the coordinator. 
+- **Association**: The association is the ability of a node to find a path the will allow the communication with the coordinator
+- **Bonding**: The bonding the ability to associate with a single coordinator network identified by the coordinator mac address.
+- **Transmit**: The ability of a node to send data from itself to a coordinator using a path
+- **Reply**: The ability of a coordinator to send a reply to an incoming data packet using the revere path of the transmit packet.
+
 ## Star topology
 
 As the name state the protocol wil use a start network topology in which every node of the network will identify one (or more) path that can be used to reach the root node called coordinator. Considering the following figure N8 node can use the following path to reach the coordinator: *N8 --> N7 --> Coord* and the coordinator can reply back using the reverse of this path *Coord --> N7 --> N8* 
@@ -102,6 +112,32 @@ There are two main internal states:
 - When a network is associated network can:
     - act as repeater for other nodes and will reply to beacons 
     - reply to beacons from other not associated nodes.
+
+
+```mermaid
+---
+title: Assciation procedure
+config:
+    stateDiagram:
+---
+stateDiagram-v2
+    direction TB
+    state "Setup procedure" as setup
+    state "Send pre beacon" as beacon
+    state "Wait acknowledgments" as wait
+    state "Routing table" as route
+    state "Send confirm" as confirm
+    state "Send post beacon" as beacon2
+    [*] --> setup
+    setup --> beacon
+    beacon --> wait
+    wait --> wait
+    wait --> route
+    route --> confirm
+    confirm --> beacon2
+    beacon2 --> [*]
+```
+
 
 Observation based on previous experiences:
 
