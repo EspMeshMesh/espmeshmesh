@@ -1,12 +1,13 @@
 #pragma once
 
 #include "packetbuf.h"
+#include "meshaddress.h"
 #include <functional>
 
 namespace espmeshmesh {
 
 typedef std::function<void(uint8_t *data, uint16_t size)> SocketReceiveHandler;
-typedef std::function<void(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi)> SocketRecvDatagramHandler;
+typedef std::function<void(uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> SocketRecvDatagramHandler;
 typedef std::function<void(bool status)> SocketSentStatusHandler;
 typedef std::function<void(uint32_t from)> SocketNewConnectionHandler;
 
@@ -63,12 +64,19 @@ public:
     /**
      * @brief Broadcast address used to send and receive data to all neighboors.
      */
+    static const uint32_t noAddress = 0;
     static const uint32_t broadCastAddress = UINT32_MAX;
+    static const uint32_t bindAllAddress = UINT32_MAX-1;
     /**
      * @brief Maximum number of repeaters allowed for a socket
      */
     static const uint8_t maxRepeaters = 16;
     
+    /**
+     * @brief Create a new datagram socket that will bind all protcols for incoming data.
+     * @param port Port t bind on all protocols
+     */
+    MeshSocket(uint8_t port);
     /**
      * @brief Create a new socket that will send and receive data from the target. 
      * If the target is the broadcast address, the socket will send and receive data to all neighboors.
@@ -121,19 +129,16 @@ public:
      * @return 0 if the data is sent correctly, otherwise an error code
      */
     int16_t send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler=nullptr);
+    
     /**
-     * @brief Send data to the target
+     * @brief Overloaded of the sendDatagram function to use a vector of repeaters
      * @param data A buffer containing the data to send
      * @param size The size of the buffer
      * @param target The address of the target node
-     * @param port The destination port of this message
-     * @param repeaters A list with the addresses of the repeaters to use in multipath protocol. This list must be zero terminated.
-     * @param optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise). 
-     * this callback is prioritary over the callback set the sentStatusCb function. If this parameter is prvided the sentStatusCb 
-     * function will not be called for this packet.
-     * @return 0 if the data is sent correctly, otherwise an error code
+     * @param optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise). \
      */
-    int16_t sendDatagram(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, uint32_t *repeaters = nullptr, SocketSentStatusHandler handler=nullptr);
+    int16_t sendDatagram(const uint8_t *data, uint16_t size, MeshAddress target, SocketSentStatusHandler handler=nullptr);
+    
     /**
      * @brief Set the sent status callback for all the packets sent from this socket. 
      * This callback is called when a packet has been sent from radio layer. 
@@ -180,8 +185,7 @@ public:
     **/
     void recvDatagramCb(SocketRecvDatagramHandler handler);
 private:
-    static SocketProtocol calcProtocolFromTarget(uint32_t target, uint32_t *repeaters);
-    static uint8_t calcRepeatersCount(uint32_t *repeaters);
+    static SocketProtocol calcProtocolFromTarget(const MeshAddress &target);
 private:
     void recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
     void recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
