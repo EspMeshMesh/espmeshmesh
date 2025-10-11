@@ -202,7 +202,7 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress
             for(uint8_t i = 0; i < repeatersCount; i++) repeatersArray[i] = target.repeaters[i];
         }
         uint8_t err = mParent->multipath->send(data, size, target.address, repeatersArray, repeatersCount, mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, target.port, handler ? handler : mSentStatusHandler);
-        delete[] repeatersArray;
+        if(repeatersArray) delete[] repeatersArray;
         if(err) {
             return errCantSendData;
         }
