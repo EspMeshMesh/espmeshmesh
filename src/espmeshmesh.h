@@ -196,7 +196,7 @@ public:
   uint8_t *mRecvBuffer = nullptr;
   uint16_t mRecvBufferPos = 0;
   uint8_t mRecvFromId[4];
-  uint8_t mRecvPath[32];
+  uint32_t mRecvPath[16];
   uint8_t mRecvPathSize = 0;
 
   Discovery mDiscovery;
