@@ -1,7 +1,10 @@
 #include "multipath.h"
-#include <cstring>
 #ifdef USE_MULTIPATH_PROTOCOL
+
 #include "log.h"
+
+#include <cstring>
+
 
 namespace espmeshmesh {
 
@@ -25,16 +28,11 @@ void MultiPathPacket::setPayload(const uint8_t *payoad) {
 	memcpy(clearData()+sizeof(MultiPathHeaderSt)+sizeof(uint32_t)*multipathHeader()->pathLength, payoad, multipathHeader()->dataLength);
 }
 
-MultiPath::MultiPath(PacketBuf *pbuf): mRecvDups() {
-	packetbuf = pbuf;
-	packetbuf->setRecvHandler(PROTOCOL_MULTIPATH, std::bind(&MultiPath::receiveRadioPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-}
-
 void MultiPath::loop() {
 	mRecvDups.loop();
 }
 
-uint8_t MultiPath::send(MultiPathPacket *pkt, bool initHeader, MultiPathSentStatusHandler handler) {
+uint8_t MultiPath::send(MultiPathPacket *pkt, bool initHeader, SentStatusHandler handler) {
 	MultiPathHeader *header = pkt->multipathHeader();
 	// Fill protocol header...
 	header->protocol = PROTOCOL_MULTIPATH;
@@ -45,22 +43,21 @@ uint8_t MultiPath::send(MultiPathPacket *pkt, bool initHeader, MultiPathSentStat
 		// If is an ACK i use the last seqno
 		header->seqno = ++mLastSequenceNum;
 		// Source of this packet
-		header->sourceAddress = packetbuf->nodeId();
+		header->sourceAddress = mPacketBuf->nodeId();
 	}
 	// Set this class as destination sent callback for retransmisisons
-	pkt->setCallback(radioPacketSentCb, this);
-	pkt->setSentStatusHandler(handler);
+	pkt->setCallback(handler);
     pkt->encryptClearData();
 	uint32_t target = header->pathIndex < header->pathLength ? pkt->getPathItem(header->pathIndex) : header->trargetAddress;
-    pkt->fill80211((uint8_t *)&target, packetbuf->nodeIdPtr());
+    pkt->fill80211((uint8_t *)&target, mPacketBuf->nodeIdPtr());
 	//LIB_LOGD(TAG, "MultiPath::send to %06X via %06X path %d/%d seq %d try %d", header->trargetAddress, target, header->pathIndex, header->pathLength, header->seqno, header->flags & MULTIPATH_FLAG_RETRANSMIT_MASK);
-	uint8_t res = packetbuf->send(pkt);
+	uint8_t res = mPacketBuf->send(pkt);
 	if(res == PKT_SEND_ERR) delete pkt;
     return res;
 }
 
-uint8_t MultiPath::send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, bool pathRev, uint8_t port, MultiPathSentStatusHandler handler) {
-	MultiPathPacket *pkt = new MultiPathPacket(nullptr, nullptr);
+uint8_t MultiPath::send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, bool pathRev, uint8_t port, SentStatusHandler handler) {
+	MultiPathPacket *pkt = new MultiPathPacket(this);
 	pkt->allocClearData(size, pathSize);
 	pkt->multipathHeader()->port = port;
 	pkt->multipathHeader()->trargetAddress = target;
@@ -69,7 +66,7 @@ uint8_t MultiPath::send(const uint8_t *data, uint16_t size, uint32_t target, uin
 	return send(pkt, true, handler);
 }
 
-void MultiPath::receiveRadioPacket(uint8_t *buf, uint16_t size, uint32_t f, int16_t  r) {
+void MultiPath::radioPacketRecv(uint8_t *buf, uint16_t size, uint32_t from, int16_t  rssi) {
 	if(size > sizeof(MultiPathHeaderSt)) {
 	    MultiPathHeader *header = (MultiPathHeader *)buf;
 		uint16_t wsize = sizeof(MultiPathHeaderSt)+header->dataLength+header->pathLength*sizeof(uint32_t);
@@ -81,21 +78,20 @@ void MultiPath::receiveRadioPacket(uint8_t *buf, uint16_t size, uint32_t f, int1
 			}
 
 			if(header->pathIndex<header->pathLength) {
-				MultiPathPacket *pkt = new MultiPathPacket(nullptr, nullptr);
+				MultiPathPacket *pkt = new MultiPathPacket(this);
 				pkt->fromRawData(buf, size);
 				pkt->multipathHeader()->pathIndex++;
 				send(pkt, false, nullptr);
 			} else {
-				for (MultiPathBindedPort_t port : mBindedPorts) {
-					if (port.port == header->port) {
-						port.handler(buf + sizeof(MultiPathHeaderSt) + sizeof(uint32_t) * header->pathLength,   // Payload is at size of the header + size of the path
-						header->dataLength, 
-						header->sourceAddress, 
-						r, 
-						buf+sizeof(MultiPathHeaderSt),  // Path is at size of the header
-						header->pathLength);
-					}
-				}
+				this->callReceiveHandler(
+					    buf + sizeof(MultiPathHeaderSt) + sizeof(uint32_t) * header->pathLength,   // Payload is at size of the header + size of the path
+						header->dataLength,
+						header->sourceAddress,
+						rssi,
+						header->port
+						//buf+sizeof(MultiPathHeaderSt),  // Path is at size of the header
+						//header->pathLength
+						);
 			}
 
 		} else {
@@ -106,42 +102,6 @@ void MultiPath::receiveRadioPacket(uint8_t *buf, uint16_t size, uint32_t f, int1
 	}
 }
 
-bool MultiPath::isPortAvailable(uint16_t port) const {
-	for (MultiPathBindedPort_t bindedPort : mBindedPorts) {
-		if (bindedPort.port == port) {
-			return false;
-		}
-	}
-	return true;
-}
-
-bool MultiPath::bindPort(uint16_t port, MultiPathReceiveRadioPacketHandler h) {
-	if(!isPortAvailable(port)) {
-		LIB_LOGE(TAG, "MultiPath::bindPort port %d already binded", port);
-		return false;
-	}
-	MultiPathBindedPort_t newhandler = {h, port};
-	mBindedPorts.push_back(newhandler);
-	return true;
-}
-
-void MultiPath::unbindPort(uint16_t port) {
-	LIB_LOGV(TAG, "MultiPath::unbindPort ports size %d", mBindedPorts.size());
-	for(std::list<MultiPathBindedPort_t>::iterator it = mBindedPorts.begin(); it != mBindedPorts.end(); it++) {
-		if (it->port == port) {
-			LIB_LOGD(TAG, "MultiPath::unbindPort port %d found", port);
-			mBindedPorts.erase(it);
-			return;
-		}
-	}
-
-	LIB_LOGE(TAG, "MultiPath::unbindPort port %d is not binded", port);
-}
-
-void MultiPath::radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt) {
-    ((MultiPath *)arg)->radioPacketSent(status, pkt);
-}
-
 void MultiPath::radioPacketSent(uint8_t status, RadioPacket *pkt) {
 	MultiPathPacket *oldpkt = (MultiPathPacket *)pkt;
 
@@ -150,19 +110,18 @@ void MultiPath::radioPacketSent(uint8_t status, RadioPacket *pkt) {
 		MultiPathHeader *header = oldpkt->multipathHeader();
         if(header != nullptr) {
 			if((header->flags & MULTIPATH_FLAG_RETRANSMIT_MASK) < MULTIPATH_MAX_RETRANSMISSIONS) {
-				MultiPathPacket *newpkt = new MultiPathPacket(radioPacketSentCb, this);
+				MultiPathPacket *newpkt = new MultiPathPacket(this);
 				newpkt->fromRawData(pkt->clearData(), pkt->clearDataSize());
 				newpkt->multipathHeader()->flags++;
-				send(newpkt, false, oldpkt->sentStatusHandler());
+				send(newpkt, false, oldpkt->getCallback());
+				return;
 			} else {
 				LIB_LOGE(TAG, "MultiPath::radioPacketSent transmission error for %06lX via %06lX path %d/%d after %d try", header->trargetAddress, pkt->target8211(), header->pathIndex, header->pathLength, header->flags & 0xF);
-				oldpkt->notifySentStatusHandler(false);
 			}
 
         }
-    } else {
-		oldpkt->notifySentStatusHandler(true);
 	}
+	pkt->callCallback(status, pkt);
 }
 
 }  // namespace espmeshmesh

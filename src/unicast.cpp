@@ -1,5 +1,6 @@
 #include "unicast.h"
 #include "log.h"
+
 #include <cstring>
 
 namespace espmeshmesh {
@@ -15,13 +16,9 @@ void UnicastPacket::allocClearData(uint16_t size) {
   unicastHeader()->lenght = size;
 }
 
-Unicast::Unicast(PacketBuf *pbuf): packetbuf(pbuf), mRecvDups() {
-  packetbuf->setRecvHandler(PROTOCOL_UNICAST, std::bind(&Unicast::receiveRadioPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-}
-
 void Unicast::loop() { mRecvDups.loop(); }
 
-uint8_t Unicast::send(UnicastPacket *pkt, uint32_t target, bool initHeader, UnicastSentStatusHandler handler) {
+uint8_t Unicast::send(UnicastPacket *pkt, uint32_t target, bool initHeader, SentStatusHandler handler) {
   UnicastHeader *header = pkt->unicastHeader();
   // Fill protocol header...
   header->protocol = PROTOCOL_UNICAST;
@@ -33,79 +30,36 @@ uint8_t Unicast::send(UnicastPacket *pkt, uint32_t target, bool initHeader, Unic
     header->seqno = ++mLastSequenceNum;
   }
   // Set this class as destination sent callback for retransmisisons
-  pkt->setSentStatusHandler(handler);
-  pkt->setCallback(radioPacketSentCb, this);
+  pkt->setCallback(handler);
   pkt->encryptClearData();
-  pkt->fill80211((uint8_t *) &target, packetbuf->nodeIdPtr());
-  uint8_t res = packetbuf->send(pkt);
+  pkt->fill80211((uint8_t *) &target, mPacketBuf->nodeIdPtr());
+  uint8_t res = mPacketBuf->send(pkt);
   if (res == PKT_SEND_ERR)
     delete pkt;
   return res;
 }
 
-uint8_t Unicast::send(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, UnicastSentStatusHandler handler) {
-  UnicastPacket *pkt = new UnicastPacket();
+uint8_t Unicast::send(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, SentStatusHandler handler) {
+  UnicastPacket *pkt = new UnicastPacket(this);
   pkt->allocClearData(size);
   pkt->unicastHeader()->port = port;
   memcpy(pkt->unicastPayload(), data, size);
   return send(pkt, target, true, handler);
 }
 
-void Unicast::receiveRadioPacket(uint8_t *p, uint16_t size, uint32_t f, int16_t r) {
-  UnicastHeader *header = (UnicastHeader *) p;
+void Unicast::radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) {
+  UnicastHeader *header = (UnicastHeader *) payload;
   LIB_LOGVV(TAG, "unicast_recv size=%d seq %d=%d", size, header->seqno, mLastSequenceNum);
   if (size < sizeof(UnicastHeaderSt) + header->lenght) {
     LIB_LOGE(TAG, "Unicast::recv invalid size %d but required %d", size, sizeof(UnicastHeaderSt) + header->lenght);
     return;
   }
 
-  if (mRecvDups.checkDuplicateTable(f, 0, header->seqno)) {
-    LIB_LOGE(TAG, "Unicast duplicated packet received from %06lX with seq %d", f, header->seqno);
+  if (mRecvDups.checkDuplicateTable(from, 0, header->seqno)) {
+    LIB_LOGE(TAG, "Unicast duplicated packet received from %06lX with seq %d", from, header->seqno);
     return;
   }
-
-  for (UnicastBindedPort_t port : mBindedPorts) {
-    if (port.port == header->port) {
-      port.handler(p + sizeof(UnicastHeaderSt), header->lenght, f, r);
-    }
-  }
-}
-
-bool Unicast::isPortAvailable(uint16_t port) const {
-  for (UnicastBindedPort_t bindedPort : mBindedPorts) {
-    if (bindedPort.port == port) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool Unicast::bindPort(uint16_t port, UnicastReceiveRadioPacketHandler h) {
-  if(!isPortAvailable(port)) {
-    LIB_LOGE(TAG, "Unicast::bindPort port %d already binded", port);
-    return false;
-  }
-  LIB_LOGV(TAG, "Unicast::bindPort port %d", port);
-  UnicastBindedPort_t newhandler = {h, port};
-  mBindedPorts.push_back(newhandler);
-  return true;
-}
-
-void Unicast::unbindPort(uint16_t port) {
-	LIB_LOGV(TAG, "Unicast::unbindPort ports size %d", mBindedPorts.size());
-	for(std::list<UnicastBindedPort_t>::iterator it = mBindedPorts.begin(); it != mBindedPorts.end(); it++) {
-		if (it->port == port) {
-			LIB_LOGD(TAG, "Unicast::unbindPort port %d found", port);
-			mBindedPorts.erase(it);
-			return;
-		}
-	}
-
-	LIB_LOGE(TAG, "Unicast::unbindPort port %d is not binded", port);
-}
-
-void Unicast::radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt) {
-  ((Unicast *) arg)->radioPacketSent(status, pkt);
+  this->callReceiveHandler(payload + sizeof(UnicastHeaderSt), header->lenght, from, rssi, header->port);
 }
 
 void Unicast::radioPacketSent(uint8_t status, RadioPacket *pkt) {
@@ -117,22 +71,18 @@ void Unicast::radioPacketSent(uint8_t status, RadioPacket *pkt) {
     UnicastHeader *header = oldpkt->unicastHeader();
     if (header != nullptr) {
       if ((header->flags & UNICAST_FLAG_RETRANSMIT_MASK) < UNICAST_MAX_RETRANSMISSIONS) {
-        UnicastPacket *newpkt = new UnicastPacket();
-        newpkt->setCallback(radioPacketSentCb, this);
+        UnicastPacket *newpkt = new UnicastPacket(this);
         newpkt->fromRawData(pkt->clearData(), pkt->clearDataSize());
         newpkt->unicastHeader()->flags++;
-        send(newpkt, pkt->target8211(), false, oldpkt->sentStatusHandler());
+        send(newpkt, pkt->target8211(), false, oldpkt->getCallback());
+        return;
       } else {
         LIB_LOGE(TAG, "Unicast::radioPacketSent transmission error for %06lX after %d try", pkt->target8211(),
                  header->flags & UNICAST_FLAG_RETRANSMIT_MASK);
-        // Notify error to packet creator
-        oldpkt->notifySentStatusHandler(false);
       }
     }
-  } else {
-    // Notify success to packet creator
-    oldpkt->notifySentStatusHandler(true);
   }
+  oldpkt->callCallback(status, pkt);
 }
 
 }  // namespace espmeshmesh

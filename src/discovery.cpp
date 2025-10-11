@@ -54,7 +54,7 @@ void Discovery::loop(EspMeshMesh *parent) {
     mStartCompat.mask = mStart.mask;
     mStartCompat.slotnum = mStart.slotnum;
 
-    parent->broadCastSendData((uint8_t *) &mStart, sizeof(CmdStart_t));
+    parent->broadcastSendData((uint8_t *) &mStart, sizeof(CmdStart_t));
     // parent->broadCastSendData((uint8_t *)&mStartCompat, sizeof(CmdStartCompat_t));
     // parent->broadCastSendData((uint8_t *)&mStart, sizeof(CmdStart_t));
     // parent->broadCastSendData((uint8_t *)&mStartCompat, sizeof(mStartCompat));
@@ -77,7 +77,7 @@ void Discovery::loop(EspMeshMesh *parent) {
       // FIXME: Is not true anyore beacuse the recv packet queue
       data.rssi = (int16_t) parent->lastPacketRssi();
 
-      parent->uniCastSendData((uint8_t *) &data, sizeof(BaconsData_t), parent->broadcastFromAddress());
+      parent->unicastSendData((uint8_t *) &data, sizeof(BaconsData_t), parent->lastFromAddress());
       LIB_LOGD(TAG, "Discovery::loop beacon reply end");
       mRunPhase = 0;
     }

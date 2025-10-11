@@ -1,4 +1,5 @@
 #include "connectedpath.h"
+
 #ifdef USE_CONNECTED_PROTOCOL
 #include "log.h"
 #include "espmeshmesh.h"
@@ -47,11 +48,8 @@ void ConnectedPathPacket::setTarget(uint32_t target, uint16_t handle) {
     getHeader()->sourceHandle = handle;
 }
 
-ConnectedPath::ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf): mMeshMesh(meshmesh), mPacketBuf(packetbuf), mRecvDups(), mRadioOutputBuffer(256) {
-  mPacketBuf->setRecvHandler(PROTOCOL_CONNPATH, std::bind(&ConnectedPath::receiveRadioPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-}
-
-void ConnectedPath::setup(void) {
+ConnectedPath::ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf)
+    : mMeshMesh(meshmesh), PacketBufProtocol(packetbuf, nullptr, SRC_CONNPATH), mRecvDups(), mRadioOutputBuffer(256) {
   mRadioOutputBuffer.resize(1024);
   memset((uint8_t *) mConnectsions, 0x0, sizeof(mConnectsions));
   for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++)
@@ -118,9 +116,6 @@ uint8_t ConnectedPath::sendRadioPacket(ConnectedPathPacket *pkt, bool forward, b
     // If is an ACK i use the last seqno
     header->seqno = ++mLastSequenceNum;
   }
-  // Set this class as destination sent callback for retransmisisons
-  pkt->setCallback(radioPacketSentCb, this);
-
   return sendRawRadioPacket(pkt);
 }
 
@@ -140,9 +135,11 @@ void ConnectedPath::enqueueRadioPacket(uint8_t subprot, uint8_t connid, bool for
   if (datasize > 0)
     mRadioOutputBuffer.pushData(data, datasize);
 
-  LIB_LOGD(TAG, "ConnectedPath::enqueueRadioPacket prot %d connid %d size %d from %06X:%04X %s to %06X:%04X", subprot,
-           connid, datasize, mConnectsions[connid].sourceAddr, mConnectsions[connid].sourceHandle, FORWARD2TXT(forward),
-           mConnectsions[connid].destAddr, mConnectsions[connid].destHandle);
+  if (subprot != CONNPATH_SEND_DATA) {
+    LIB_LOGD(TAG, "ConnectedPath::enqueueRadioPacket prot %d connid %d size %d from %06X:%04X %s to %06X:%04X", subprot,
+              connid, datasize, mConnectsions[connid].sourceAddr, mConnectsions[connid].sourceHandle, FORWARD2TXT(forward),
+              mConnectsions[connid].destAddr, mConnectsions[connid].destHandle);
+  }
 }
 
 void ConnectedPath::enqueueRadioDataTo(const uint8_t *data, uint16_t size, uint8_t connid, bool forward) {
@@ -236,14 +233,14 @@ uint8_t ConnectedPath::receiveUartPacket(uint8_t *data, uint16_t size) {
  * @param source - The source address of the packet.
  * @param rssi - The RSSI of the packet.
  */
-void ConnectedPath::receiveRadioPacket(uint8_t *data, uint16_t size, uint32_t source, int16_t rssi) {
+void ConnectedPath::radioPacketRecv(uint8_t *data, uint16_t size, uint32_t source, int16_t rssi) {
   if (size >= sizeof(ConnectedPathHeaderSt)) {
     ConnectedPathHeader_t *header = (ConnectedPathHeader_t *) data;
     uint8_t *payload = data + sizeof(ConnectedPathHeader_t);
     uint16_t payloadSize = header->dataLength;
     if (header->subprotocol != CONNPATH_SEND_DATA) {
-      LIB_LOGD(TAG, "ConnectedPath::receiveRadioPacket cmd %02X from %06X with seq %d data %d", header->subprotocol,
-               source, header->seqno, header->dataLength);
+      LIB_LOGD(TAG, "ConnectedPath::receiveRadioPacket cmd %02X from %06X with seq %d data %d rssi %d", header->subprotocol,
+               source, header->seqno, header->dataLength, rssi);
     }
     if (mRecvDups.checkDuplicateTable(source, header->sourceHandle, header->seqno)) {
       duplicatePacketStats(source, header->sourceHandle, header->seqno);
@@ -280,7 +277,7 @@ void ConnectedPath::setReceiveCallback(ConnectedPathReceiveHandler recvCb, Conne
     conn->disconnect = discCb;
     conn->arg = arg;
   } else {
-    LIB_LOGE(TAG, "ConnectedPath::setReceiveCallback %06lX:%04X handle not found", from, handle);
+    LIB_LOGE(TAG, "ConnectedPath::setReceiveCallback %06X:%04X handle not found", from, handle);
   }
 }
 
@@ -294,10 +291,6 @@ bool ConnectedPath::isConnectionActive(uint32_t from, uint16_t handle) const {
   return findConnection(from, handle) != nullptr;
 }
 
-void ConnectedPath::radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt) {
-  ((ConnectedPath *) arg)->radioPacketSent(status, pkt);
-}
-
 void ConnectedPath::radioPacketSent(uint8_t status, RadioPacket *pkt) {
   if (status) {
     // Handle transmission error onyl with packets with clean data
@@ -305,7 +298,7 @@ void ConnectedPath::radioPacketSent(uint8_t status, RadioPacket *pkt) {
     ConnectedPathHeader_t *header = oldpkt->getHeader();
     if (header != nullptr) {
       if ((header->flags & CONNPATH_FLAG_RETRANSMIT_MASK) < CONNPATH_MAX_RETRANSMISSIONS) {
-        mRetransmitPacket = new ConnectedPathPacket(radioPacketSentCb, this);
+        mRetransmitPacket = new ConnectedPathPacket(this, nullptr);
         mRetransmitPacket->fromRawData(pkt->clearData(), pkt->clearDataSize());
         mRetransmitPacket->getHeader()->flags++;
         mRetransmitPacket->setTarget(oldpkt->getTarget(), oldpkt->getHandle());
@@ -335,7 +328,7 @@ void ConnectedPath::radioPacketError(uint32_t address, uint16_t handle, uint8_t 
       connid, mConnectsions[connid].sourceAddr, mConnectsions[connid].sourceHandle, FORWARD2TXT(forward),
       mConnectsions[connid].destAddr, mConnectsions[connid].destHandle);
   } else {
-    LIB_LOGE(TAG, "ConnectedPath::radioPacketError %06lX:%04X handle for this packet is not found", address, handle);
+    LIB_LOGE(TAG, "ConnectedPath::radioPacketError %06X:%04X handle for this packet is not found", address, handle);
   }
 }
 
@@ -350,7 +343,7 @@ void ConnectedPath::openConnection(uint32_t from, uint16_t handle, uint16_t data
   uint16_t port = uint16FromBuffer(data);
   uint8_t pathLen = data[2];
 
-  LIB_LOGD(TAG, "ConnectedPath::openConnection from %06lX:%04X port %d pathLen %d", from, handle, port, pathLen);
+  LIB_LOGD(TAG, "ConnectedPath::openConnection from %06X:%04X port %d pathLen %d", from, handle, port, pathLen);
   if (datasize >= pathLen * sizeof(uint32_t) + 3) {
     uint8_t connid = connectionGetFirstInvalid();
 
@@ -368,7 +361,7 @@ void ConnectedPath::openConnection(uint32_t from, uint16_t handle, uint16_t data
         conn->destAddr = nextAddress;
         conn->destHandle = mNextHandle++;
         // Forrward OPEN_CONNECTION request
-        LIB_LOGD(TAG, "ConnectedPath::openConnection req %06lX:%04X[%02X]", conn->destAddr, conn->destHandle, connid);
+        LIB_LOGD(TAG, "ConnectedPath::openConnection req %06X:%04X[%02X]", conn->destAddr, conn->destHandle, connid);
         uint16_t newdatasize = newPathLen * sizeof(uint32_t) + 3;
         uint8_t *newdata = new uint8_t[newdatasize];
         uint16toBuffer(newdata, port);
@@ -397,7 +390,7 @@ void ConnectedPath::openConnection(uint32_t from, uint16_t handle, uint16_t data
         }
       }
     } else {
-      LIB_LOGE(TAG, "ConnectedPath::openConnectionNack not enough connections for %06lX:%04X", from, handle);
+      LIB_LOGE(TAG, "ConnectedPath::openConnection not enough connections for %06X:%04X", from, handle);
       sendPacket(CONNPATH_OPEN_CONNECTION_NACK, connid, REVERSE, 0, nullptr);
     }
   }
@@ -407,12 +400,12 @@ void ConnectedPath::openConnectionNack(uint32_t from, uint16_t handle) {
   bool forward;
   uint8_t connid = findConnectionIndex(from, handle, &forward);
   if (CONN_OPERATIVE(connid)) {
-    LIB_LOGD(TAG, "ConnectedPath::openConnectionNack from %06lX:%04X connid %d direction %s", from, handle, connid,
+    LIB_LOGD(TAG, "ConnectedPath::openConnectionNack from %06X:%04X connid %d direction %s", from, handle, connid,
              FORWARD2TXT(forward));
     sendPacket(CONNPATH_OPEN_CONNECTION_NACK, connid, forward, 0, nullptr);
     connectionSetInoperative(connid);
   } else {
-    LIB_LOGE(TAG, "ConnectedPath::openConnectionNack invalid handle %06lX:%04X", from, handle);
+    LIB_LOGE(TAG, "ConnectedPath::openConnectionNack invalid handle %06X:%04X", from, handle);
     // Open connection nack is expected to be received by the client and travel back to the coordinator
     // But we loose the connection to the coordinator we do nothing
   }
@@ -422,12 +415,12 @@ void ConnectedPath::openConnectionAck(uint32_t from, uint16_t handle) {
   bool direction;
   uint8_t connid = findConnectionIndex(from, handle, &direction);
   if (CONN_OPERATIVE(connid)) {
-    LIB_LOGD(TAG, "ConnectedPath::openConnectionAck from %06lX:%04X connid %02X direction %s", from, handle, connid,
+    LIB_LOGD(TAG, "ConnectedPath::openConnectionAck from %06X:%04X connid %02X direction %s", from, handle, connid,
              FORWARD2TXT(direction));
     mConnectsions[connid].lastTime = millis();
     sendPacket(CONNPATH_OPEN_CONNECTION_ACK, connid, direction, 0, nullptr);
   } else {
-    LIB_LOGE(TAG, "ConnectedPath::openConnectionAck on invalid connection from %06lX:%04X", from, handle);
+    LIB_LOGE(TAG, "ConnectedPath::openConnectionAck on invalid connection from %06X:%04X", from, handle);
     // Open connection ack is expected to be received by the client and travel back to the coordinator
     // But we loose the connection to the coordinator we have to close the client connection
     // FIXME: sendImmediatePacket(CONNPATH_DISCONNECT_ACK, from, handle, 0, nullptr);
@@ -438,17 +431,17 @@ void ConnectedPath::disconnect(uint32_t from, uint16_t handle) {
   bool direction;
   int8_t connid = findConnectionIndex(from, handle, &direction);
   if (CONN_OPERATIVE(connid)) {
-    LIB_LOGI(TAG, "ConnectedPath::disconnect connid %d from %06lX:%04X direction %s", connid, from, handle,
+    LIB_LOGI(TAG, "ConnectedPath::disconnect connid %d from %06X:%04X direction %s", connid, from, handle,
              FORWARD2TXT(direction));
     if (sendPacket(CONNPATH_DISCONNECT_REQ, connid, direction, 0, nullptr)) {
       if (mConnectsions[connid].disconnect != nullptr)
         mConnectsions[connid].disconnect(mConnectsions[connid].arg);
       else
-        LIB_LOGE(TAG, "ConnectedPath::disconnect no disconnect callback for %06lX:%04X", from, handle);
+        LIB_LOGE(TAG, "ConnectedPath::disconnect no disconnect callback for %06X:%04X", from, handle);
     }
     connectionSetInoperative(connid);
   } else {
-    LIB_LOGE(TAG, "ConnectedPath::disconnect invalid handle %06lX:%04X", from, handle);
+    LIB_LOGE(TAG, "ConnectedPath::disconnect invalid handle %06X:%04X", from, handle);
     // Disconnect request can either from the client or from the coordinator.
     // But we already lost the connection we can't propagate the disconnect request
   }
@@ -464,10 +457,10 @@ void ConnectedPath::sendData(const uint8_t *buffer, uint16_t size, uint32_t sour
       if (mConnectsions[connidx].receive != nullptr)
         mConnectsions[connidx].receive(mConnectsions[connidx].arg, buffer, size, connidx);
       else
-        LIB_LOGE(TAG, "ConnectedPath::sendData no receive callback for %06lX:%04X", source, handle);
+        LIB_LOGE(TAG, "ConnectedPath::sendData no receive callback for %06X:%04X", source, handle);
     }
   } else {
-    LIB_LOGE(TAG, "ConnectedPath::sendData on invalid connection from %06lX:%04X", source, handle);
+    LIB_LOGE(TAG, "ConnectedPath::sendData on invalid connection from %06X:%04X", source, handle);
     // No handle for this data transmisison i send back a NACK
     sendImmediatePacket(CONNPATH_SEND_DATA_NACK, source, handle, 0, nullptr);
   }
@@ -483,8 +476,7 @@ void ConnectedPath::sendDataNack(uint32_t source, uint16_t sourceHandle) {
   bool forward;
   int8_t connid = findConnectionIndex(source, sourceHandle, &forward);
   if (CONN_OPERATIVE(connid)) {
-    LIB_LOGD(TAG, "ConnectedPath::sendDataNack connid %d source %06lX:%04X direction %s", connid, source,
-             FORWARD2TXT(forward));
+    LIB_LOGD(TAG, "ConnectedPath::sendDataNack connid %d source %06X:%04X direction %s", connid, source, sourceHandle, FORWARD2TXT(forward));
     sendPacket(CONNPATH_SEND_DATA_NACK, connid, forward, 0, nullptr);
     connectionSetInoperative(connid);
   }
@@ -591,11 +583,11 @@ void ConnectedPath::processOutputBuffer() {
     if (CONN_EXISTS(lastHeader.connId)) {
       ConnectedPathConnections *conn = mConnectsions + lastHeader.connId;
       ConnectedPathPacket *pkt =
-          cratePacket(lastHeader.subProtocol, bufferTotalSize, lastHeader.forward ? conn->destAddr : conn->sourceAddr,
-                      lastHeader.forward ? conn->destHandle : conn->sourceHandle, buffer);
+          createPacket(lastHeader.subProtocol, bufferTotalSize, lastHeader.forward ? conn->destAddr : conn->sourceAddr,
+                       lastHeader.forward ? conn->destHandle : conn->sourceHandle, buffer);
       LIB_LOGVV(TAG, "ConnectedPath::processOutputBuffer prot %d num packets %d tot size %d after %dms",
-               lastHeader.subProtocol, numPktProcessed, bufferTotalSize,
-               EspMeshMesh::elapsedMillis(now, lastHeader.pkttime));
+                lastHeader.subProtocol, numPktProcessed, bufferTotalSize,
+                EspMeshMesh::elapsedMillis(now, lastHeader.pkttime));
       sendRadioPacket(pkt, false, true);
     } else {
       LIB_LOGE(TAG, "ConnectedPath::processOutputBuffer invalid connection id %d", lastHeader.connId);
@@ -714,9 +706,9 @@ void ConnectedPath::sendUartPacket(uint8_t command, uint16_t handle, const uint8
   }
 }
 
-ConnectedPathPacket *ConnectedPath::cratePacket(uint8_t subprot, uint16_t size, uint32_t target, uint16_t handle,
-                                                const uint8_t *payload) {
-  ConnectedPathPacket *pkt = new ConnectedPathPacket(nullptr, nullptr);
+ConnectedPathPacket *ConnectedPath::createPacket(uint8_t subprot, uint16_t size, uint32_t target, uint16_t handle,
+                                                 const uint8_t *payload) {
+  ConnectedPathPacket *pkt = new ConnectedPathPacket(this, nullptr);
   pkt->allocClearData(size);
   pkt->getHeader()->subprotocol = subprot;
   pkt->setTarget(target, handle);
@@ -759,7 +751,7 @@ void ConnectedPath::sendImmediatePacket(uint8_t subprot, uint32_t destination, u
     // FIXME: send to uart if we are the coordinator. Otherwise send to client
     sendUartPacket(subprot, destinationHandle, nullptr, 0);
   } else {
-    sendRadioPacket(cratePacket(subprot, 0, destination, destinationHandle, nullptr), true, true);
+    sendRadioPacket(createPacket(subprot, 0, destination, destinationHandle, nullptr), true, true);
   }
 }
 
@@ -769,7 +761,7 @@ void ConnectedPath::debugConnection() const {
     if (mConnectsions[i].sourceAddr != CONNPATH_INVALID_ADDRESS) {
       const ConnectedPathConnections &c = mConnectsions[i];
       uint32_t t = EspMeshMesh::elapsedMillis(now, c.lastTime);
-      LIB_LOGD(TAG, "connections: %02X %06lX:%04X -> %06lX:%04X (%ld)", i, c.sourceAddr, c.sourceHandle, c.destAddr,
+      LIB_LOGD(TAG, "connections: %02X %06X:%04X -> %06X:%04X (%ld)", i, c.sourceAddr, c.sourceHandle, c.destAddr,
                c.destHandle, t);
     }
   }
