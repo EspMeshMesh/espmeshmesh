@@ -62,16 +62,11 @@ public:
     };
 
     /**
-     * @brief Broadcast address used to send and receive data to all neighboors.
-     */
-    static const uint32_t noAddress = 0;
-    static const uint32_t broadCastAddress = UINT32_MAX;
-    static const uint32_t bindAllAddress = UINT32_MAX-1;
-    /**
      * @brief Maximum number of repeaters allowed for a socket
      */
     static const uint8_t maxRepeaters = 16;
-    
+    static const uint32_t bindAllAddress = UINT32_MAX-1;
+
     /**
      * @brief Create a new datagram socket that will bind all protcols for incoming data.
      * @param port Port t bind on all protocols
@@ -99,7 +94,7 @@ public:
      * @brief Return true if the target address is the broadcast address
      * @return True if the target address is the broadcast address
      */
-    bool isBradcastTarget() const { return mTarget.address == broadCastAddress; }
+    bool isBradcastTarget() const { return mTarget.address == MeshAddress::broadCastAddress; }
     /**
      * @brief Return the status of the socket
      * @return Status of the socket
@@ -128,7 +123,7 @@ public:
      * function will not be called for this packet.
      * @return 0 if the data is sent correctly, otherwise an error code
      */
-    int16_t send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler=nullptr);
+    // int16_t send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler=nullptr);
     
     /**
      * @brief Overloaded of the sendDatagram function to use a vector of repeaters

@@ -64,11 +64,11 @@ int8_t MeshSocket::open(SocketType type) {
         return errTooManyRepeaters;
     }
 
-    if(mTarget.address == noAddress ) {
+    if(mTarget.address == MeshAddress::noAddress ) {
         return errInvalidTargetAddress;
     }
 
-    if(mTarget.address == broadCastAddress || mTarget.address == bindAllAddress) {
+    if(mTarget.address == MeshAddress::broadCastAddress || mTarget.address == bindAllAddress) {
         // Broadcast address
         Broadcast2 *broadcast2 = mParent->broadcast2;
         if(broadcast2 == nullptr) {
@@ -85,7 +85,7 @@ int8_t MeshSocket::open(SocketType type) {
         mStatus = Connected;
         mType = type;
     }
-    if((mTarget.address != broadCastAddress && mTarget.repeaters.size() == 0) || mTarget.address == bindAllAddress) {
+    if((mTarget.address != MeshAddress::broadCastAddress && mTarget.repeaters.size() == 0) || mTarget.address == bindAllAddress) {
         // Unicast address
         Unicast *unicast = mParent->unicast;
         if(unicast == nullptr) {
@@ -99,7 +99,7 @@ int8_t MeshSocket::open(SocketType type) {
         mStatus = Connected;
         mType = type;
     } 
-    if((mTarget.address != broadCastAddress && mTarget.repeaters.size() > 0) || mTarget.address == bindAllAddress) {
+    if((mTarget.address != MeshAddress::broadCastAddress && mTarget.repeaters.size() > 0) || mTarget.address == bindAllAddress) {
         // Multipath address
         MultiPath *multipath = mParent->multipath;
         if(multipath == nullptr) {
@@ -150,7 +150,7 @@ uint8_t MeshSocket::close() {
     return 0;
 }
 
-int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler) {
+/*int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler) {
     if(mStatus != Connected) {
         return errIsNotConnected;
     }
@@ -172,14 +172,14 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SocketSentStatusHan
         return errCantSendData;
     }
     return 0;
-}
+}*/
 
 int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress target, SocketSentStatusHandler handler) {
     if(mStatus != Connected) {
         return errIsNotConnected;
     }
 
-    if(target.address == noAddress) {
+    if(target.address == MeshAddress::noAddress) {
         return errInvalidTargetAddress;
     }
 
@@ -284,7 +284,7 @@ void MeshSocket::recvDatagramCb(SocketRecvDatagramHandler handler) {
 }
 
 MeshSocket::SocketProtocol MeshSocket::calcProtocolFromTarget(const MeshAddress &target) {
-    if(target.address == broadCastAddress) {
+    if(target.address == MeshAddress::broadCastAddress) {
         return broadcastProtocol;
     }
     if(target.repeaters.empty()) {

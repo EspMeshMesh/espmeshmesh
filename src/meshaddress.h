@@ -14,10 +14,17 @@ namespace espmeshmesh {
  */
 
 struct MeshAddress {
+    /**
+     * @brief Broadcast address used to send and receive data to all neighboors.
+     */
+    static const uint32_t noAddress = 0;
+    static const uint32_t broadCastAddress = UINT32_MAX;
+    
     MeshAddress(): repeaters(std::vector<uint32_t>()), address(0), port(0) {}
     MeshAddress(uint8_t port, uint32_t address): repeaters(std::vector<uint32_t>()), address(address), port(port) {}
     MeshAddress(uint8_t port, uint32_t address, std::vector<uint32_t> repeaters): repeaters(repeaters), address(address), port(port) {}
     MeshAddress(uint8_t port, uint32_t address, uint8_t *path, uint8_t pathCount, bool reversed=false);
+    bool isBroadcast() const { return address == broadCastAddress; }
     std::vector<uint32_t> repeaters;
     uint8_t port{0};
     uint32_t address{0};
