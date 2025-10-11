@@ -353,7 +353,7 @@ void MeshSocket::recvFromMultipath(uint8_t *data, uint16_t size, uint32_t from, 
         mRepeatersCount = pathSize;
     }
     if(mRecvDatagramHandler) {
-        mRecvDatagramHandler(data, size, MeshAddress(0, from, path, pathSize), rssi);
+        mRecvDatagramHandler(data, size, MeshAddress(0, from, path, pathSize, true), rssi);
     } else if(mRecvHandler) {
         mRecvHandler(data, size);
     } else {
