@@ -120,6 +120,7 @@ bool MultiPath::bindPort(uint16_t port, MultiPathReceiveRadioPacketHandler h) {
 		LIB_LOGE(TAG, "MultiPath::bindPort port %d already binded", port);
 		return false;
 	}
+	LIB_LOGV(TAG, "MultiPath::bindPort port %d", port);
 	MultiPathBindedPort_t newhandler = {h, port};
 	mBindedPorts.push_back(newhandler);
 	return true;

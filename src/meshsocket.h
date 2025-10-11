@@ -85,7 +85,7 @@ public:
      * @param type Type of socket
      * @param zero terminated array of addresses of the repeaters  to use for multihop protocols
      */
-    MeshSocket(uint8_t port, uint32_t target, uint32_t *repeaters = nullptr);
+    MeshSocket(const MeshAddress &target);
     /**
      * @brief Destructor
      */
@@ -94,12 +94,12 @@ public:
      * @brief Return the target address of the socket
      * @return Target address of the socket
      */
-    uint32_t getTargetAddress() const { return mTarget; }
+    uint32_t getTargetAddress() const { return mTarget.address; }
     /**
      * @brief Return true if the target address is the broadcast address
      * @return True if the target address is the broadcast address
      */
-    bool isBradcastTarget() const { return mTarget == broadCastAddress; }
+    bool isBradcastTarget() const { return mTarget.address == broadCastAddress; }
     /**
      * @brief Return the status of the socket
      * @return Status of the socket
@@ -193,12 +193,12 @@ private:
 private:
     EspMeshMesh *mParent{0};
 private:
-    SocketProtocol mProtocol{broadcastProtocol};
+    bool mIsBroadcast{false};
+    bool mIsUnicast{false};
+    bool mIsMultipath{false};
+private:
     StatusFlags mStatus{Closed};
-    uint8_t mPort{0};
-    uint32_t mTarget{0};
-    uint32_t *mRepeaters{0};
-    uint8_t mRepeatersCount{0};
+    MeshAddress mTarget;
     bool mIsReversePath{false};
     // TODO: Implement SOCK_STREAM and SOCK_FLOOD
     SocketType mType{SOCK_DGRAM};
