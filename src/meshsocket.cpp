@@ -23,27 +23,15 @@ SocketDatagram::~SocketDatagram() {
     delete mData;
 }
 
-MeshSocket::MeshSocket(uint8_t port, uint32_t target, uint32_t *repeaters): mPort(port), mTarget(target) {
-    if(repeaters) {
-        while(repeaters[mRepeatersCount] != 0) {
-            mRepeatersCount++;
-            if(mRepeatersCount > maxRepeaters) {
-                break;
-            }
-        }
-        mRepeaters = new uint32_t[mRepeatersCount];
-        for(uint8_t i = 0; i < mRepeatersCount; i++) {
-            mRepeaters[i] = repeaters[i];
-        }
-    }
-    LIB_LOGV(TAG, "Creating socket port %d target %06lX repeaters %d", mPort, mTarget, mRepeatersCount);
+MeshSocket::MeshSocket(uint8_t port): mTarget(MeshAddress(port, bindAllAddress)) {
+}
+
+MeshSocket::MeshSocket(const MeshAddress &target): mTarget(target) {
+    LIB_LOGV(TAG, "Creating socket port %d target %06lX repeaters %d", mTarget.port, mTarget.address, mTarget.repeaters.size());
 }
 
 MeshSocket::~MeshSocket() {
     close();
-    if(mRepeaters) {
-        delete[] mRepeaters;
-    }
 }
 
 MeshSocket::StatusFlags MeshSocket::status() const {
@@ -74,28 +62,28 @@ int8_t MeshSocket::open(SocketType type) {
         return errIsNotClosed;
     }
 
-    if(mRepeatersCount > maxRepeaters) {
+    if(mTarget.repeaters.size() > maxRepeaters) {
         return errTooManyRepeaters;
     }
 
-    if(mTarget == 0 ) {
+    if(mTarget.address == MeshAddress::noAddress ) {
         return errInvalidTargetAddress;
     }
 
-    if(mTarget == broadCastAddress) {
+    if(mTarget.address == MeshAddress::broadCastAddress || mTarget.address == bindAllAddress) {
         // Broadcast address
         Broadcast2 *broadcast2 = mParent->broadcast2;
         if(broadcast2 == nullptr) {
             return errNoParentNetworkAvailable;
         }
-        if(mRepeatersCount > 0) {
+        if(mTarget.repeaters.size() > 0) {
             return errRepeatersNotAllowed;
         }
-        bool res = broadcast2->bindPort(mPort, std::bind(&MeshSocket::recvFromBroadcast, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+        bool res = broadcast2->bindPort(mTarget.port, std::bind(&MeshSocket::recvFromBroadcast, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
         if(!res) {
             return errProtCantBeBinded;
         }
-        mProtocol = broadcastProtocol;
+        mIsBroadcast = true;
         mStatus = Connected;
         mType = type;
     } else {
@@ -160,7 +148,6 @@ uint8_t MeshSocket::close() {
     }
 
     mStatus = Closed;
-    mProtocol = broadcastProtocol;
     mRecvHandler = nullptr;
     mRecvDatagramHandler = nullptr;
     mSentStatusHandler = nullptr;
@@ -183,42 +170,49 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SentStatusHandler h
     }
 
     int8_t err = 0;
-    if(mProtocol == broadcastProtocol) {
-        err = mParent->broadcast2->send(data, size, mPort, handler ? handler : mSentStatusHandler);
-    } else if(mProtocol == unicastProtocol) {
-        err = mParent->unicast->send(data, size, mTarget, mPort, handler ? handler : mSentStatusHandler);
-    } else if(mProtocol == multipathProtocol) {
-        err = mParent->multipath->send(data, size, mTarget, mRepeaters, mIsReversePath, mRepeatersCount, mPort, handler ? handler : mSentStatusHandler);
+    SocketProtocol protocol = calcProtocolFromTarget(mTarget);
+    if(protocol == broadcastProtocol) {
+        err = mParent->broadcast2->send(data, size, mTarget.port, handler ? handler : mSentStatusHandler);
+    } else if(protocol == unicastProtocol) {
+        err = mParent->unicast->send(data, size, mTarget.address, mTarget.port, handler ? handler : mSentStatusHandler);
+    } else if(protocol == multipathProtocol) {
+        err = mParent->multipath->send(data, size, mTarget.address, mTarget.repeaters.data(), mTarget.repeaters.size(), mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, mTarget.port, handler ? handler : mSentStatusHandler);
     }
     if(err) {
         return errCantSendData;
     }
     return 0;
-}
+}*/
 
 int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, uint32_t *repeaters, SentStatusHandler handler) {
     if(mStatus != Connected) {
         return errIsNotConnected;
     }
 
-    if(target == 0) {
+    if(target.address == MeshAddress::noAddress) {
         return errInvalidTargetAddress;
     }
 
-    SocketProtocol protocol = calcProtocolFromTarget(target, repeaters);
+    SocketProtocol protocol = calcProtocolFromTarget(target);
     if(protocol == broadcastProtocol) {
-        uint8_t err = mParent->broadcast2->send(data, size, port, handler ? handler : mSentStatusHandler);
+        uint8_t err = mParent->broadcast2->send(data, size, target.port, handler ? handler : mSentStatusHandler);
         if(err) {
             return errCantSendData;
         }
     } else if(protocol == unicastProtocol) {
-        uint8_t err = mParent->unicast->send(data, size, target, port, handler ? handler : mSentStatusHandler);
+        uint8_t err = mParent->unicast->send(data, size, target.address, target.port, handler ? handler : mSentStatusHandler);
         if(err) {
             return errCantSendData;
         }
     } else if(protocol == multipathProtocol) {
-        uint8_t repeatersCount = calcRepeatersCount(repeaters);
-        uint8_t err = mParent->multipath->send(data, size, target, repeaters, false, repeatersCount, port, handler ? handler : mSentStatusHandler);
+        uint8_t repeatersCount = target.repeaters.size();
+        uint32_t *repeatersArray = nullptr;
+        if(repeatersCount > 0) {
+            repeatersArray = new uint32_t[repeatersCount];
+            for(uint8_t i = 0; i < repeatersCount; i++) repeatersArray[i] = target.repeaters[i];
+        }
+        uint8_t err = mParent->multipath->send(data, size, target.address, repeatersArray, repeatersCount, mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, target.port, handler ? handler : mSentStatusHandler);
+        if(repeatersArray) delete[] repeatersArray;
         if(err) {
             return errCantSendData;
         }
@@ -290,29 +284,19 @@ void MeshSocket::recvDatagramCb(SocketRecvDatagramHandler handler) {
     mRecvDatagramHandler = handler;
 }
 
-MeshSocket::SocketProtocol MeshSocket::calcProtocolFromTarget(uint32_t target, uint32_t *repeaters) {
-    if(target == broadCastAddress) {
+MeshSocket::SocketProtocol MeshSocket::calcProtocolFromTarget(const MeshAddress &target) {
+    if(target.address == MeshAddress::broadCastAddress) {
         return broadcastProtocol;
     }
-    if(repeaters == nullptr) {
+    if(target.repeaters.empty()) {
         return unicastProtocol;
     }
     return multipathProtocol;
 }
 
-uint8_t MeshSocket::calcRepeatersCount(uint32_t *repeaters) {
-    uint8_t count = 0;
-    if(repeaters != nullptr) {
-        while(repeaters[count] != 0) {
-            count++;
-        }
-    }
-    return count;
-}
-
 void MeshSocket::recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
     if(mRecvDatagramHandler) {
-        mRecvDatagramHandler(data, size, from, rssi);
+        mRecvDatagramHandler(data, size, MeshAddress(0, from), rssi);
     } else if(mRecvHandler) {
         mRecvHandler(data, size);
     } else {
@@ -328,7 +312,7 @@ void MeshSocket::recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, 
 
 void MeshSocket::recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
     if(mRecvDatagramHandler) {
-        mRecvDatagramHandler(data, size, from, rssi);
+        mRecvDatagramHandler(data, size, MeshAddress(0, from), rssi);
     } else if(mRecvHandler) {
         mRecvHandler(data, size);
     } else {
@@ -342,12 +326,8 @@ void MeshSocket::recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, in
 }
 
 void MeshSocket::recvFromMultipath(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path, uint8_t pathSize) {
-    if(mRepeatersCount != pathSize) {
-        memcpy(mRepeaters, path, pathSize * sizeof(uint32_t));
-        mRepeatersCount = pathSize;
-    }
     if(mRecvDatagramHandler) {
-        mRecvDatagramHandler(data, size, from, rssi);
+        mRecvDatagramHandler(data, size, MeshAddress(0, from, path, pathSize, true), rssi);
     } else if(mRecvHandler) {
         mRecvHandler(data, size);
     } else {

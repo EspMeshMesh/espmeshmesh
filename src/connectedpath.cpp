@@ -55,6 +55,9 @@ ConnectedPath::ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf)
   for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++)
     connectionSetInvalid(i);
   mConnectionsCheckTime = millis();
+#if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_VERY_VERBOSE
+  mRecvDups.setDebug(true);
+#endif
 }
 
 void ConnectedPath::loop() {
@@ -200,10 +203,10 @@ void ConnectedPath::closeAllConnections() {
  * @param size - The size of the packet data.
  * @return uint8_t - The result of the operation. 0 if successful, 1 if not.
  */
-uint8_t ConnectedPath::receiveUartPacket(uint8_t *data, uint16_t size) {
+uint8_t ConnectedPath::receiveUartPacket(const uint8_t *data, uint16_t size) {
   if (size >= sizeof(ConnectedPathHeaderSt)) {
     ConnectedPathHeader_t *header = (ConnectedPathHeader_t *) data;
-    uint8_t *payload = data + sizeof(ConnectedPathHeaderSt);
+    const uint8_t *payload = data + sizeof(ConnectedPathHeaderSt);
     uint16_t payloadSize = header->dataLength;
     // LIB_LOGD(TAG, "ConnectedPath::receiveUartPacket size %d subp %d", size, header->subprotocol);
 
@@ -339,7 +342,7 @@ void ConnectedPath::duplicatePacketStats(uint32_t address, uint16_t handle, uint
   }
 }
 
-void ConnectedPath::openConnection(uint32_t from, uint16_t handle, uint16_t datasize, uint8_t *data) {
+void ConnectedPath::openConnection(uint32_t from, uint16_t handle, uint16_t datasize,const uint8_t *data) {
   uint16_t port = uint16FromBuffer(data);
   uint8_t pathLen = data[2];
 

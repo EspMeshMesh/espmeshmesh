@@ -28,6 +28,11 @@ void MultiPathPacket::setPayload(const uint8_t *payoad) {
 	memcpy(clearData()+sizeof(MultiPathHeaderSt)+sizeof(uint32_t)*multipathHeader()->pathLength, payoad, multipathHeader()->dataLength);
 }
 
+MultiPath::MultiPath(PacketBuf *pbuf): mRecvDups() {
+	packetbuf = pbuf;
+	packetbuf->setRecvHandler(PROTOCOL_MULTIPATH, std::bind(&MultiPath::receiveRadioPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+}
+
 void MultiPath::loop() {
 	mRecvDups.loop();
 }
@@ -61,7 +66,7 @@ uint8_t MultiPath::send(const uint8_t *data, uint16_t size, uint32_t target, uin
 	pkt->allocClearData(size, pathSize);
 	pkt->multipathHeader()->port = port;
 	pkt->multipathHeader()->trargetAddress = target;
-	for(int i=0;i<pathSize;i++) pkt->setPathItem(path[i], pathRev ? pathSize-i-1 : i);
+	for(int i=0;i<pathSize;i++) pkt->setPathItem(path[i], direction == Reverse ? pathSize-i-1 : i);
 	pkt->setPayload(data);
 	return send(pkt, true, handler);
 }
@@ -70,7 +75,7 @@ void MultiPath::radioPacketRecv(uint8_t *buf, uint16_t size, uint32_t from, int1
 	if(size > sizeof(MultiPathHeaderSt)) {
 	    MultiPathHeader *header = (MultiPathHeader *)buf;
 		uint16_t wsize = sizeof(MultiPathHeaderSt)+header->dataLength+header->pathLength*sizeof(uint32_t);
-		// LIB_LOGD(TAG, "MultiPath src %06X from %06X with seq %d data %d path %d/%d", header->trargetAddress, f, header->seqno, header->dataLength, header->pathIndex, header->pathLength);
+		LIB_LOGV(TAG, "MultiPath for %06X port %d from %06X with seq %d data %d path %d/%d", header->trargetAddress, header->port, f, header->seqno, header->dataLength, header->pathIndex, header->pathLength);
 		if(size >= wsize) {
 			if(mRecvDups.checkDuplicateTable(header->sourceAddress, 0, header->seqno)) {
 				LIB_LOGE(TAG, "MultiPath duplicated packet received from %06lX with seq %d", header->sourceAddress, header->seqno);

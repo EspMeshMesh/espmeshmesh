@@ -3,12 +3,13 @@
 
 #ifdef USE_MESHSOCKET
 #include "packetbuf.h"
+#include "meshaddress.h"
 #include <functional>
 
 namespace espmeshmesh {
 
 typedef std::function<void(uint8_t *data, uint16_t size)> SocketReceiveHandler;
-typedef std::function<void(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi)> SocketRecvDatagramHandler;
+typedef std::function<void(uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> SocketRecvDatagramHandler;
 typedef std::function<void(bool status)> SocketSentStatusHandler;
 typedef std::function<void(uint32_t from)> SocketNewConnectionHandler;
 
@@ -62,10 +63,6 @@ public:
     };
 
     /**
-     * @brief Broadcast address used to send and receive data to all neighboors.
-     */
-    static const uint32_t broadCastAddress = UINT32_MAX;
-    /**
      * @brief Maximum number of repeaters allowed for a socket
      */
     static const uint8_t maxRepeaters = 16;
@@ -78,7 +75,7 @@ public:
      * @param type Type of socket
      * @param zero terminated array of addresses of the repeaters  to use for multihop protocols
      */
-    MeshSocket(uint8_t port, uint32_t target, uint32_t *repeaters = nullptr);
+    MeshSocket(const MeshAddress &target);
     /**
      * @brief Destructor
      */
@@ -87,7 +84,7 @@ public:
      * @brief Return the target address of the socket
      * @return Target address of the socket
      */
-    uint32_t getTargetAddress() const { return mTarget; }
+    uint32_t getTargetAddress() const { return mTarget.address; }
     /**
      * @brief Return true if the target address is the broadcast address
      * @return True if the target address is the broadcast address
@@ -123,7 +120,7 @@ public:
      */
     int16_t send(const uint8_t *data, uint16_t size, SentStatusHandler handler=nullptr);
     /**
-     * @brief Send data to the target
+     * @brief Overloaded of the sendDatagram function to use a vector of repeaters
      * @param data A buffer containing the data to send
      * @param size The size of the buffer
      * @param target The address of the target node
@@ -173,8 +170,7 @@ public:
     **/
     void recvDatagramCb(SocketRecvDatagramHandler handler);
 private:
-    static SocketProtocol calcProtocolFromTarget(uint32_t target, uint32_t *repeaters);
-    static uint8_t calcRepeatersCount(uint32_t *repeaters);
+    static SocketProtocol calcProtocolFromTarget(const MeshAddress &target);
 private:
     void recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
     void recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
@@ -182,12 +178,12 @@ private:
 private:
     EspMeshMesh *mParent{0};
 private:
-    SocketProtocol mProtocol{broadcastProtocol};
+    bool mIsBroadcast{false};
+    bool mIsUnicast{false};
+    bool mIsMultipath{false};
+private:
     StatusFlags mStatus{Closed};
-    uint8_t mPort{0};
-    uint32_t mTarget{0};
-    uint32_t *mRepeaters{0};
-    uint8_t mRepeatersCount{0};
+    MeshAddress mTarget;
     bool mIsReversePath{false};
     // TODO: Implement SOCK_FLOOD
     SocketType mType{SOCK_DGRAM};

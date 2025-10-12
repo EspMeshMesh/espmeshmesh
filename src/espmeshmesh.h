@@ -19,6 +19,9 @@
 
 namespace espmeshmesh {
 
+typedef std::function<int8_t(const uint8_t *data, uint16_t len, uint32_t from)> HandleFrameCbFn;
+typedef void (*EspHomeDataReceivedCbFn)(uint16_t, uint8_t *, uint16_t);
+
 typedef enum { WAIT_START, WAIT_DATA, WAIT_ESCAPE, WAIT_CRC16_1, WAIT_CRC16_2 } RecvState;
 typedef enum {
   CODE_DATA_START = 0xFE,
@@ -102,7 +105,7 @@ class EspMeshMesh {
    */
   void unicastSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint16_t port = 0);
 #ifdef USE_MULTIPATH_PROTOCOL
-  void multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint8_t *path);
+  void multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint32_t *path);
 #endif
  public:
   static unsigned long elapsedMillis(unsigned long t2, unsigned long t1) {
@@ -118,7 +121,7 @@ class EspMeshMesh {
 
  private:
   void handleFrame(DataSrc src, const uint8_t *data, uint16_t len, uint32_t from, int16_t rssi = 0);
-  void replyHandleFrame(DataSrc src, uint8_t *buf, uint16_t len, uint32_t from, int16_t rssi = 0);
+  void replyHandleFrame(DataSrc src, const uint8_t *buf, uint16_t len, uint32_t from, int16_t rssi = 0);
 
  private:
 #ifdef USE_CONNECTED_PROTOCOL
@@ -172,7 +175,7 @@ class EspMeshMesh {
   uint8_t *mRecvBuffer = nullptr;
   uint16_t mRecvBufferPos = 0;
   uint32_t mFromAddress;
-  uint8_t mRecvPath[32];
+  uint32_t mRecvPath[16];
   uint8_t mRecvPathSize = 0;
 
   Discovery mDiscovery;

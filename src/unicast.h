@@ -15,7 +15,6 @@ struct UnicastHeaderSt {
 	uint8_t flags;
 	uint8_t port;
 	uint16_t lenght;
-} __attribute__ ((packed));
 typedef struct UnicastHeaderSt UnicastHeader;
 
 

@@ -1,6 +1,6 @@
 #pragma once
+#include "log.h"
 #include <stdint.h>
-
 
 namespace espmeshmesh {
 
@@ -19,12 +19,20 @@ class RecvDups {
 public:
     RecvDups();
     bool checkDuplicateTable(uint32_t address, uint16_t handle, uint16_t seqno);
+#if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_VERBOSE
+    void setDebug(bool debug) { mDebug = debug; }
+    void printDuplicateTable(uint32_t now);
+#endif
     void loop();
     void clear();
 private:
     RecvDupPacket mDuplicates[TABLE_TABLE_SIZE];
     int mDuplicateTableSize = TABLE_TABLE_SIZE;
     uint32_t mDuplicateTableTime = 0;
+#if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_VERBOSE
+    bool mDebug = false;
+    uint32_t mLastPrintTime = 0;
+#endif
 };
 
 } // namespace espmeshmesh

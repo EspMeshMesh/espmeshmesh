@@ -7,6 +7,10 @@ void BroadCastPacket::allocClearData(uint16_t size) {
 	RadioPacket::allocClearData(size+sizeof(broadcast_header_st));
 }
 
+Broadcast::Broadcast(PacketBuf *pbuf): mPacketbuf(pbuf) {
+	mPacketbuf->setRecvHandler(PROTOCOL_BROADCAST, std::bind(&Broadcast::recv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+}
+
 uint8_t Broadcast::send(const uint8_t *data, uint16_t size) {
   BroadCastPacket *pkt = new BroadCastPacket(this, nullptr);
   pkt->allocClearData(size);

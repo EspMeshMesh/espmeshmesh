@@ -46,6 +46,7 @@ struct MultiPathBindedPort_st {
 typedef MultiPathBindedPort_st MultiPathBindedPort_t;
 
 class MultiPath: public PacketBufProtocol {
+class MultiPath: public PacketBufProtocol {
 public:
 	MultiPath(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, SRC_MULTIPATH), mRecvDups() {}
     void loop() override;

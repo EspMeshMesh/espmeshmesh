@@ -89,6 +89,7 @@ class ConnectedPathPacket : public RadioPacket {
 
 class EspMeshMesh;
 class ConnectedPath: public PacketBufProtocol {
+class ConnectedPath: public PacketBufProtocol {
  public:
   ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf);
   void loop(void) override;
@@ -113,7 +114,7 @@ class ConnectedPath: public PacketBufProtocol {
  private:
   void radioPacketError(uint32_t address, uint16_t handle, uint8_t subprot);
   void duplicatePacketStats(uint32_t address, uint16_t handle, uint16_t seqno);
-  void openConnection(uint32_t from, uint16_t handle, uint16_t datasize, uint8_t *data);
+  void openConnection(uint32_t from, uint16_t handle, uint16_t datasize, const uint8_t *data);
   void openConnectionNack(uint32_t from, uint16_t handle);
   void openConnectionAck(uint32_t from, uint16_t handle);
   void disconnect(uint32_t from, uint16_t handle);

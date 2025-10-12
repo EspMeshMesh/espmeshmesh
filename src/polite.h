@@ -50,6 +50,7 @@ private:
 };
 
 class PoliteBroadcastProtocol: public PacketBufProtocol {
+class PoliteBroadcastProtocol: public PacketBufProtocol {
 public:
     enum PoliteState { StateIdle, StateWaitEnd };
 	PoliteBroadcastProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, SRC_POLITEBRD){}
