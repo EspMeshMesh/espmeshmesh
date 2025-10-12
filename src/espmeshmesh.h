@@ -18,7 +18,7 @@
 
 namespace espmeshmesh {
 
-typedef std::function<int8_t(uint8_t *data, uint16_t len, uint32_t from)> HandleFrameCbFn;
+typedef std::function<int8_t(const uint8_t *data, uint16_t len, uint32_t from)> HandleFrameCbFn;
 typedef void (*EspHomeDataReceivedCbFn)(uint16_t, uint8_t *, uint16_t);
 
 typedef enum { WAIT_START, WAIT_DATA, WAIT_ESCAPE, WAIT_CRC16_1, WAIT_CRC16_2 } RecvState;
@@ -138,7 +138,7 @@ public:
 
  private:
   void handleFrame(const uint8_t *data, uint16_t len, DataSrc src, uint32_t from);
-  void replyHandleFrame(uint8_t *buf, uint16_t len, DataSrc src, uint32_t from);
+  void replyHandleFrame(const uint8_t *buf, uint16_t len, DataSrc src, uint32_t from);
 
  private:
   static void user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);

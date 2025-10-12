@@ -643,11 +643,8 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
   commandSource = SRC_SERIAL;
 }
 
-void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, uint32_t from) {
+void EspMeshMesh::handleFrame(const uint8_t *buf, uint16_t len, DataSrc src, uint32_t from) {
   uint8_t err = HANDLE_UART_ERROR;
-
-  uint8_t *buf = new uint8_t[len];
-  memcpy(buf, data, len);
 
   // LIB_LOGD(TAG, "MeshmeshComponent::handleFrame src %d cmd %02X:%02X len %d", src, buf[0], buf[1], len);
   // print_hex_array("handleFrame ", buf, len);
@@ -655,15 +652,17 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
   commandSource = src;
   if (buf[0] & 0x01) {
     replyHandleFrame(buf, len, src, from);
-    delete[] buf;
     return;
   }
 
   switch (buf[0]) {
     case CMD_UART_ECHO_REQ:
       if (len > 1) {
-        buf[0] = CMD_UART_ECHO_REP;
-        uartSendData(buf, len);
+        uint8_t *cpy = new uint8_t[len];
+        memcpy(cpy, buf, len);
+        cpy[0] = CMD_UART_ECHO_REP;
+        uartSendData(cpy, len);
+        delete[] cpy;
         err = 0;
       }
       break;
@@ -701,7 +700,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
         uint8_t pathlen = buf[5];
         if (len > 6 + pathlen * sizeof(uint32_t)) {
           uint16_t payloadsize = len - (6 + pathlen * sizeof(uint32_t));
-          uint8_t *payload = buf + 6 + sizeof(uint32_t) * pathlen;
+          const uint8_t *payload = buf + 6 + sizeof(uint32_t) * pathlen;
           uint32_t target = uint32FromBuffer(buf + 1);
           // We need to do this because the uint32 must be aligned to 4 bytes.
           uint32_t *path = new uint32_t[pathlen];
@@ -765,18 +764,19 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, DataSrc src, ui
     LIB_LOGE(TAG, "EspMeshMesh::handleFrame error frame %02X %02X size %d", buf[0], buf[1], len);
     delete[] rep;
   }
-
-  delete[] buf;
 }
 
-void EspMeshMesh::replyHandleFrame(uint8_t *buf, uint16_t len, DataSrc src, uint32_t from) {
+void EspMeshMesh::replyHandleFrame(const uint8_t *buf, uint16_t len, DataSrc src, uint32_t from) {
   // All replies go to the serial, if the serial is active
   switch (buf[0]) {
-    case CMD_LOGEVENT_REP:
+    case CMD_LOGEVENT_REP: {
       // Add the source to the log essage
-      memcpy(buf + 3, (uint8_t *) &from, 4);
-      uartSendData(buf, len);
-      break;
+      uint8_t *cpy = new uint8_t[len];
+      memcpy(cpy, buf, len);
+      memcpy(cpy + 3, (uint8_t *) &from, 4);
+      uartSendData(cpy, len);
+      delete[] cpy;
+    } break;
     case CMD_BEACONS_RECV:
       // Compatibility with previous discovery procedure
       if (len == sizeof(BaconsDataCompat_t)) {
@@ -789,12 +789,6 @@ void EspMeshMesh::replyHandleFrame(uint8_t *buf, uint16_t len, DataSrc src, uint
       break;
   }
 }
-
-#define CMD_FLASH_GETMD5 0x01
-#define CMD_FLASH_ERASE 0x02
-#define CMD_FLASH_WRITE 0x03
-#define CMD_FLASH_EBOOT 0x04
-#define CMD_FLASH_PREPARE 0x05
 
 void EspMeshMesh::user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
   if (singleton) {

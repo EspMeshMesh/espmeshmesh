@@ -104,7 +104,7 @@ void Discovery::clear_table(void) {
   discovery_table_index = 0;
 }
 
-uint8_t Discovery::handle_frame(uint8_t *buf, uint16_t len, EspMeshMesh *parent) {
+uint8_t Discovery::handle_frame(const uint8_t *buf, uint16_t len, EspMeshMesh *parent) {
   uint8_t err = 1;
   switch (buf[0]) {
     case DISCCMD_RESET_TABLE_REQ:
@@ -143,9 +143,10 @@ uint8_t Discovery::handle_frame(uint8_t *buf, uint16_t len, EspMeshMesh *parent)
         // Silently ignore discovery starts if we already started., master can send mutiple packets
         if (mRunPhase == 0) {
           discoveryStart(buf, len);
-          buf[0] = CMD_DISCOVERY_REP;
-          buf[1] = DISCCMD_START_REP;
-          parent->commandReply(buf, 2);
+          uint8_t rep[2];
+          rep[0] = CMD_DISCOVERY_REP;
+          rep[1] = DISCCMD_START_REP;
+          parent->commandReply(rep, 2);
         }
         err = 0;
       }
@@ -200,7 +201,7 @@ void Discovery::findMaxRssi(int16_t max, int16_t &maxRssi, uint32_t &maxRssiNode
   }
 }
 
-void Discovery::discoveryStart(uint8_t *buf, uint16_t len) {
+void Discovery::discoveryStart(const uint8_t *buf, uint16_t len) {
   uint8_t *data = ((uint8_t *) &mStart) + 1;
   memcpy(data, buf, sizeof(CmdStart_t));
   discoveryStart(mStart.slotnum);

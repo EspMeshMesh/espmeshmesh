@@ -102,7 +102,7 @@ class ConnectedPath: public PacketBufProtocol {
   void closeConnection_(uint8_t connid);
   void closeConnection(uint32_t from, uint16_t handle);
   void closeAllConnections();
-  uint8_t receiveUartPacket(uint8_t *data, uint16_t size);
+  uint8_t receiveUartPacket(const uint8_t *data, uint16_t size);
   void receiveRadioPacket(uint8_t *p, uint16_t size, uint32_t f, int16_t r);
   void setReceiveCallback(ConnectedPathReceiveHandler recvCb, ConnectedPathDisconnectHandler discCb, void *arg,
                           uint32_t from, uint16_t handle);
@@ -114,7 +114,7 @@ class ConnectedPath: public PacketBufProtocol {
   void radioPacketSent(uint8_t status, RadioPacket *pkt);
   void radioPacketError(uint32_t address, uint16_t handle, uint8_t subprot);
   void duplicatePacketStats(uint32_t address, uint16_t handle, uint16_t seqno);
-  void openConnection(uint32_t from, uint16_t handle, uint16_t datasize, uint8_t *data);
+  void openConnection(uint32_t from, uint16_t handle, uint16_t datasize, const uint8_t *data);
   void openConnectionNack(uint32_t from, uint16_t handle);
   void openConnectionAck(uint32_t from, uint16_t handle);
   void disconnect(uint32_t from, uint16_t handle);
