@@ -574,7 +574,7 @@ void EspMeshMesh::user_uart_recv_data(uint8_t byte) {
     case WAIT_CRC16_2:
       received_crc16 = received_crc16 | uint16_t(byte);
       if (computed_crc16 == received_crc16) {
-        handleFrame(mRecvBuffer, mRecvBufferPos, SRC_SERIAL, 0xFFFFFFFF);
+        handleFrame(mRecvBuffer, mRecvBufferPos, MeshAddress::SRC_SERIAL, 0xFFFFFFFF);
       } else {
         //handleFrame(mRecvBuffer, mRecvBufferPos, SRC_SERIAL, 0xFFFFFFFF);
         LIB_LOGE(TAG, "CRC16 mismatch %04X %04X", computed_crc16, received_crc16);
@@ -611,39 +611,39 @@ void EspMeshMesh::flushUartTxBuffer() {
 void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
   uint8_t err = 0;
   switch (commandSource) {
-    case SRC_SERIAL:
+    case MeshAddress::SRC_SERIAL:
       uartSendData(buff, len);
       break;
-    case SRC_BROADCAST:
-    case SRC_BROADCAST2:
-    case SRC_UNICAST:
+    case MeshAddress::SRC_BROADCAST:
+    case MeshAddress::SRC_BROADCAST2:
+    case MeshAddress::SRC_UNICAST:
       err = unicast->send(buff, len, uint32FromBuffer(mRecvFromId), UNICAST_DEFAULT_PORT, nullptr);
       break;
-    case SRC_MULTIPATH:
+    case MeshAddress::SRC_MULTIPATH:
 #ifdef USE_MULTIPATH_PROTOCOL
       err = multipath->send(buff, len, uint32FromBuffer(mRecvFromId), (uint32_t *)&mRecvPath[0], mRecvPathSize, MultiPath::Reverse, MULTIPATH_DEFAULT_PORT, nullptr);
 #endif
       break;
-    case SRC_POLITEBRD:
+    case MeshAddress::SRC_POLITEBRD:
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
       if (mPoliteFromAddress != POLITE_DEST_BROADCAST)
         mPoliteBroadcast->send(buff, len, mPoliteFromAddress);
 #endif
       break;
-    case SRC_CONNPATH:
+    case MeshAddress::SRC_CONNPATH:
 #ifdef USE_CONNECTED_PROTOCOL
       // mConnectedPath->sendDataTo(buff, len, mConnectionId);
       LIB_LOGE(TAG, "commandReply SRC_CONNPATH not handled");
 #endif
       break;
-    case SRC_FILTER:
+    case MeshAddress::SRC_FILTER:
       break;
   }
 
-  commandSource = SRC_SERIAL;
+  commandSource = MeshAddress::SRC_SERIAL;
 }
 
-void EspMeshMesh::handleFrame(const uint8_t *buf, uint16_t len, DataSrc src, uint32_t from) {
+void EspMeshMesh::handleFrame(const uint8_t *buf, uint16_t len, MeshAddress::DataSrc src, uint32_t from) {
   uint8_t err = HANDLE_UART_ERROR;
 
   // LIB_LOGD(TAG, "MeshmeshComponent::handleFrame src %d cmd %02X:%02X len %d", src, buf[0], buf[1], len);
@@ -724,7 +724,7 @@ void EspMeshMesh::handleFrame(const uint8_t *buf, uint16_t len, DataSrc src, uin
 #endif
 #ifdef USE_CONNECTED_PROTOCOL
     case CMD_CONNPATH_REQUEST:
-      if (len > 1 && src == SRC_SERIAL) {
+      if (len > 1 && src == MeshAddress::SRC_SERIAL) {
         err = mConnectedPath->receiveUartPacket(buf + 1, len - 1);
       }
       break;
@@ -737,7 +737,7 @@ void EspMeshMesh::handleFrame(const uint8_t *buf, uint16_t len, DataSrc src, uin
           if (buf[i + 1] != 0xFF && (groups[i] == 0 || (groups[i] != 0xFF && groups[i] != buf[i + 1])))
             break;
         if (i == 4) {
-          handleFrame(buf + 5, len - 5, SRC_FILTER, 0);
+          handleFrame(buf + 5, len - 5, MeshAddress::SRC_FILTER, 0);
         }
         err = 0;
       }
@@ -755,7 +755,7 @@ void EspMeshMesh::handleFrame(const uint8_t *buf, uint16_t len, DataSrc src, uin
       break;
   }
 
-  if (err == HANDLE_UART_ERROR && commandSource != SRC_BROADCAST) {
+  if (err == HANDLE_UART_ERROR && commandSource != MeshAddress::SRC_BROADCAST) {
     // Don't reply errors when commd came from broadcast
     uint8_t *rep = new uint8_t[len + 1];
     rep[0] = CMD_ERROR_REP;
@@ -766,7 +766,7 @@ void EspMeshMesh::handleFrame(const uint8_t *buf, uint16_t len, DataSrc src, uin
   }
 }
 
-void EspMeshMesh::replyHandleFrame(const uint8_t *buf, uint16_t len, DataSrc src, uint32_t from) {
+void EspMeshMesh::replyHandleFrame(const uint8_t *buf, uint16_t len, MeshAddress::DataSrc src, uint32_t from) {
   // All replies go to the serial, if the serial is active
   switch (buf[0]) {
     case CMD_LOGEVENT_REP: {
@@ -805,7 +805,7 @@ void EspMeshMesh::user_broadcast_recv(uint8_t *data, uint16_t size, uint32_t fro
   mRssiHandle = rssi;
   uint32_t *addr = (uint32_t *) from;
   //LIB_LOGD(TAG, "MeshmeshComponent::user_broadcast_recv from %06lX size %d cmd %02X", *addr, size, data[0]);
-  handleFrame(data, size, SRC_BROADCAST, from);
+  handleFrame(data, size, MeshAddress::SRC_BROADCAST, from);
 }
 
 void EspMeshMesh::user_broadcast2_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
@@ -815,14 +815,14 @@ void EspMeshMesh::user_broadcast2_recv(uint8_t *data, uint16_t size, uint32_t fr
   memcpy(mRecvFromId, (uint8_t *) &from, 4);
   mRssiHandle = rssi;
   LIB_LOGD(TAG, "MeshmeshComponent::user_broadcast2_recv from %06lX size %d cmd %02X", from, size, data[0]);
-  handleFrame(data, size, SRC_BROADCAST2, from);
+  handleFrame(data, size, MeshAddress::SRC_BROADCAST2, from);
 }
 
 void EspMeshMesh::unicastRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
   // LIB_LOGD(TAG, "unicastRecv %d", size);
   memcpy(mRecvFromId, (uint8_t *) &from, 4);
   mRssiHandle = rssi;
-  handleFrame(data, size, SRC_UNICAST, from);
+  handleFrame(data, size, MeshAddress::SRC_UNICAST, from);
 }
 
 void EspMeshMesh::multipathRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path,
@@ -832,7 +832,7 @@ void EspMeshMesh::multipathRecv(uint8_t *data, uint16_t size, uint32_t from, int
   if (mRecvPathSize)
     memcpy(mRecvPath, path, mRecvPathSize * sizeof(uint32_t));
   mRssiHandle = rssi;
-  handleFrame(data, size, SRC_MULTIPATH, from);
+  handleFrame(data, size, MeshAddress::SRC_MULTIPATH, from);
 }
 
 void EspMeshMesh::politeBroadcastReceive(void *arg, uint8_t *data, uint16_t size, uint32_t from) {
@@ -844,7 +844,7 @@ void EspMeshMesh::politeBroadcastReceiveCb(uint8_t *data, uint16_t size, uint32_
   if (size == 0 || data[0] == 0x7F)
     return;
   mPoliteFromAddress = from;
-  handleFrame(data, size, SRC_POLITEBRD, from);
+  handleFrame(data, size, MeshAddress::SRC_POLITEBRD, from);
 #endif
 }
 
@@ -866,7 +866,7 @@ void EspMeshMesh::onConnectedPathReceiveCb(void *arg, const uint8_t *data, uint1
 void EspMeshMesh::onConnectedPathReceive(const uint8_t *data, uint16_t size, uint8_t connid) {
 #ifdef USE_CONNECTED_PROTOCOL
   mConnectionId = connid;
-  handleFrame(data, size, SRC_CONNPATH, connid);
+  handleFrame(data, size, MeshAddress::DataSrc::SRC_CONNPATH, connid);
 #endif
 }
 

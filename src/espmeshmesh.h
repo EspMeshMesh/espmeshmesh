@@ -1,10 +1,11 @@
 #pragma once
+#include "meshaddress.h"
 
-#include "log.h"
 #include "packetbuf.h"
 #include "discovery.h"
 #include "broadcast2.h"
 #include "memringbuffer.h"
+#include "log.h"
 
 #include <string>
 
@@ -48,17 +49,6 @@ typedef struct {
 
 class EspMeshMesh {
  public:
-  typedef enum {
-    SRC_SERIAL,
-    SRC_BROADCAST,
-    SRC_BROADCAST2,
-    SRC_UNICAST,
-    SRC_MULTIPATH,
-    SRC_POLITEBRD,
-    SRC_CONNPATH,
-    SRC_FILTER
-  } DataSrc;
-
  public:
   static EspMeshMesh *singleton;
   static EspMeshMesh *getInstance();
@@ -85,8 +75,8 @@ class EspMeshMesh {
   void commandReply(const uint8_t *buff, uint16_t len);
   void uartSendData(const uint8_t *buff, uint16_t len);
   int16_t lastPacketRssi() const { return mRssiHandle; }
-  DataSrc lastCommandSourceProtocol() const { return commandSource; }
-  bool lastCommandFromBroadcast() const { return commandSource == SRC_BROADCAST || commandSource == SRC_POLITEBRD; }
+  MeshAddress::DataSrc lastCommandSourceProtocol() const { return commandSource; }
+  bool lastCommandFromBroadcast() const { return commandSource == MeshAddress::SRC_BROADCAST || commandSource == MeshAddress::SRC_POLITEBRD; }
   uint32_t broadcastFromAddress() const { return mBroadcastFromAddress; }
   void broadCastSendData(const uint8_t *buff, uint16_t len);
   /**
@@ -137,8 +127,8 @@ public:
   void flushUartTxBuffer();
 
  private:
-  void handleFrame(const uint8_t *data, uint16_t len, DataSrc src, uint32_t from);
-  void replyHandleFrame(const uint8_t *buf, uint16_t len, DataSrc src, uint32_t from);
+  void handleFrame(const uint8_t *data, uint16_t len, MeshAddress::DataSrc src, uint32_t from);
+  void replyHandleFrame(const uint8_t *buf, uint16_t len, MeshAddress::DataSrc src, uint32_t from);
 
  private:
   static void user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
@@ -162,7 +152,7 @@ public:
   int mRxBuffer;
 
  private:
-  DataSrc commandSource = SRC_SERIAL;
+  MeshAddress::DataSrc commandSource = MeshAddress::SRC_SERIAL;
   PacketBuf *packetbuf = nullptr;
   Broadcast *broadcast = nullptr;
   Broadcast2 *broadcast2 = nullptr;
