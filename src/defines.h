@@ -56,7 +56,7 @@ class PacketBufProtocol;
 
 typedef std::function<void(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> ReceiveHandler;
 
-typedef std::function<int8_t(const uint8_t *data, uint16_t size, MeshAddress from, int16_t rssi)> PacketFrameHandler;
+typedef std::function<int8_t(const uint8_t *data, uint16_t size,const MeshAddress &from, int16_t rssi)> PacketFrameHandler;
 
 typedef std::function<void(int8_t status, RadioPacket *pkt)> SentStatusHandler;
 

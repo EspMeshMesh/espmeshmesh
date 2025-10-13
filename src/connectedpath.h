@@ -1,5 +1,5 @@
 #pragma once
-#include "defines.h"
+#include "modules.h"
 
 #ifdef USE_CONNECTED_PROTOCOL
 
@@ -89,7 +89,6 @@ class ConnectedPathPacket : public RadioPacket {
 
 class EspMeshMesh;
 class ConnectedPath: public PacketBufProtocol {
-class ConnectedPath: public PacketBufProtocol {
  public:
   ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf);
   void loop(void) override;
@@ -101,7 +100,7 @@ class ConnectedPath: public PacketBufProtocol {
   void closeConnection_(uint8_t connid);
   void closeConnection(uint32_t from, uint16_t handle);
   void closeAllConnections();
-  uint8_t receiveUartPacket(uint8_t *data, uint16_t size);
+  uint8_t receiveUartPacket(const uint8_t *data, uint16_t size);
 
   void radioPacketRecv(uint8_t *p, uint16_t size, uint32_t f, int16_t r) override;
   void radioPacketSent(uint8_t status, RadioPacket *pkt) override;

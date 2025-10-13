@@ -49,7 +49,7 @@ void ConnectedPathPacket::setTarget(uint32_t target, uint16_t handle) {
 }
 
 ConnectedPath::ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf)
-    : mMeshMesh(meshmesh), PacketBufProtocol(packetbuf, nullptr, SRC_CONNPATH), mRecvDups(), mRadioOutputBuffer(256) {
+    : mMeshMesh(meshmesh), PacketBufProtocol(packetbuf, nullptr, MeshAddress::SRC_CONNPATH), mRecvDups(), mRadioOutputBuffer(256) {
   mRadioOutputBuffer.resize(1024);
   memset((uint8_t *) mConnectsions, 0x0, sizeof(mConnectsions));
   for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++)
