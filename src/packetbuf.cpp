@@ -295,7 +295,7 @@ void PacketBuf::recvTask(uint32_t index) {
     fromptr[2] = ieee80211_hdr->addr2[3];
     fromptr[3] = ieee80211_hdr->addr2[2];
 
-    uint8_t prot = clear[0];
+    MeshAddress::DataSrc prot = (MeshAddress::DataSrc)clear[0];
     // LIB_LOGD(TAG, "recvTask sk %d len %d prot %d", index, pktbufRecvTaskPacket[index].length, prot);
 
     if (mRecvHandler[prot] != nullptr) {
@@ -432,14 +432,13 @@ void IRAM_ATTR __attribute__((hot)) PacketBuf::rawRecv(RxPacket *pkt) {
     }
 }
 
-PacketBufProtocol::PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn, DataSrc protocol) {
+PacketBufProtocol::PacketBufProtocol(MeshAddress::DataSrc protocol, PacketBuf *pbuf, ReceiveHandler rx_fn) {
   this->mPacketBuf = pbuf;
-  this->mProtocol = protocol;
 
   if (rx_fn) {
     this->bindPort(0, rx_fn);
   }
-  if (protocol != 0) {
+  if (protocol != MeshAddress::SRC_NONE) {
     pbuf->setRecvHandler(protocol, this);
   }
 }

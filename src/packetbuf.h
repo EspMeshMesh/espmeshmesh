@@ -177,7 +177,7 @@ class RadioPacket {
  */
 class PacketBufProtocol {
 public:
- PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr, DataSrc protocol = SRC_NONE);
+ PacketBufProtocol(MeshAddress::DataSrc protocol, PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr);
  virtual ~PacketBufProtocol() {}
  virtual void setup() {};
  virtual void loop() {};
@@ -193,7 +193,6 @@ public:
 protected:
  PacketBuf *mPacketBuf{nullptr};
  std::map<uint16_t, ReceiveHandler> mBindedPorts;
- DataSrc mProtocol{SRC_NONE};
 };
 
 /**
@@ -213,7 +212,7 @@ public:
   uint8_t send(RadioPacket *pkt);
   void rawRecv(RxPacket *pkt);
   void setup(const uint8_t *aeskey, int aeskeylen);
-  void setRecvHandler(uint8_t protocol, PacketBufProtocol *handler) { this->mRecvHandler[protocol] = handler; }
+  void setRecvHandler(MeshAddress::DataSrc protocol, PacketBufProtocol *handler) { this->mRecvHandler[protocol] = handler; }
 #ifdef IDF_VER
   void loop();
 #endif
@@ -252,7 +251,7 @@ public:
   uint32_t pktbufRecvTaskIndex;
 
  private:
-  std::map<uint8_t, PacketBufProtocol *> mRecvHandler;
+  std::map<MeshAddress::DataSrc, PacketBufProtocol *> mRecvHandler;
 };
 
 }  // namespace espmeshmesh

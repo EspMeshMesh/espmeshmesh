@@ -7,8 +7,8 @@
 
 namespace espmeshmesh {
 
-typedef std::function<void(uint8_t *data, uint16_t size)> SocketReceiveHandler;
-typedef std::function<void(uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> SocketRecvDatagramHandler;
+typedef std::function<void(const uint8_t *data, uint16_t size)> SocketReceiveHandler;
+typedef std::function<void(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> SocketRecvDatagramHandler;
 typedef std::function<void(bool status)> SocketSentStatusHandler;
 typedef std::function<void(uint32_t from)> SocketNewConnectionHandler;
 
@@ -16,17 +16,17 @@ class EspMeshMesh;
 
 class SocketDatagram {
 public:
-    SocketDatagram(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
+    SocketDatagram(const uint8_t *data, uint16_t size,const MeshAddress &from, int16_t rssi);
     ~SocketDatagram();
 
     uint8_t *data() const { return mData; }
     uint16_t size() const { return mSize; }
-    uint32_t from() const { return mFrom; }
+    const MeshAddress &from() const { return mFrom; }
     int16_t rssi() const { return mRssi; }
 private:
     uint8_t *mData;
     uint16_t mSize;
-    uint32_t mFrom;
+    MeshAddress mFrom;
     int16_t mRssi;
 };
 
@@ -130,14 +130,9 @@ public:
      * @param data A buffer containing the data to send
      * @param size The size of the buffer
      * @param target The address of the target node
-     * @param port The destination port of this message
-     * @param repeaters A list with the addresses of the repeaters to use in multipath protocol. This list must be zero terminated.
-     * @param optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise).
-     * this callback is prioritary over the callback set the sentStatusCb function. If this parameter is prvided the sentStatusCb
-     * function will not be called for this packet.
-     * @return 0 if the data is sent correctly, otherwise an error code
+     * @param optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise). \
      */
-    int16_t sendDatagram(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, uint32_t *repeaters = nullptr, SentStatusHandler handler=nullptr);
+    int16_t sendDatagram(const uint8_t *data, uint16_t size, MeshAddress target, SocketSentStatusHandler handler=nullptr);
     /**
      * @brief Receive data from the socket the function is not blocking and will fill the buffer with the received data up to size.
      * If the type of socket is not SOCK_DGRAM or SOCK_FLOOD, the function will return the data coorresponding to one or more received datagrams.
@@ -159,7 +154,7 @@ public:
      * @param rssi a variable that will contain the received signal strength indication
      * @return in case of error, the function will return an error code, otherwise it will return the number of bytes received
      */
-    int16_t recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, int16_t &rssi);
+    int16_t recvDatagram(uint8_t *data, uint16_t size, MeshAddress &from, int16_t &rssi);
     /**
      * @brief Return the number of bytes available to receive
      * @return Number of bytes available to receive
@@ -178,9 +173,7 @@ public:
 private:
     static SocketProtocol calcProtocolFromTarget(const MeshAddress &target);
 private:
-    void recvFromBroadcast(DataSrc src, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-    void recvFromUnicast(DataSrc src, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-    void recvFromMultipath(DataSrc src, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
+    void recvFromProtocol(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi=0);
 private:
     EspMeshMesh *mParent{0};
 private:

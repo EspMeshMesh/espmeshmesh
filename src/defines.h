@@ -54,18 +54,6 @@ inline void uint16toBuffer(uint8_t *buffer, uint16_t value) {
 class RadioPacket;
 class PacketBufProtocol;
 
-typedef enum {
-  SRC_NONE = 0x00,
-  SRC_BROADCAST = PROTOCOL_BROADCAST,
-  SRC_BROADCAST2 = PROTOCOL_BROADCAST_V2,
-  SRC_UNICAST = PROTOCOL_UNICAST,
-  SRC_MULTIPATH = PROTOCOL_MULTIPATH,
-  SRC_POLITEBRD = PROTOCOL_POLITEBRD,
-  SRC_CONNPATH = PROTOCOL_CONNPATH,
-  SRC_FILTER = 0xfe,
-  SRC_SERIAL = 0xff,
-} DataSrc;
-
 typedef std::function<void(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> ReceiveHandler;
 
 using PacketFrameHandler = std::function<int8_t(const uint8_t *data, uint16_t size, MeshAddress from, int16_t rssi)>;
