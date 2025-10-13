@@ -1,10 +1,7 @@
 #pragma once
+#include "meshaddress.h"
 #include <cstdint>
 #include <functional>
-
-#define USE_MULTIPATH_PROTOCOL
-#define USE_POLITE_BROADCAST_PROTOCOL
-#define USE_CONNECTED_PROTOCOL
 
 namespace espmeshmesh {
 
@@ -69,18 +66,9 @@ typedef enum {
   SRC_SERIAL = 0xff,
 } DataSrc;
 
-using ReceiveHandler = std::function<void(DataSrc src, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi)>;
-// ReceiveHandler bindRecvHandler(ReceiveHandler && caller, PacketBufProtocol * owner ) {
-//   return std::bind(caller, owner, _1, _2, _3, _4, _5);
-// }
+typedef std::function<void(uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> ReceiveHandler;
 
-using PacketFrameHandler = std::function<int8_t(DataSrc src, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi)>;
-
-using ReceivePathHandler = std::function<void(DataSrc src, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi,
-                                              uint8_t *path, uint8_t pathSize)>;
-// ReceivePathHandler bindReceivePathHandler(ReceivePathHandler caller, PacketBufProtocol * owner ) {
-//   return std::bind(caller, owner, _1, _2, _3, _4, _5, _6);
-// }
+using PacketFrameHandler = std::function<int8_t(uint8_t *data, uint16_t size, MeshAddress from, int16_t rssi)>;
 
 using SentStatusHandler = std::function<void(int8_t status, RadioPacket *pkt)>;
 // SentStatusHandler bindSentStatusHandler(SentStatusHandler caller, PacketBufProtocol * owner ) {

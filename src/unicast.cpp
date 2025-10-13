@@ -16,10 +16,6 @@ void UnicastPacket::allocClearData(uint16_t size) {
   unicastHeader()->lenght = size;
 }
 
-Unicast::Unicast(PacketBuf *pbuf): packetbuf(pbuf), mRecvDups() {
-  packetbuf->setRecvHandler(PROTOCOL_UNICAST, std::bind(&Unicast::receiveRadioPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-}
-
 void Unicast::loop() { mRecvDups.loop(); }
 
 uint8_t Unicast::send(UnicastPacket *pkt, uint32_t target, bool initHeader, SentStatusHandler handler) {
@@ -63,7 +59,10 @@ void Unicast::radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, in
     LIB_LOGE(TAG, "Unicast duplicated packet received from %06lX with seq %d", from, header->seqno);
     return;
   }
-  this->callReceiveHandler(payload + sizeof(UnicastHeaderSt), header->lenght, from, rssi, header->port);
+
+  MeshAddress sourceAddress = MeshAddress(header->port, from);
+  sourceAddress.sourceProtocol = SRC_UNICAST;
+  this->callReceiveHandler(payload + sizeof(UnicastHeaderSt), header->lenght, sourceAddress, rssi);
 }
 
 void Unicast::radioPacketSent(uint8_t status, RadioPacket *pkt) {

@@ -1,5 +1,6 @@
 #pragma once
 #include "defines.h"
+#include "meshaddress.h"
 
 #ifdef IDF_VER
 #include <esp_wifi.h>
@@ -184,7 +185,7 @@ public:
  bool isPortAvailable(uint16_t port) const;
  bool bindPort(uint16_t port, ReceiveHandler handler);
  void unbindPort(uint16_t port);
- void callReceiveHandler(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi, uint16_t port = 0);
+ void callReceiveHandler(uint8_t *payload, uint16_t size,const MeshAddress &from, int16_t rssi);
 
  virtual void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) = 0;
  virtual void radioPacketSent(uint8_t status, RadioPacket *pkt) { pkt->callCallback(status, pkt); };

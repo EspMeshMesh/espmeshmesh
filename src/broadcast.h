@@ -27,7 +27,6 @@ public:
 	Broadcast(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, SRC_BROADCAST){}
 	uint8_t send(const uint8_t *data, uint16_t size);
 	void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) override;
-
 };
 
 } // namespace espmeshmesh

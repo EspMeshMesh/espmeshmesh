@@ -470,13 +470,12 @@ void PacketBufProtocol::unbindPort(uint16_t port) {
   LIB_LOGE(TAG, "unbindPort: port %d is not binded", port);
 }
 
-void PacketBufProtocol::callReceiveHandler(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi,
-                                             uint16_t port) {
-  if (!isPortAvailable(port)) {
-    LIB_LOGE(TAG, "bindPort port %d already binded", port);
+void PacketBufProtocol::callReceiveHandler(uint8_t *payload, uint16_t size, const MeshAddress &from, int16_t rssi) {
+  if (!isPortAvailable(from.port)) {
+    LIB_LOGE(TAG, "bindPort port %d already binded", from.port);
   } else {
-    auto cb = mBindedPorts[port];
-    cb(this->mProtocol, payload, size, from, rssi);
+    auto cb = mBindedPorts[from.port];
+    cb(payload, size, from, rssi);
   }
 }
 

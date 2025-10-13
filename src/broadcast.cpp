@@ -1,14 +1,11 @@
 #include "broadcast.h"
+#include "meshaddress.h"
 #include <cstring>
 
 namespace espmeshmesh {
 
 void BroadCastPacket::allocClearData(uint16_t size) {
 	RadioPacket::allocClearData(size+sizeof(broadcast_header_st));
-}
-
-Broadcast::Broadcast(PacketBuf *pbuf): mPacketbuf(pbuf) {
-	mPacketbuf->setRecvHandler(PROTOCOL_BROADCAST, std::bind(&Broadcast::recv, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
 }
 
 uint8_t Broadcast::send(const uint8_t *data, uint16_t size) {
@@ -28,7 +25,9 @@ uint8_t Broadcast::send(const uint8_t *data, uint16_t size) {
 
 void Broadcast::radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) {
   broadcast_header_t *header = (broadcast_header_t *) payload;
-  this->callReceiveHandler(payload + sizeof(broadcast_header_t), header->lenght, from, rssi);
+  MeshAddress sourceAddress = MeshAddress(0, from);
+  sourceAddress.sourceProtocol = SRC_BROADCAST;
+  this->callReceiveHandler(payload + sizeof(broadcast_header_t), header->lenght, sourceAddress, rssi);
 }
 
 }  // namespace espmeshmesh

@@ -1,5 +1,3 @@
-#ifdef USE_MESHSOCKET
-
 #include "meshsocket.h"
 #include "espmeshmesh.h"
 #include "log.h"
@@ -86,37 +84,35 @@ int8_t MeshSocket::open(SocketType type) {
         mIsBroadcast = true;
         mStatus = Connected;
         mType = type;
-    } else {
-        // Not a broadcast address
-        if(mRepeatersCount == 0) {
-            // No repeaters --> unicast
-            Unicast *unicast = mParent->unicast;
-            if(unicast == nullptr) {
-                return errNoParentNetworkAvailable;
-            }
-            bool res = unicast->bindPort(mPort, std::bind(&MeshSocket::recvFromUnicast, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-            if(!res) {
-                return errProtCantBeBinded;
-            }
-            mProtocol = unicastProtocol;
-            mStatus = Connected;
-            mType = type;
-        } else {
-            // With repeaters --> multipath
-            MultiPath *multipath = mParent->multipath;
-            if(multipath == nullptr) {
-                return errNoParentNetworkAvailable;
-            }
-            bool res = multipath->bindPort(mPort, std::bind(&MeshSocket::recvFromMultipath, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6));
-            if(!res) {
-                return errProtCantBeBinded;
-            }
-            mProtocol = multipathProtocol;
-            mStatus = Connected;
-            mType = type;
-        }
     }
-
+    if((mTarget.address != MeshAddress::broadCastAddress && mTarget.repeaters.size() == 0) || mTarget.address == bindAllAddress) {
+        // Unicast address
+        Unicast *unicast = mParent->unicast;
+        if(unicast == nullptr) {
+            return errNoParentNetworkAvailable;
+        }   
+        bool res = unicast->bindPort(mTarget.port, std::bind(&MeshSocket::recvFromUnicast, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+        if(!res) {
+            return errProtCantBeBinded;
+        }
+        mIsUnicast = true;
+        mStatus = Connected;
+        mType = type;
+    } 
+    if((mTarget.address != MeshAddress::broadCastAddress && mTarget.repeaters.size() > 0) || mTarget.address == bindAllAddress) {
+        // Multipath address
+        MultiPath *multipath = mParent->multipath;
+        if(multipath == nullptr) {
+            return errNoParentNetworkAvailable;
+        }
+        bool res = multipath->bindPort(mTarget.port, std::bind(&MeshSocket::recvFromMultipath, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6));
+        if(!res) {
+            return errProtCantBeBinded;
+        }
+        mIsMultipath = true;
+        mStatus = Connected;
+        mType = type;
+    }
     LIB_LOGV(TAG, "Socket opened successfully %d", mStatus);
     return errSuccess;
 }
@@ -294,7 +290,7 @@ MeshSocket::SocketProtocol MeshSocket::calcProtocolFromTarget(const MeshAddress 
     return multipathProtocol;
 }
 
-void MeshSocket::recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
+void MeshSocket::recvFromBroadcast(DataSrc src, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
     if(mRecvDatagramHandler) {
         mRecvDatagramHandler(data, size, MeshAddress(0, from), rssi);
     } else if(mRecvHandler) {
@@ -310,7 +306,7 @@ void MeshSocket::recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, 
     }
 }
 
-void MeshSocket::recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
+void MeshSocket::recvFromUnicast(DataSrc src, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
     if(mRecvDatagramHandler) {
         mRecvDatagramHandler(data, size, MeshAddress(0, from), rssi);
     } else if(mRecvHandler) {
@@ -325,7 +321,7 @@ void MeshSocket::recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, in
     }
 }
 
-void MeshSocket::recvFromMultipath(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path, uint8_t pathSize) {
+void MeshSocket::recvFromMultipath(DataSrc src, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t pathSize) {
     if(mRecvDatagramHandler) {
         mRecvDatagramHandler(data, size, MeshAddress(0, from, path, pathSize, true), rssi);
     } else if(mRecvHandler) {
@@ -342,4 +338,3 @@ void MeshSocket::recvFromMultipath(uint8_t *data, uint16_t size, uint32_t from, 
 
 
 }  // namespace espmeshmesh
-#endif

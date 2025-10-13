@@ -1,7 +1,6 @@
 #pragma once
-#include "defines.h"
+#include "modules.h"
 
-#ifdef USE_MESHSOCKET
 #include "packetbuf.h"
 #include "meshaddress.h"
 #include <functional>
@@ -66,6 +65,13 @@ public:
      * @brief Maximum number of repeaters allowed for a socket
      */
     static const uint8_t maxRepeaters = 16;
+    static const uint32_t bindAllAddress = UINT32_MAX-1;
+
+    /**
+     * @brief Create a new datagram socket that will bind all protcols for incoming data.
+     * @param port Port t bind on all protocols
+     */
+    MeshSocket(uint8_t port);
 
     /**
      * @brief Create a new socket that will send and receive data from the target.
@@ -89,7 +95,7 @@ public:
      * @brief Return true if the target address is the broadcast address
      * @return True if the target address is the broadcast address
      */
-    bool isBroadcastTarget() const { return mTarget == broadCastAddress; }
+    bool isBroadcastTarget() const { return mTarget.isBroadcast(); }
     /**
      * @brief Return the status of the socket
      * @return Status of the socket
@@ -172,9 +178,9 @@ public:
 private:
     static SocketProtocol calcProtocolFromTarget(const MeshAddress &target);
 private:
-    void recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-    void recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-    void recvFromMultipath(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path, uint8_t pathSize);
+    void recvFromBroadcast(DataSrc src, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
+    void recvFromUnicast(DataSrc src, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
+    void recvFromMultipath(DataSrc src, uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
 private:
     EspMeshMesh *mParent{0};
 private:
@@ -199,4 +205,4 @@ private:
 };
 
 } // namespace espmeshmesh
-#endif
+

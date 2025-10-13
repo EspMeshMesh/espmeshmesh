@@ -25,6 +25,8 @@ struct MeshAddress {
     MeshAddress(uint8_t port, uint32_t address, std::vector<uint32_t> repeaters): repeaters(repeaters), port(port), address(address) {}
     MeshAddress(uint8_t port, uint32_t address, uint8_t *path, uint8_t pathCount, bool reversed=false);
     bool isBroadcast() const { return address == broadCastAddress; }
+
+    DataSrc sourceProtocol{SRC_NONE};
     std::vector<uint32_t> repeaters;
     uint8_t port{0};
     uint32_t address{0};
