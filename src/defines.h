@@ -66,9 +66,9 @@ typedef enum {
   SRC_SERIAL = 0xff,
 } DataSrc;
 
-typedef std::function<void(uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> ReceiveHandler;
+typedef std::function<void(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> ReceiveHandler;
 
-using PacketFrameHandler = std::function<int8_t(uint8_t *data, uint16_t size, MeshAddress from, int16_t rssi)>;
+using PacketFrameHandler = std::function<int8_t(const uint8_t *data, uint16_t size, MeshAddress from, int16_t rssi)>;
 
 using SentStatusHandler = std::function<void(int8_t status, RadioPacket *pkt)>;
 // SentStatusHandler bindSentStatusHandler(SentStatusHandler caller, PacketBufProtocol * owner ) {

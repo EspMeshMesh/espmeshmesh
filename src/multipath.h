@@ -1,5 +1,5 @@
 #pragma once
-#include "defines.h"
+#include "modules.h"
 
 #ifdef USE_MULTIPATH_PROTOCOL
 
@@ -46,8 +46,8 @@ struct MultiPathBindedPort_st {
 typedef MultiPathBindedPort_st MultiPathBindedPort_t;
 
 class MultiPath: public PacketBufProtocol {
-class MultiPath: public PacketBufProtocol {
 public:
+    enum Direction { Forward, Reverse };
 	MultiPath(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, SRC_MULTIPATH), mRecvDups() {}
     void loop() override;
     uint8_t send(MultiPathPacket *pkt, bool initHeader, SentStatusHandler handler = nullptr);

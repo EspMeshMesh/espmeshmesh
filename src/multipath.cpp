@@ -28,11 +28,6 @@ void MultiPathPacket::setPayload(const uint8_t *payoad) {
 	memcpy(clearData()+sizeof(MultiPathHeaderSt)+sizeof(uint32_t)*multipathHeader()->pathLength, payoad, multipathHeader()->dataLength);
 }
 
-MultiPath::MultiPath(PacketBuf *pbuf): mRecvDups() {
-	packetbuf = pbuf;
-	packetbuf->setRecvHandler(PROTOCOL_MULTIPATH, std::bind(&MultiPath::receiveRadioPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-}
-
 void MultiPath::loop() {
 	mRecvDups.loop();
 }
@@ -66,7 +61,7 @@ uint8_t MultiPath::send(const uint8_t *data, uint16_t size, uint32_t target, uin
 	pkt->allocClearData(size, pathSize);
 	pkt->multipathHeader()->port = port;
 	pkt->multipathHeader()->trargetAddress = target;
-	for(int i=0;i<pathSize;i++) pkt->setPathItem(path[i], direction == Reverse ? pathSize-i-1 : i);
+	for(int i=0;i<pathSize;i++) pkt->setPathItem(path[i], i);
 	pkt->setPayload(data);
 	return send(pkt, true, handler);
 }
@@ -88,15 +83,13 @@ void MultiPath::radioPacketRecv(uint8_t *buf, uint16_t size, uint32_t from, int1
 				pkt->multipathHeader()->pathIndex++;
 				send(pkt, false, nullptr);
 			} else {
+				MeshAddress sourceAddress = MeshAddress(header->port, header->sourceAddress, buf+sizeof(MultiPathHeaderSt), header->pathLength, true);
+				sourceAddress.sourceProtocol = SRC_MULTIPATH;
 				this->callReceiveHandler(
 					    buf + sizeof(MultiPathHeaderSt) + sizeof(uint32_t) * header->pathLength,   // Payload is at size of the header + size of the path
 						header->dataLength,
-						header->sourceAddress,
-						rssi,
-						header->port
-						//buf+sizeof(MultiPathHeaderSt),  // Path is at size of the header
-						//header->pathLength
-						);
+						sourceAddress,
+						rssi);
 			}
 
 		} else {

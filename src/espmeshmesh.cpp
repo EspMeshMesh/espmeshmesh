@@ -348,7 +348,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
     esp_rom_md5_final(aespassword, &md5);
 #endif
   }
-  auto handler = std::bind(&EspMeshMesh::handleFrame, this, _1, _2, _3, _4, _5);
+  auto handler = std::bind(&EspMeshMesh::handleFrame, this, _1, _2, _3, _4);
 
   packetbuf = PacketBuf::getInstance();
   packetbuf->setup(aespassword, 16);
@@ -436,7 +436,7 @@ void EspMeshMesh::loop() {
   if (!mWorkAround && elapsedMillis(now, mElapsed1) > 2000) {
     mWorkAround = true;
     uint8_t data[6] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05};
-    uniCastSendData(data, 0x6, 0x111111);
+    unicast->send(data, 0x6, 0x111111, UNICAST_DEFAULT_PORT, nullptr);
     LIB_LOGI(TAG, "Sent dummy workaround packet");
   }
 #endif
@@ -565,7 +565,7 @@ void EspMeshMesh::user_uart_recv_data(uint8_t byte) {
     case WAIT_CRC16_2:
       received_crc16 = received_crc16 | uint16_t(byte);
       if (computed_crc16 == received_crc16) {
-        handleFrame(SRC_SERIAL, mRecvBuffer, mRecvBufferPos, 0xFFFFFFFF);
+        handleFrame(mRecvBuffer, mRecvBufferPos, MeshAddress(SRC_SERIAL, MeshAddress::noAddress), 0);
       } else {
         // handleFrame(SRC_SERIAL, mRecvBuffer, mRecvBufferPos, 0xFFFFFFFF);
         LIB_LOGE(TAG, "CRC16 mismatch %04X %04X", computed_crc16, received_crc16);
@@ -634,21 +634,21 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
   mCommandSource = SRC_NONE;
 }
 
-void EspMeshMesh::handleFrame(DataSrc src, const uint8_t *data, uint16_t len, uint32_t from, int16_t rssi) {
+void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddress &from, int16_t rssi) {
   uint8_t err = HANDLE_UART_ERROR;
 
   if (len == 0 || data[0] == 0x7F)
     return;
 
-  mCommandSource = src;
-  mFromAddress = from;
+  mCommandSource = from.sourceProtocol;
+  mFromAddress = from.address;
   mRssiHandle = rssi;
 
   uint8_t *buf = new uint8_t[len];
   memcpy(buf, data, len);
 
   if (buf[0] & 0x01) {
-    replyHandleFrame(src, buf, len, from, rssi);
+    replyHandleFrame(buf, len, from, rssi);
     delete[] buf;
     return;
   }
@@ -735,14 +735,16 @@ void EspMeshMesh::handleFrame(DataSrc src, const uint8_t *data, uint16_t len, ui
           if (buf[i + 1] != 0xFF && (groups[i] == 0 || (groups[i] != 0xFF && groups[i] != buf[i + 1])))
             break;
         if (i == 4) {
-          handleFrame(SRC_FILTER, buf + 5, len - 5, from, rssi);
+          MeshAddress fromFilter(from);
+          fromFilter.sourceProtocol = SRC_FILTER;
+          handleFrame(buf + 5, len - 5, fromFilter, rssi);
         }
         err = 0;
       }
       break;
     default:
       for (auto cb : mHandleFrameCbs) {
-        int8_t handled = cb(src, buf, len, from, rssi);
+        int8_t handled = cb(buf, len, from, rssi);
         // If callback handled the frame...
         if (handled >= 0) {
           // Keep status and exit loop
@@ -764,7 +766,7 @@ void EspMeshMesh::handleFrame(DataSrc src, const uint8_t *data, uint16_t len, ui
   }
 }
 
-void EspMeshMesh::replyHandleFrame(DataSrc src, uint8_t *buf, uint16_t len, uint32_t from, int16_t rssi) {
+void EspMeshMesh::replyHandleFrame(const uint8_t *buf, uint16_t len, const MeshAddress &from, int16_t rssi) {
   // All replies go to the serial, if the serial is active
   switch (buf[0]) {
     case CMD_LOGEVENT_REP: {

@@ -118,8 +118,8 @@ class EspMeshMesh {
   void flushUartTxBuffer();
 
  private:
-  void handleFrame(DataSrc src, const uint8_t *data, uint16_t len, uint32_t from, int16_t rssi = 0);
-  void replyHandleFrame(DataSrc src, const uint8_t *buf, uint16_t len, uint32_t from, int16_t rssi = 0);
+  void handleFrame(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi=0);
+  void replyHandleFrame(const uint8_t *buf, uint16_t len, const MeshAddress &from, int16_t rssi = 0);
 
  private:
 #ifdef USE_CONNECTED_PROTOCOL

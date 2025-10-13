@@ -1,5 +1,5 @@
 #pragma once
-#include "defines.h"
+#include "modules.h"
 
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
 #include "packetbuf.h"
