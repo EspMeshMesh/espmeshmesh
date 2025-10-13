@@ -56,21 +56,8 @@ class PacketBufProtocol;
 
 typedef std::function<void(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> ReceiveHandler;
 
-using PacketFrameHandler = std::function<int8_t(const uint8_t *data, uint16_t size, MeshAddress from, int16_t rssi)>;
+typedef std::function<int8_t(const uint8_t *data, uint16_t size, MeshAddress from, int16_t rssi)> PacketFrameHandler;
 
-using SentStatusHandler = std::function<void(int8_t status, RadioPacket *pkt)>;
-// SentStatusHandler bindSentStatusHandler(SentStatusHandler caller, PacketBufProtocol * owner ) {
-//   return std::bind(caller, owner, _1, _2);
-// }
+typedef std::function<void(int8_t status, RadioPacket *pkt)> SentStatusHandler;
 
-// using ConnectedPathReceiveHandler = std::function<void(void *arg, const uint8_t *data, uint16_t size, uint8_t connid)>;
-// using ConnectedPathDisconnectHandler = std::function<void(void *arg)> ;
-// using ConnectedPathNewConnectionHandler = std::function<void(void *arg, uint32_t from, uint16_t handle)> ;
-
-// typedef std::function<void(uint8_t *data, uint16_t size)> SocketReceiveHandler;
-// typedef std::function<void(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi)> SocketRecvDatagramHandler;
-// typedef std::function<void(uint32_t from)> SocketNewConnectionHandler;
-
-// typedef std::function<void(int level, const char *tag, int line, const char *format, va_list args)>
-// LogCallbackHandler;
 }  // namespace espmeshmesh

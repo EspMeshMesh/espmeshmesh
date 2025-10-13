@@ -37,7 +37,7 @@ public:
 
 class Unicast: public PacketBufProtocol {
 public:
-	Unicast(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, SRC_UNICAST), mRecvDups() {}
+	Unicast(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_UNICAST), mRecvDups() {}
     void loop(void) override;
 public:
     uint8_t send(UnicastPacket *pkt, uint32_t target, bool initHeader, SentStatusHandler handler = nullptr);

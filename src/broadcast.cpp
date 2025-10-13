@@ -26,7 +26,7 @@ uint8_t Broadcast::send(const uint8_t *data, uint16_t size) {
 void Broadcast::radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) {
   broadcast_header_t *header = (broadcast_header_t *) payload;
   MeshAddress sourceAddress = MeshAddress(0, from);
-  sourceAddress.sourceProtocol = SRC_BROADCAST;
+  sourceAddress.sourceProtocol = MeshAddress::SRC_BROADCAST;
   this->callReceiveHandler(payload + sizeof(broadcast_header_t), header->lenght, sourceAddress, rssi);
 }
 

@@ -565,7 +565,7 @@ void EspMeshMesh::user_uart_recv_data(uint8_t byte) {
     case WAIT_CRC16_2:
       received_crc16 = received_crc16 | uint16_t(byte);
       if (computed_crc16 == received_crc16) {
-        handleFrame(mRecvBuffer, mRecvBufferPos, MeshAddress(SRC_SERIAL, MeshAddress::noAddress), 0);
+        handleFrame(mRecvBuffer, mRecvBufferPos, MeshAddress(MeshAddress::SRC_SERIAL, MeshAddress::noAddress), 0);
       } else {
         // handleFrame(SRC_SERIAL, mRecvBuffer, mRecvBufferPos, 0xFFFFFFFF);
         LIB_LOGE(TAG, "CRC16 mismatch %04X %04X", computed_crc16, received_crc16);
@@ -602,36 +602,36 @@ void EspMeshMesh::flushUartTxBuffer() {
 void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
   uint8_t err = 0;
   switch (mCommandSource) {
-    case SRC_SERIAL:
+    case MeshAddress::SRC_SERIAL:
       uartSendData(buff, len);
       break;
-    case SRC_BROADCAST:
-    case SRC_BROADCAST2:
-    case SRC_UNICAST:
+    case MeshAddress::SRC_BROADCAST:
+    case MeshAddress::SRC_BROADCAST2:
+    case MeshAddress::SRC_UNICAST:
       err = unicast->send(buff, len, mFromAddress, UNICAST_DEFAULT_PORT, nullptr);
       break;
-    case SRC_MULTIPATH:
+    case MeshAddress::SRC_MULTIPATH:
 #ifdef USE_MULTIPATH_PROTOCOL
       err = multipath->send(buff, len, mFromAddress, (uint32_t *) &mRecvPath[0], mRecvPathSize, true, MULTIPATH_DEFAULT_PORT);
 #endif
       break;
-    case SRC_POLITEBRD:
+    case MeshAddress::SRC_POLITEBRD:
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
       if (mFromAddress != POLITE_DEST_BROADCAST)
         mPoliteBroadcast->send(buff, len, mFromAddress);
 #endif
       break;
-    case SRC_CONNPATH:
+    case MeshAddress::SRC_CONNPATH:
 #ifdef USE_CONNECTED_PROTOCOL
       // mConnectedPath->sendDataTo(buff, len, mConnectionId);
       LIB_LOGE(TAG, "commandReply SRC_CONNPATH not handled");
 #endif
       break;
-    case SRC_FILTER:
+    case MeshAddress::SRC_FILTER:
       break;
   }
 
-  mCommandSource = SRC_NONE;
+  mCommandSource = MeshAddress::SRC_NONE;
 }
 
 void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddress &from, int16_t rssi) {
@@ -736,7 +736,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
             break;
         if (i == 4) {
           MeshAddress fromFilter(from);
-          fromFilter.sourceProtocol = SRC_FILTER;
+          fromFilter.sourceProtocol = MeshAddress::SRC_FILTER;
           handleFrame(buf + 5, len - 5, fromFilter, rssi);
         }
         err = 0;
@@ -755,7 +755,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
       break;
   }
 
-  if (err == HANDLE_UART_ERROR && mCommandSource != SRC_BROADCAST) {
+  if (err == HANDLE_UART_ERROR && mCommandSource != MeshAddress::SRC_BROADCAST) {
     // Don't reply errors when commd came from broadcast
     uint8_t *rep = new uint8_t[len + 1];
     rep[0] = CMD_ERROR_REP;

@@ -172,7 +172,7 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SentStatusHandler h
     return 0;
 }
 
-int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress target, SocketSentStatusHandler handler=nullptr) {
+int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress target, SocketSentStatusHandler handler) {
     if(mStatus != Connected) {
         return errIsNotConnected;
     }\

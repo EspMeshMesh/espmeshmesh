@@ -70,7 +70,7 @@ void MultiPath::radioPacketRecv(uint8_t *buf, uint16_t size, uint32_t from, int1
 	if(size > sizeof(MultiPathHeaderSt)) {
 	    MultiPathHeader *header = (MultiPathHeader *)buf;
 		uint16_t wsize = sizeof(MultiPathHeaderSt)+header->dataLength+header->pathLength*sizeof(uint32_t);
-		LIB_LOGV(TAG, "MultiPath for %06X port %d from %06X with seq %d data %d path %d/%d", header->trargetAddress, header->port, f, header->seqno, header->dataLength, header->pathIndex, header->pathLength);
+		LIB_LOGV(TAG, "MultiPath for %06X port %d from %06X with seq %d data %d path %d/%d", header->trargetAddress, header->port, from, header->seqno, header->dataLength, header->pathIndex, header->pathLength);
 		if(size >= wsize) {
 			if(mRecvDups.checkDuplicateTable(header->sourceAddress, 0, header->seqno)) {
 				LIB_LOGE(TAG, "MultiPath duplicated packet received from %06lX with seq %d", header->sourceAddress, header->seqno);
@@ -84,7 +84,7 @@ void MultiPath::radioPacketRecv(uint8_t *buf, uint16_t size, uint32_t from, int1
 				send(pkt, false, nullptr);
 			} else {
 				MeshAddress sourceAddress = MeshAddress(header->port, header->sourceAddress, buf+sizeof(MultiPathHeaderSt), header->pathLength, true);
-				sourceAddress.sourceProtocol = SRC_MULTIPATH;
+				sourceAddress.sourceProtocol = MeshAddress::SRC_MULTIPATH;
 				this->callReceiveHandler(
 					    buf + sizeof(MultiPathHeaderSt) + sizeof(uint32_t) * header->pathLength,   // Payload is at size of the header + size of the path
 						header->dataLength,

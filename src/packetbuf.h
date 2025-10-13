@@ -177,7 +177,7 @@ class RadioPacket {
  */
 class PacketBufProtocol {
 public:
- PacketBufProtocol(MeshAddress::DataSrc protocol, PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr);
+ PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr, MeshAddress::DataSrc protocol=MeshAddress::SRC_NONE);
  virtual ~PacketBufProtocol() {}
  virtual void setup() {};
  virtual void loop() {};

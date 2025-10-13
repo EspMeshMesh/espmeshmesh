@@ -61,7 +61,7 @@ void Unicast::radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, in
   }
 
   MeshAddress sourceAddress = MeshAddress(header->port, from);
-  sourceAddress.sourceProtocol = SRC_UNICAST;
+  sourceAddress.sourceProtocol = MeshAddress::SRC_UNICAST;
   this->callReceiveHandler(payload + sizeof(UnicastHeaderSt), header->lenght, sourceAddress, rssi);
 }
 

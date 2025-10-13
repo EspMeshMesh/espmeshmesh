@@ -432,7 +432,7 @@ void IRAM_ATTR __attribute__((hot)) PacketBuf::rawRecv(RxPacket *pkt) {
     }
 }
 
-PacketBufProtocol::PacketBufProtocol(MeshAddress::DataSrc protocol, PacketBuf *pbuf, ReceiveHandler rx_fn) {
+PacketBufProtocol::PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn, MeshAddress::DataSrc protocol) {
   this->mPacketBuf = pbuf;
 
   if (rx_fn) {

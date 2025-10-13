@@ -100,7 +100,9 @@ void PoliteBroadcastProtocol::radioPacketRecv(uint8_t *data, uint16_t size, uint
 		// If this packet is for me handle the packet
 		LIB_LOGD(TAG, "PoliteBroadcastProtocol::receiveRadioPacket StateIdle from:%06lX seq:%d dst:%06lX src:%06lX", from, mOutPkt->politeHeader()->sequenceNum, mOutPkt->politeHeader()->destAddr, pkt->politeHeader()->sourceAddr);
 		if(mOutPkt->politeHeader()->destAddr==POLITE_DEST_BROADCAST || mOutPkt->politeHeader()->destAddr==mPacketBuf->nodeId()) {
-			callReceiveHandler(pkt->politePayload(), pkt->politeHeader()->payloadLenght, pkt->politeHeader()->sourceAddr, rssi);
+			MeshAddress sourceAddress = MeshAddress(0, pkt->politeHeader()->sourceAddr);
+			sourceAddress.sourceProtocol = MeshAddress::SRC_POLITEBRD;
+			callReceiveHandler(pkt->politePayload(), pkt->politeHeader()->payloadLenght, sourceAddress, rssi);
 		}
 
 	} else if(mState == StateWaitEnd) {
