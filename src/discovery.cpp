@@ -77,7 +77,7 @@ void Discovery::loop(EspMeshMesh *parent) {
       // FIXME: Is not true anyore beacuse the recv packet queue
       data.rssi = (int16_t) parent->lastPacketRssi();
 
-      parent->unicastSendData((uint8_t *) &data, sizeof(BaconsData_t), parent->lastFromAddress());
+      parent->unicastSendData((uint8_t *) &data, sizeof(BaconsData_t), parent->lastFromAddress().address);
       LIB_LOGD(TAG, "Discovery::loop beacon reply end");
       mRunPhase = 0;
     }

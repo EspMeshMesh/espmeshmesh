@@ -81,10 +81,9 @@ class EspMeshMesh {
   void commandReply(const uint8_t *buff, uint16_t len);
   void uartSendData(const uint8_t *buff, uint16_t len);
 
-  MeshAddress::DataSrc lastCommandSourceProtocol() const { return mCommandSource; }
+  MeshAddress::DataSrc lastCommandSourceProtocol() const { return mFromAddress.sourceProtocol; }
   int16_t lastPacketRssi() const { return mRssiHandle; }
-  uint32_t lastFromAddress() const { return mFromAddress; }
-  bool lastCommandFromBroadcast() const { return mCommandSource == MeshAddress::SRC_BROADCAST || mCommandSource == MeshAddress::SRC_POLITEBRD; }
+  const MeshAddress &lastFromAddress() const { return mFromAddress; }
 
   /**
    * @brief Send data using broadcast2 protocol with port selector.
@@ -138,8 +137,7 @@ class EspMeshMesh {
   int mTxBuffer;
   int mRxBuffer;
 
- private:
-  MeshAddress::DataSrc mCommandSource = MeshAddress::SRC_NONE;
+private:
   PacketBuf *packetbuf = nullptr;
   Broadcast *broadcast = nullptr;
   Broadcast2 *broadcast2 = nullptr;
@@ -172,9 +170,7 @@ class EspMeshMesh {
   RecvState mRecvState = WAIT_START;
   uint8_t *mRecvBuffer = nullptr;
   uint16_t mRecvBufferPos = 0;
-  uint32_t mFromAddress;
-  uint32_t mRecvPath[16];
-  uint8_t mRecvPathSize = 0;
+  MeshAddress mFromAddress;
 
   Discovery mDiscovery;
 

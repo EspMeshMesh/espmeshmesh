@@ -601,14 +601,14 @@ void EspMeshMesh::flushUartTxBuffer() {
 
 void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
   uint8_t err = 0;
-  switch (mCommandSource) {
+  switch (mFromAddress.sourceProtocol) {
     case MeshAddress::SRC_SERIAL:
       uartSendData(buff, len);
       break;
     case MeshAddress::SRC_BROADCAST:
     case MeshAddress::SRC_BROADCAST2:
     case MeshAddress::SRC_UNICAST:
-      err = unicast->send(buff, len, mFromAddress, UNICAST_DEFAULT_PORT, nullptr);
+      err = unicast->send(buff, len, mFromAddress.address, UNICAST_DEFAULT_PORT, nullptr);
       break;
     case MeshAddress::SRC_MULTIPATH:
 #ifdef USE_MULTIPATH_PROTOCOL
@@ -631,7 +631,7 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
       break;
   }
 
-  mCommandSource = MeshAddress::SRC_NONE;
+  mFromAddress.sourceProtocol = MeshAddress::SRC_NONE;
 }
 
 void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddress &from, int16_t rssi) {
@@ -640,8 +640,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
   if (len == 0 || data[0] == 0x7F)
     return;
 
-  mCommandSource = from.sourceProtocol;
-  mFromAddress = from.address;
+  mFromAddress = from;
   mRssiHandle = rssi;
 
   uint8_t *buf = new uint8_t[len];
@@ -755,7 +754,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
       break;
   }
 
-  if (err == HANDLE_UART_ERROR && mCommandSource != MeshAddress::SRC_BROADCAST) {
+  if (err == HANDLE_UART_ERROR && mFromAddress.sourceProtocol != MeshAddress::SRC_BROADCAST) {
     // Don't reply errors when commd came from broadcast
     uint8_t *rep = new uint8_t[len + 1];
     rep[0] = CMD_ERROR_REP;
