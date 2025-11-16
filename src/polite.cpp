@@ -10,7 +10,7 @@
 namespace espmeshmesh {
 
 static const char *TAG = "espmeshmesh.politebroadcast";
-PolitePacket::PolitePacket(pktbufSentCbFn cb, void *arg): RadioPacket(cb, arg) {
+PolitePacket::PolitePacket(PacketBufProtocol * owner, SentStatusHandler cb): RadioPacket(owner, cb) {
 	_setup();
 }
 
@@ -61,13 +61,6 @@ bool PolitePacket::checkReceived(uint32_t source) {
 	return true;
 }
 
-PoliteBroadcastProtocol::PoliteBroadcastProtocol(PacketBuf *pbuf): mPacketBuf(pbuf) {
-	mPacketBuf->setRecvHandler(PROTOCOL_POLITEBRD, std::bind(&PoliteBroadcastProtocol::receiveRadioPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-}
-
-void PoliteBroadcastProtocol::setup() {
-}
-
 void PoliteBroadcastProtocol::loop() {
 	if(mTimeStamp0 != 0) {
 		uint32_t now = millis();
@@ -88,12 +81,7 @@ void PoliteBroadcastProtocol::loop() {
 
 }  // namespace espmeshmesh
 
-void PoliteBroadcastProtocol::setReceivedHandler(PoliteBroadcastReceiveHandler h, void *arg) {
-	mReceiveHandler = h;
-	mReceiveHandlerArg = arg;
-}
-
-void PoliteBroadcastProtocol::receiveRadioPacket(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
+void PoliteBroadcastProtocol::radioPacketRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
 	if(mState == StateIdle) {
 		uint32_t now = millis();
 		if(mTimeStamp0 != 0) {
@@ -111,8 +99,11 @@ void PoliteBroadcastProtocol::receiveRadioPacket(uint8_t *data, uint16_t size, u
 		mState = StateWaitEnd;
 		// If this packet is for me handle the packet
 		LIB_LOGD(TAG, "PoliteBroadcastProtocol::receiveRadioPacket StateIdle from:%06lX seq:%d dst:%06lX src:%06lX", from, mOutPkt->politeHeader()->sequenceNum, mOutPkt->politeHeader()->destAddr, pkt->politeHeader()->sourceAddr);
-		if(mReceiveHandler && (mOutPkt->politeHeader()->destAddr==POLITE_DEST_BROADCAST || mOutPkt->politeHeader()->destAddr==mPacketBuf->nodeId()))
-			mReceiveHandler(mReceiveHandlerArg, pkt->politePayload(), pkt->politeHeader()->payloadLenght, pkt->politeHeader()->sourceAddr);
+		if(mOutPkt->politeHeader()->destAddr==POLITE_DEST_BROADCAST || mOutPkt->politeHeader()->destAddr==mPacketBuf->nodeId()) {
+			MeshAddress sourceAddress = MeshAddress(0, pkt->politeHeader()->sourceAddr);
+			sourceAddress.sourceProtocol = MeshAddress::SRC_POLITEBRD;
+			callReceiveHandler(pkt->politePayload(), pkt->politeHeader()->payloadLenght, sourceAddress, rssi);
+		}
 
 	} else if(mState == StateWaitEnd) {
 		// Se è una ripetizione del pacchetto attuale:
@@ -130,7 +121,7 @@ void PoliteBroadcastProtocol::receiveRadioPacket(uint8_t *data, uint16_t size, u
 }
 
 void PoliteBroadcastProtocol::send(const uint8_t *data, uint16_t size, uint32_t target) {
-	PolitePacket *pkt = new PolitePacket(_packetSentCb, this);
+	PolitePacket *pkt = new PolitePacket(this);
 	pkt->setAutoDelete(false);
 
 	pkt->allocClearData(size);
@@ -151,13 +142,6 @@ void PoliteBroadcastProtocol::send(const uint8_t *data, uint16_t size, uint32_t 
 	LIB_LOGD(TAG, "PoliteBroadcastProtocol::send seq:%d dst:%06lX src:%06lX", header->sequenceNum, header->destAddr, header->sourceAddr);
 	pkt->encryptClearData();
 	_sendPkt(pkt);
-}
-
-void PoliteBroadcastProtocol::_packetSentCb(void *arg, uint8_t status, RadioPacket *pkt) {
-	((PoliteBroadcastProtocol *)arg)->_radioPacketSent(status, (PolitePacket *)pkt);
-}
-
-void PoliteBroadcastProtocol::_radioPacketSent(uint8_t status, PolitePacket *pkt) {
 }
 
 void PoliteBroadcastProtocol::_sendPkt(PolitePacket *pkt) {

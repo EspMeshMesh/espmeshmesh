@@ -1,6 +1,5 @@
 #pragma once
-
-#include "defines.h"
+#include "modules.h"
 
 #ifdef USE_CONNECTED_PROTOCOL
 
@@ -70,7 +69,7 @@ constexpr uint32_t CONNPATH_COORDINATOR_ADDRESS = 0x00000000;
 
 class ConnectedPathPacket : public RadioPacket {
  public:
-  explicit ConnectedPathPacket(pktbufSentCbFn cb, void *arg) : RadioPacket(cb, arg) {}
+  explicit ConnectedPathPacket(PacketBufProtocol *owner, SentStatusHandler cb) : RadioPacket(owner, cb) {}
 
  public:
   virtual void allocClearData(uint16_t size);
@@ -92,8 +91,7 @@ class EspMeshMesh;
 class ConnectedPath: public PacketBufProtocol {
  public:
   ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf);
-  virtual void setup(void) override;
-  virtual void loop(void) override;
+  void loop(void) override;
   uint8_t sendRawRadioPacket(ConnectedPathPacket *pkt);
   uint8_t sendRadioPacket(ConnectedPathPacket *pkt, bool forward, bool initHeader);
   void enqueueRadioPacket(uint8_t subprot, uint8_t connid, bool forward, uint16_t datasize, const uint8_t *data);
@@ -103,15 +101,16 @@ class ConnectedPath: public PacketBufProtocol {
   void closeConnection(uint32_t from, uint16_t handle);
   void closeAllConnections();
   uint8_t receiveUartPacket(const uint8_t *data, uint16_t size);
-  void receiveRadioPacket(uint8_t *p, uint16_t size, uint32_t f, int16_t r);
+
+  void radioPacketRecv(uint8_t *p, uint16_t size, uint32_t f, int16_t r) override;
+  void radioPacketSent(uint8_t status, RadioPacket *pkt) override;
+
   void setReceiveCallback(ConnectedPathReceiveHandler recvCb, ConnectedPathDisconnectHandler discCb, void *arg,
                           uint32_t from, uint16_t handle);
   void bindPort(ConnectedPathNewConnectionHandler h, void *arg, uint16_t port);
   bool isConnectionActive(uint32_t from, uint16_t handle) const;
 
  private:
-  static void radioPacketSentCb(void *arg, uint8_t status, RadioPacket *pkt);
-  void radioPacketSent(uint8_t status, RadioPacket *pkt);
   void radioPacketError(uint32_t address, uint16_t handle, uint8_t subprot);
   void duplicatePacketStats(uint32_t address, uint16_t handle, uint16_t seqno);
   void openConnection(uint32_t from, uint16_t handle, uint16_t datasize, const uint8_t *data);
@@ -156,15 +155,14 @@ class ConnectedPath: public PacketBufProtocol {
   uint8_t findConnectionPeer(uint8_t connIdx, bool forward, uint32_t &peerAddress, uint16_t &peerHandle);
 
   void sendUartPacket(uint8_t command, uint16_t handle, const uint8_t *data, uint16_t size);
-  ConnectedPathPacket *cratePacket(uint8_t subprot, uint16_t size, uint32_t to, uint16_t handle,
-                                   const uint8_t *payload);
+  ConnectedPathPacket *createPacket(uint8_t subprot, uint16_t size, uint32_t to, uint16_t handle,
+                                    const uint8_t *payload);
   bool sendPacket(uint8_t subprot, uint8_t connid, bool forward, uint16_t size, const uint8_t *data);
   void sendImmediatePacket(uint8_t subprot, uint32_t to, uint16_t handle, uint16_t size, const uint8_t *data);
   void debugConnection() const;
 
  private:
   EspMeshMesh *mMeshMesh;
-  PacketBuf *mPacketBuf;
   uint16_t mLastSequenceNum = 0;
   RecvDups mRecvDups;
   ConnectedPathConnections mConnectsions[CONNPATH_MAX_CONNECTIONS];

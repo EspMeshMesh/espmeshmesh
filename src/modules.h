@@ -1,0 +1,4 @@
+#pragma once
+
+#define USE_POLITE_BROADCAST_PROTOCOL
+#define USE_CONNECTED_PROTOCOL

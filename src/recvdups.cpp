@@ -1,4 +1,5 @@
 #include "recvdups.h"
+
 #include "defines.h"
 #include "log.h"
 #include "espmeshmesh.h"
@@ -99,4 +100,3 @@ bool RecvDups::checkDuplicateTable(uint32_t address, uint16_t handle, uint16_t s
 }
 
 }  // namespace espmeshmesh
-

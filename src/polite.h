@@ -1,10 +1,8 @@
 #pragma once
+#include "modules.h"
 
-#define USE_POLITE_BROADCAST_PROTOCOL
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
-
 #include "packetbuf.h"
-#include "defines.h"
 
 #include <cstdint>
 #include <functional>
@@ -12,8 +10,6 @@
 namespace espmeshmesh {
 
 class EspMeshMesh;
-
-typedef std::function<void(void*, uint8_t *, uint16_t, uint32_t)> PoliteBroadcastReceiveHandler;
 
 struct PoliteBroadcastHeaderSt {
     uint8_t protocol;
@@ -36,7 +32,7 @@ typedef PoliteBroadcastHeaderSt PoliteBroadcastHeader;
 
 class PolitePacket: public RadioPacket {
 public:
-	explicit PolitePacket(pktbufSentCbFn cb, void *arg);
+	explicit PolitePacket(PacketBufProtocol * owner, SentStatusHandler cb = nullptr);
 	explicit PolitePacket(uint8_t *data, uint16_t size);
 private:
     void _setup();
@@ -56,31 +52,22 @@ private:
 class PoliteBroadcastProtocol: public PacketBufProtocol {
 public:
     enum PoliteState { StateIdle, StateWaitEnd };
-	PoliteBroadcastProtocol(PacketBuf *pbuf);
-public:
-    virtual void setup() override;
-    virtual void loop() override;
-public:
-    void setReceivedHandler(PoliteBroadcastReceiveHandler h, void *arg);
-    void receiveRadioPacket(uint8_t *data, uint16_t size, uint32_t fromptr, int16_t rssi);
+	PoliteBroadcastProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_POLITEBRD){}
+    void loop() override;
     void send(const uint8_t *data, uint16_t size, uint32_t target);
+    void radioPacketRecv(uint8_t *data, uint16_t size, uint32_t fromptr, int16_t rssi);
+
 private:
-    static void _packetSentCb(void *arg, uint8_t status, RadioPacket *pkt);
-    void _radioPacketSent(uint8_t status, PolitePacket *pkt);
     void _sendPkt(PolitePacket *pkt);
     void _sendRaw();
     void _setIdle(void);
-private:
-	PacketBuf *mPacketBuf;
-    PoliteBroadcastReceiveHandler mReceiveHandler = nullptr;
-    void* mReceiveHandlerArg = nullptr;
+
     uint32_t mTimeStamp0 = 0;
     uint32_t mTimeStamp1 = 0;
     PolitePacket *mOutPkt = nullptr;
     std::list<PolitePacket *> mOutPkts;
 	uint8_t mLastSequenceNumber = 1;
     PoliteState mState = StateIdle;
-private:
 };
 
 }  // namespace espmeshmesh
