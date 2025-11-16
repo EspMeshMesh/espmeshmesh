@@ -26,8 +26,9 @@ struct MeshAddress {
         SRC_PREROUTED  = 0x03,
         SRC_MULTIPATH  = 0x04,
         SRC_POLITEBRD  = 0x05,
-        SRC_CONNPATH   = 0x07,
         SRC_BROADCAST2 = 0x06,
+        SRC_CONNPATH   = 0x07,
+        SRC_STARPATH   = 0x08,
         SRC_FILTER     = 0xfe,
         SRC_SERIAL     = 0xff,
     } DataSrc;
