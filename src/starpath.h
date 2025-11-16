@@ -25,8 +25,12 @@ public:
     void allocClearData(uint16_t size, uint8_t pathlen);
 };
 
-class StarPath: public PacketBufProtocol {
-    StarPath(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_STARPATH), mRecvDups() {}
+class StarPathProtocol: public PacketBufProtocol {
+public:
+    StarPathProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr);
+    void setup() override;
+    void loop() override;
+public:
     uint8_t send(const uint8_t *data, uint16_t size, MeshAddress target, SentStatusHandler handler = nullptr);
     void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) override;
     void radioPacketSent(uint8_t status, RadioPacket *pkt) override;

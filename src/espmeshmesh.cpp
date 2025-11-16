@@ -9,6 +9,7 @@
 #include "broadcast2.h"
 #include "unicast.h"
 #include "multipath.h"
+#include "starpath.h"
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
 #include "polite.h"
 #endif
@@ -354,6 +355,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 
   unicast = new Unicast(packetbuf, handler);
   multipath = new MultiPath(packetbuf, handler);
+  starpath = new StarPathProtocol(packetbuf, handler);
 
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
   mPoliteBroadcast = new PoliteBroadcastProtocol(packetbuf, handler);

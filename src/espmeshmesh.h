@@ -34,6 +34,7 @@ class Broadcast;
 class Broadcast2;
 class Unicast;
 class MultiPath;
+class StarPathProtocol;
 class PoliteBroadcastProtocol;
 class ConnectedPath;
 
@@ -128,6 +129,7 @@ private:
   Broadcast2 *broadcast2 = nullptr;
   Unicast *unicast = nullptr;
   MultiPath *multipath = nullptr;
+  StarPathProtocol *starpath = nullptr;
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
   PoliteBroadcastProtocol *mPoliteBroadcast = nullptr;
 #endif
