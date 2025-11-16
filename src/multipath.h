@@ -1,8 +1,6 @@
 #pragma once
 #include "modules.h"
 
-#ifdef USE_MULTIPATH_PROTOCOL
-
 #include "packetbuf.h"
 #include "recvdups.h"
 
@@ -61,4 +59,3 @@ private:
 
 } // namespace espmeshmesh
 
-#endif

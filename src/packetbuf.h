@@ -95,9 +95,7 @@ class PacketBufProtocol;
 class Broadcast;
 class Broadcast2;
 class Unicast;
-#ifdef USE_MULTIPATH_PROTOCOL
 class MultiPath;
-#endif
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
 class PoliteBroadcastProtocol;
 #endif

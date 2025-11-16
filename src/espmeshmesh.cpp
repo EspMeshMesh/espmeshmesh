@@ -8,9 +8,7 @@
 #include "broadcast.h"
 #include "broadcast2.h"
 #include "unicast.h"
-#ifdef USE_MULTIPATH_PROTOCOL
 #include "multipath.h"
-#endif
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
 #include "polite.h"
 #endif
@@ -357,10 +355,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
   broadcast2 = new Broadcast2(packetbuf, handler);
 
   unicast = new Unicast(packetbuf, handler);
-
-#ifdef USE_MULTIPATH_PROTOCOL
   multipath = new MultiPath(packetbuf, handler);
-#endif
 
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
   mPoliteBroadcast = new PoliteBroadcastProtocol(packetbuf, handler);
@@ -421,10 +416,8 @@ void EspMeshMesh::loop() {
   if (mPoliteBroadcast)
     mPoliteBroadcast->loop();
 #endif
-#ifdef USE_MULTIPATH_PROTOCOL
   // execute multipath loop
   multipath->loop();
-#endif
 #ifdef USE_CONNECTED_PROTOCOL
   mConnectedPath->loop();
 #endif
@@ -487,7 +480,6 @@ void EspMeshMesh::unicastSendData(const uint8_t *buff, uint16_t len, uint32_t ad
     unicast->send(buff, len, addr, port, nullptr);
 }
 
-#ifdef USE_MULTIPATH_PROTOCOL
 void EspMeshMesh::multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint8_t *path) {
   if (!multipath)
     return;
@@ -499,7 +491,6 @@ void EspMeshMesh::multipathSendData(const uint8_t *buff, uint16_t len, uint32_t 
   pkt->setPayload(buff);
   multipath->send(pkt, true, nullptr);
 }
-#endif
 
 #ifdef IDF_VER
 void EspMeshMesh::initIdfUart() {
@@ -611,9 +602,7 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
       err = unicast->send(buff, len, mFromAddress.address, UNICAST_DEFAULT_PORT, nullptr);
       break;
     case MeshAddress::SRC_MULTIPATH:
-#ifdef USE_MULTIPATH_PROTOCOL
       err = multipath->send(buff, len, mFromAddress, (uint32_t *) &mRecvPath[0], mRecvPathSize, true, MULTIPATH_DEFAULT_PORT);
-#endif
       break;
     case MeshAddress::SRC_POLITEBRD:
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
@@ -692,7 +681,6 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
       }
       break;
     case CMD_MULTIPATH_SEND:  // 76 AAAAAAAA BB CCCCCCCC........DDDDDDDD AABBCCDDEE...ZZ
-#ifdef USE_MULTIPATH_PROTOCOL
       if (len > 5) {
         uint8_t pathlen = buf[5];
         if (len > 6 + pathlen * sizeof(uint32_t)) {
@@ -709,7 +697,6 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
           err = 0;
         }
       }
-#endif
       break;
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
     case CMD_POLITEBRD_SEND:

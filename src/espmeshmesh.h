@@ -33,9 +33,7 @@ typedef enum {
 class Broadcast;
 class Broadcast2;
 class Unicast;
-#ifdef USE_MULTIPATH_PROTOCOL
 class MultiPath;
-#endif
 class PoliteBroadcastProtocol;
 #ifdef USE_CONNECTED_PROTOCOL
 class ConnectedPath;
@@ -101,9 +99,7 @@ class EspMeshMesh {
    * @param port Port to send data to. Data will be received only from callbacks registered with this port.
    */
   void unicastSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint16_t port = 0);
-#ifdef USE_MULTIPATH_PROTOCOL
   void multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint32_t *path);
-#endif
  public:
   static unsigned long elapsedMillis(unsigned long t2, unsigned long t1) {
     return t2 >= t1 ? t2 - t1 : (~(t1 - t2)) + 1;
@@ -142,9 +138,7 @@ private:
   Broadcast *broadcast = nullptr;
   Broadcast2 *broadcast2 = nullptr;
   Unicast *unicast = nullptr;
-#ifdef USE_MULTIPATH_PROTOCOL
   MultiPath *multipath = nullptr;
-#endif
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
   PoliteBroadcastProtocol *mPoliteBroadcast = nullptr;
 #endif

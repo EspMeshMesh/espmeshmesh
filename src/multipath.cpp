@@ -1,5 +1,4 @@
 #include "multipath.h"
-#ifdef USE_MULTIPATH_PROTOCOL
 
 #include "log.h"
 
@@ -124,4 +123,3 @@ void MultiPath::radioPacketSent(uint8_t status, RadioPacket *pkt) {
 
 }  // namespace espmeshmesh
 
-#endif
