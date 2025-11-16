@@ -35,9 +35,7 @@ class Broadcast2;
 class Unicast;
 class MultiPath;
 class PoliteBroadcastProtocol;
-#ifdef USE_CONNECTED_PROTOCOL
 class ConnectedPath;
-#endif
 
 class MeshSocket;
 
@@ -56,9 +54,7 @@ class EspMeshMesh {
  public:
   static EspMeshMesh *singleton;
   static EspMeshMesh *getInstance();
-#ifdef USE_CONNECTED_PROTOCOL
   ConnectedPath *getConnectedPath() const { return mConnectedPath; }
-#endif
  public:
   EspMeshMesh(int baud_rate, int tx_buffer, int rx_buffer);
   void pre_setup();
@@ -117,13 +113,6 @@ class EspMeshMesh {
   void replyHandleFrame(const uint8_t *buf, uint16_t len, const MeshAddress &from, int16_t rssi = 0);
 
  private:
-#ifdef USE_CONNECTED_PROTOCOL
-  static void onConnectedPathNewClientCb(void *arg, uint32_t from, uint16_t handle);
-  void onConnectedPathNewClient(uint32_t from, uint16_t handle);
-  static void onConnectedPathReceiveCb(void *arg, const uint8_t *data, uint16_t size, uint8_t connid);
-  void onConnectedPathReceive(const uint8_t *data, uint16_t size, uint8_t connid);
-#endif
-
   void sendLog(int level, const char *tag, const char *payload, size_t payload_len);
 
  private:
@@ -146,10 +135,7 @@ private:
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
   uint32_t mPoliteFromAddress = 0;
 #endif
-#ifdef USE_CONNECTED_PROTOCOL
   ConnectedPath *mConnectedPath = nullptr;
-  uint8_t mConnectionId = 0;
-#endif
 
 #ifdef ESP8266
   HardwareSerial *mHwSerial = nullptr;

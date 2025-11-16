@@ -99,9 +99,7 @@ class MultiPath;
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
 class PoliteBroadcastProtocol;
 #endif
-#ifdef USE_CONNECTED_PROTOCOL
 class ConnectedPath;
-#endif
 
 #define PACKETBUF_80211_SIZE 24
 

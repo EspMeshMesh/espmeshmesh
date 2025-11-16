@@ -32,19 +32,6 @@ struct MeshAddress {
         SRC_SERIAL     = 0xff,
     } DataSrc;
     
-    typedef enum {
-        SRC_NONE       = 0x00,
-        SRC_BROADCAST  = 0x01,
-        SRC_UNICAST    = 0x02,
-        SRC_PREROUTED  = 0x03,
-        SRC_MULTIPATH  = 0x04,
-        SRC_POLITEBRD  = 0x05,
-        SRC_CONNPATH   = 0x07,
-        SRC_BROADCAST2 = 0x06,
-        SRC_FILTER     = 0xfe,
-        SRC_SERIAL     = 0xff,
-    } DataSrc;
-
     MeshAddress(): repeaters(std::vector<uint32_t>()), port(0), address(0) {}
     MeshAddress(uint8_t port, uint32_t address): repeaters(std::vector<uint32_t>()), port(port), address(address) {}
     MeshAddress(uint8_t port, uint32_t address, std::vector<uint32_t> repeaters): repeaters(repeaters), port(port), address(address) {}

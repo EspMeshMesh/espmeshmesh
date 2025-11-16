@@ -1,6 +1,5 @@
 #include "connectedpath.h"
 
-#ifdef USE_CONNECTED_PROTOCOL
 #include "log.h"
 #include "espmeshmesh.h"
 #include "commands.h"
@@ -771,5 +770,3 @@ void ConnectedPath::debugConnection() const {
 }
 
 }  // namespace espmeshmesh
-
-#endif

@@ -1,7 +1,4 @@
 #pragma once
-#include "modules.h"
-
-#ifdef USE_CONNECTED_PROTOCOL
 
 #include <cstdint>
 #include <functional>
@@ -179,4 +176,3 @@ class ConnectedPath: public PacketBufProtocol {
 
 }  // namespace espmeshmesh
 
-#endif

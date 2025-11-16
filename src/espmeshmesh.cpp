@@ -12,9 +12,7 @@
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
 #include "polite.h"
 #endif
-#ifdef USE_CONNECTED_PROTOCOL
 #include "connectedpath.h"
-#endif
 
 #ifdef ESP8266
 #include <Esp.h>
@@ -361,10 +359,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
   mPoliteBroadcast = new PoliteBroadcastProtocol(packetbuf, handler);
 #endif
 
-#ifdef USE_CONNECTED_PROTOCOL
   mConnectedPath = new ConnectedPath(this, packetbuf);
-  mConnectedPath->bindPort(onConnectedPathNewClientCb, this, 0);
-#endif
 
   mDiscovery.init();
   dump_config();
@@ -418,9 +413,7 @@ void EspMeshMesh::loop() {
 #endif
   // execute multipath loop
   multipath->loop();
-#ifdef USE_CONNECTED_PROTOCOL
   mConnectedPath->loop();
-#endif
   // Execute discovery if is running
   if (mDiscovery.isRunning())
     mDiscovery.loop(this);
@@ -480,14 +473,14 @@ void EspMeshMesh::unicastSendData(const uint8_t *buff, uint16_t len, uint32_t ad
     unicast->send(buff, len, addr, port, nullptr);
 }
 
-void EspMeshMesh::multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint8_t *path) {
+void EspMeshMesh::multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint32_t *path) {
   if (!multipath)
     return;
   MultiPathPacket *pkt = new MultiPathPacket(multipath, nullptr);
   pkt->allocClearData(len, pathlen);
   pkt->multipathHeader()->trargetAddress = addr;
   for (int i = 0; i < pathlen; i++)
-    pkt->setPathItem(uint32FromBuffer(path) + i * sizeof(uint32_t), i);
+    pkt->setPathItem(path[i], i);
   pkt->setPayload(buff);
   multipath->send(pkt, true, nullptr);
 }
@@ -602,7 +595,7 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
       err = unicast->send(buff, len, mFromAddress.address, UNICAST_DEFAULT_PORT, nullptr);
       break;
     case MeshAddress::SRC_MULTIPATH:
-      err = multipath->send(buff, len, mFromAddress, (uint32_t *) &mRecvPath[0], mRecvPathSize, true, MULTIPATH_DEFAULT_PORT);
+      err = multipath->send(buff, len, mFromAddress.address, (uint32_t *) mFromAddress.repeaters.data(), mFromAddress.repeaters.size(), MultiPath::Reverse, MULTIPATH_DEFAULT_PORT, nullptr);
       break;
     case MeshAddress::SRC_POLITEBRD:
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
@@ -611,10 +604,8 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
 #endif
       break;
     case MeshAddress::SRC_CONNPATH:
-#ifdef USE_CONNECTED_PROTOCOL
       // mConnectedPath->sendDataTo(buff, len, mConnectionId);
       LIB_LOGE(TAG, "commandReply SRC_CONNPATH not handled");
-#endif
       break;
     case MeshAddress::SRC_FILTER:
       break;
@@ -706,13 +697,11 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
       }
       break;
 #endif
-#ifdef USE_CONNECTED_PROTOCOL
     case CMD_CONNPATH_REQUEST:
-      if (len > 1 && src == MeshAddress::SRC_SERIAL) {
+      if (len > 1 && from.sourceProtocol == MeshAddress::SRC_SERIAL) {
         err = mConnectedPath->receiveUartPacket(buf + 1, len - 1);
       }
       break;
-#endif
     case CMD_FILTERED_REQUEST:
       if (len > 5) {
         uint8_t i;
@@ -775,26 +764,6 @@ void EspMeshMesh::replyHandleFrame(const uint8_t *buf, uint16_t len, const MeshA
       break;
   }
 }
-
-#ifdef USE_CONNECTED_PROTOCOL
-void EspMeshMesh::onConnectedPathNewClientCb(void *arg, uint32_t from, uint16_t handle) {
-  ((EspMeshMesh *) arg)->onConnectedPathNewClient(from, handle);
-}
-
-void EspMeshMesh::onConnectedPathNewClient(uint32_t from, uint16_t handle) {
-  LIB_LOGD(TAG, "MeshmeshComponent::onConnectedPathNewClien %06lX:%04X", from, handle);
-  mConnectedPath->setReceiveCallback(onConnectedPathReceiveCb, nullptr, this, from, handle);
-}
-
-void EspMeshMesh::onConnectedPathReceiveCb(void *arg, const uint8_t *data, uint16_t size, uint8_t connid) {
-  ((EspMeshMesh *) arg)->onConnectedPathReceive(data, size, connid);
-}
-
-void EspMeshMesh::onConnectedPathReceive(const uint8_t *data, uint16_t size, uint8_t connid) {
-  mConnectionId = connid;
-  handleFrame(SRC_CONNPATH, data, size, connid, 0);
-}
-#endif
 
 void EspMeshMesh::sendLog(int level, const char *tag, const char *payload, size_t payload_len) {
   if (mBaudRate == 0 && mLogDestination == 0)
