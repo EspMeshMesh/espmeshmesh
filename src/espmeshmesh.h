@@ -48,6 +48,7 @@ typedef struct {
   const char *hostname;
   uint8_t channel;
   uint8_t txPower;
+  bool isCoordinator;
 } EspMeshMeshSetupConfig;
 
 class EspMeshMesh {

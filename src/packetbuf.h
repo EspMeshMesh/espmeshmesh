@@ -92,15 +92,6 @@ typedef struct pktbuf_recvTask_packet_st pktbuf_recvTask_packet_t;
 class RadioPacket;
 class PacketBufProtocol;
 
-class Broadcast;
-class Broadcast2;
-class Unicast;
-class MultiPath;
-#ifdef USE_POLITE_BROADCAST_PROTOCOL
-class PoliteBroadcastProtocol;
-#endif
-class ConnectedPath;
-
 #define PACKETBUF_80211_SIZE 24
 
 class RadioPacket {

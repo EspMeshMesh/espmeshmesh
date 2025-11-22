@@ -355,7 +355,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 
   unicast = new Unicast(packetbuf, handler);
   multipath = new MultiPath(packetbuf, handler);
-  starpath = new StarPathProtocol(packetbuf, handler);
+  starpath = new StarPathProtocol(config->isCoordinator, packetbuf, handler);
 
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
   mPoliteBroadcast = new PoliteBroadcastProtocol(packetbuf, handler);
@@ -363,9 +363,13 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 
   mConnectedPath = new ConnectedPath(this, packetbuf);
 
+  starpath->setup();
+
   mDiscovery.init();
   dump_config();
   mElapsed1 = millis();
+
+
 
 #ifdef USE_BINARY_SENSOR
   for (auto binary : App.get_binary_sensors()) {
@@ -415,6 +419,7 @@ void EspMeshMesh::loop() {
 #endif
   // execute multipath loop
   multipath->loop();
+  starpath->loop();
   mConnectedPath->loop();
   // Execute discovery if is running
   if (mDiscovery.isRunning())

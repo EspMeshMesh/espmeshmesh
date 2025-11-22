@@ -110,7 +110,7 @@ uint8_t ConnectedPath::sendRawRadioPacket(ConnectedPathPacket *pkt) {
 uint8_t ConnectedPath::sendRadioPacket(ConnectedPathPacket *pkt, bool forward, bool initHeader) {
   ConnectedPathHeader_t *header = pkt->getHeader();
   // Fill protocol header...
-  header->protocol = PROTOCOL_CONNPATH;
+  header->protocol = MeshAddress::SRC_CONNPATH;
   // Optional fields
   if (initHeader) {
     // Add flags to this packet

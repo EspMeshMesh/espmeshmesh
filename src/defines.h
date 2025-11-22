@@ -11,7 +11,7 @@ namespace espmeshmesh {
 #define PROTOCOL_MULTIPATH 4
 #define PROTOCOL_POLITEBRD 5
 #define PROTOCOL_BROADCAST_V2 6
-#define PROTOCOL_CONNPATH 7
+
 #define PROTOCOL_LAST 8
 
 #define CMD_FLASH_GETMD5 0x01
