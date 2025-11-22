@@ -178,19 +178,19 @@ void RadioPacket::fill80211(uint8_t *targetId, uint8_t *pktbufNodeIdPtr) {
 		ieee80211_hdr->addr1[5] = targetId[0];
 	} else {
   #ifdef USE_BROADCAST_WITH_MULTICAST
-    ieee80211_hdr->addr1[0] = 0x01;
-    ieee80211_hdr->addr1[1] = 0x00;
-    ieee80211_hdr->addr1[2] = 0x5E;
-    ieee80211_hdr->addr1[3] = 0x7F;
-    ieee80211_hdr->addr1[4] = 0x00;
-    ieee80211_hdr->addr1[5] = 0x01;
+        ieee80211_hdr->addr1[0] = 0x01;
+        ieee80211_hdr->addr1[1] = 0x00;
+        ieee80211_hdr->addr1[2] = 0x5E;
+        ieee80211_hdr->addr1[3] = 0x7F;
+        ieee80211_hdr->addr1[4] = 0x00;
+        ieee80211_hdr->addr1[5] = 0x01;
   #else
-    ieee80211_hdr->addr1[0] = 0xFF;
-    ieee80211_hdr->addr1[1] = 0xFF;
-    ieee80211_hdr->addr1[2] = 0xFF;
-    ieee80211_hdr->addr1[3] = 0xFF;
-    ieee80211_hdr->addr1[4] = 0xFF;
-    ieee80211_hdr->addr1[5] = 0xFF;
+        ieee80211_hdr->addr1[0] = 0xFF;
+        ieee80211_hdr->addr1[1] = 0xFF;
+        ieee80211_hdr->addr1[2] = 0xFF;
+        ieee80211_hdr->addr1[3] = 0xFF;
+        ieee80211_hdr->addr1[4] = 0xFF;
+        ieee80211_hdr->addr1[5] = 0xFF;
   #endif
     }
 
@@ -433,29 +433,29 @@ void IRAM_ATTR __attribute__((hot)) PacketBuf::rawRecv(RxPacket *pkt) {
 }
 
 PacketBufProtocol::PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn, MeshAddress::DataSrc protocol) {
-  this->mPacketBuf = pbuf;
+    this->mPacketBuf = pbuf;
 
-  if (rx_fn) {
+    if (rx_fn) {
     this->bindPort(0, rx_fn);
-  }
-  if (protocol != MeshAddress::SRC_NONE) {
+    }
+    if (protocol != MeshAddress::SRC_NONE) {
     pbuf->setRecvHandler(protocol, this);
-  }
+    }
 }
 
 bool PacketBufProtocol::isPortAvailable(uint16_t port) const {
-  const auto it = this->mBindedPorts.find(port);
-  return (it != this->mBindedPorts.end());
+    const auto it = this->mBindedPorts.find(port);
+    return (it == this->mBindedPorts.end());
 }
 
 bool PacketBufProtocol::bindPort(uint16_t port, ReceiveHandler handler) {
-  if (!this->isPortAvailable(port)) {
-    LIB_LOGE(TAG, "bindPort: port %d already binded", port);
-    return false;
-  }
-  LIB_LOGV(TAG, "bindPort: port %d is now binded", port);
-  this->mBindedPorts[port] = handler;
-  return true;
+    if (!this->isPortAvailable(port)) {
+        LIB_LOGE(TAG, "bindPort: port %d already binded", port);
+        return false;
+    }
+    LIB_LOGV(TAG, "bindPort: port %d is now binded", port);
+    this->mBindedPorts[port] = handler;
+    return true;
 }
 
 void PacketBufProtocol::unbindPort(uint16_t port) {
