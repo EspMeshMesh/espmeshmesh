@@ -105,7 +105,7 @@ class RadioPacket {
   bool isBroadcast() const { return mIsBroadcast; }
   void setAutoDelete(bool autodel) { mAutoDelete = autodel; }
 
-  void fromRawData(uint8_t *buf, uint16_t size);
+  void fromRawData(const uint8_t *buf, uint16_t size);
 
  public:
   virtual void allocClearData(uint16_t size);
@@ -169,10 +169,11 @@ public:
  virtual void setup() {};
  virtual void loop() {};
 
+ MeshAddress::DataSrc protocolType() const { return mProtocolType; }
  bool isPortAvailable(uint16_t port) const;
  bool bindPort(uint16_t port, ReceiveHandler handler);
  void unbindPort(uint16_t port);
- void callReceiveHandler(uint8_t *payload, uint16_t size,const MeshAddress &from, int16_t rssi);
+ void callReceiveHandler(const uint8_t *payload, uint16_t size,const MeshAddress &from, int16_t rssi);
 
  virtual void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) = 0;
  virtual void radioPacketSent(uint8_t status, RadioPacket *pkt) { pkt->callCallback(status, pkt); };
@@ -180,6 +181,7 @@ public:
 protected:
  PacketBuf *mPacketBuf{nullptr};
  std::map<uint16_t, ReceiveHandler> mBindedPorts;
+ MeshAddress::DataSrc mProtocolType = MeshAddress::SRC_NONE;
 };
 
 /**

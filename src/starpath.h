@@ -4,15 +4,33 @@
 
 namespace espmeshmesh {
 
+#define STARPATH_MAX_PATH_LENGTH 16
+
 struct StarPathHeaderSt {
     uint8_t protocol;
     uint8_t flags;
     uint8_t port;
     uint8_t pktType;
     uint16_t seqno;
-    uint16_t length;
+    uint16_t payloadLength;
 } __attribute__ ((packed));
 typedef struct StarPathHeaderSt StarPathHeader;
+
+enum StarPathDirection {
+    ToCoordinator,
+    ToNode
+};
+
+struct StarPathPath_st {
+    uint32_t sourceAddress;
+    uint32_t targetAddress;
+    uint32_t routerAddressses[16];
+    int16_t hopsRssi[16];
+    uint8_t hopsCount;
+    uint8_t hopIndex;
+    StarPathDirection direction;
+} __attribute__ ((packed));
+typedef struct StarPathPath_st StarPathPath;
 
 struct StarPathBindedPort_st {
     ReceiveHandler handler;
@@ -22,13 +40,16 @@ typedef StarPathBindedPort_st StarPathBindedPort_t;
 
 class StarPathPacket: public RadioPacket {
 public:
-    enum PacketType { DiscoveryBeacon, DiscoveryBeaconReply };
-    explicit StarPathPacket(PacketBufProtocol * owner, SentStatusHandler cb = nullptr): RadioPacket(owner, cb) {}
-public:
+    enum PacketType { DiscoveryBeacon, DiscoveryBeaconReply, DataPacket };
+    explicit StarPathPacket(PacketBufProtocol * owner, SentStatusHandler cb = nullptr);
+    explicit StarPathPacket(PacketBufProtocol * owner, PacketType pktType, SentStatusHandler cb = nullptr);
     void allocClearData(uint16_t size) override;
 public:
-	StarPathHeader *startPathHeader() { return (StarPathHeader *)clearData(); }
-	uint8_t *starPathPayload() { return (uint8_t *)(clearData()+sizeof(StarPathHeaderSt)); }
+	StarPathHeader *starPathHeader() { return (StarPathHeader *)clearData(); }
+	StarPathPath *starPathPath() { return (StarPathPath *)(clearData()+sizeof(StarPathHeaderSt)); }
+	uint8_t *starPathPayload();
+private:
+    PacketType mPktType;
 };
 
 class StarPathProtocol: public PacketBufProtocol {
@@ -47,16 +68,20 @@ public:
     void loop() override;
 public:
     uint8_t send(StarPathPacket *pkt, bool initHeader, SentStatusHandler handler = nullptr);
+    uint8_t send(const uint8_t *data, uint16_t size, MeshAddress target, SentStatusHandler handler = nullptr);
     void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) override;
     void radioPacketSent(uint8_t status, RadioPacket *pkt) override;
 private:
     uint32_t calculateBeaconReplyDeadline() const;
     uint8_t sendDiscoveryBeacon();
-    void handleDiscoveryBeacon(StarPathHeader *header, const uint8_t *data, uint16_t dataSize, uint32_t from, int16_t rssi);
+    void handleDiscoveryBeacon(StarPathPacket *pkt, uint32_t from, int16_t rssi);
     uint8_t sendDiscoveryBeaconReply(uint32_t target, int16_t rssi);
-    void handleDiscoveryBeaconReply(StarPathHeader *header, const uint8_t *data, uint16_t dataSize, uint32_t from);
+    void handleDiscoveryBeaconReply(StarPathPacket *pkt, uint32_t from);
     void analyseBeacons();
     void associateToNeighbour(uint32_t neighbourId, uint32_t coordinatorId, uint8_t coordinatorHops);
+    bool handleDataPacket(StarPathPacket *pkt, uint32_t from, int16_t rssi);
+    void handleDataPresentationPacket(StarPathPacket *pkt, const MeshAddress &from);
+    uint8_t sendPresentationPacket();
 private:
     uint16_t mLastSequenceNum = 0;
     RecvDups mRecvDups;

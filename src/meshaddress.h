@@ -37,7 +37,7 @@ struct MeshAddress {
     MeshAddress(uint8_t port, uint32_t address): repeaters(std::vector<uint32_t>()), port(port), address(address) {}
     MeshAddress(DataSrc sourceProtocol, uint8_t port, uint32_t address): sourceProtocol(sourceProtocol), port(port), address(address) {}
     MeshAddress(uint8_t port, uint32_t address, std::vector<uint32_t> repeaters): repeaters(repeaters), port(port), address(address) {}
-    MeshAddress(uint8_t port, uint32_t address, uint8_t *path, uint8_t pathCount, bool reversed=false);
+    MeshAddress(uint8_t port, uint32_t address, const uint8_t *path, uint8_t pathCount, bool reversed=false);
     MeshAddress(const MeshAddress &other): sourceProtocol(other.sourceProtocol), repeaters(other.repeaters), port(other.port), address(other.address) {}
     bool isBroadcast() const { return address == broadCastAddress; }
 

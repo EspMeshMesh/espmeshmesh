@@ -2,7 +2,7 @@
 #include "packetbuf.h"
 namespace espmeshmesh {
 
-MeshAddress::MeshAddress(uint8_t port, uint32_t address, uint8_t *path, uint8_t pathCount, bool reversed): repeaters(std::vector<uint32_t>()), port(port), address(address) {
+MeshAddress::MeshAddress(uint8_t port, uint32_t address, const uint8_t *path, uint8_t pathCount, bool reversed): repeaters(std::vector<uint32_t>()), port(port), address(address) {
     if(path && pathCount>0) {
         repeaters.resize(pathCount);
         if(!reversed || pathCount == 1) {

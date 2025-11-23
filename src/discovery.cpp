@@ -49,15 +49,8 @@ void Discovery::loop(EspMeshMesh *parent) {
     mStart.cmd1 = CMD_DISCOVERY_REQ;
     mStart.cmd2 = DISCCMD_BEACONS_SEND_REQ;
 
-    mStartCompat.cmd1 = CMD_BEACONS_SEND;
-    mStartCompat.filter = mStart.filter;
-    mStartCompat.mask = mStart.mask;
-    mStartCompat.slotnum = mStart.slotnum;
-
-    parent->broadcastSendData((uint8_t *) &mStart, sizeof(CmdStart_t));
-    // parent->broadCastSendData((uint8_t *)&mStartCompat, sizeof(CmdStartCompat_t));
+    parent->broadcastSendData((uint8_t *) &mStart, sizeof(CmdStart_t));\
     // parent->broadCastSendData((uint8_t *)&mStart, sizeof(CmdStart_t));
-    // parent->broadCastSendData((uint8_t *)&mStartCompat, sizeof(mStartCompat));
 
     mRunPhase++;
   } else if (mRunPhase == 3) {

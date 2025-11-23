@@ -760,13 +760,6 @@ void EspMeshMesh::replyHandleFrame(const uint8_t *buf, uint16_t len, const MeshA
       uartSendData(cpy, len);
       delete[] cpy;
     } break;
-    case CMD_BEACONS_RECV:
-      // Compatibility with previous discovery procedure
-      if (len == sizeof(BaconsDataCompat_t)) {
-        BaconsDataCompat_t *b = (BaconsDataCompat_t *) buf;
-        mDiscovery.process_beacon(b->id, b->rssi, 0);
-      }
-      break;
     default:
       uartSendData(buf, len);
       break;

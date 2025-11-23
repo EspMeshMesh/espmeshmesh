@@ -87,7 +87,7 @@ RadioPacket::~RadioPacket() {
     if(mClearData) delete mClearData;
 }
 
-void RadioPacket::fromRawData(uint8_t *buf, uint16_t size) {
+void RadioPacket::fromRawData(const uint8_t *buf, uint16_t size) {
     mClearDataSize = size;
     mClearData = new uint8_t[mClearDataSize];
 	memcpy(clearData(), buf, size);
@@ -432,8 +432,8 @@ void IRAM_ATTR __attribute__((hot)) PacketBuf::rawRecv(RxPacket *pkt) {
     }
 }
 
-PacketBufProtocol::PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn, MeshAddress::DataSrc protocol) {
-    this->mPacketBuf = pbuf;
+PacketBufProtocol::PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn, MeshAddress::DataSrc protocol):  
+    mPacketBuf(pbuf), mProtocolType(protocol) {
 
     if (rx_fn) {
     this->bindPort(0, rx_fn);
@@ -444,17 +444,29 @@ PacketBufProtocol::PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn, Mesh
 }
 
 bool PacketBufProtocol::isPortAvailable(uint16_t port) const {
-    const auto it = this->mBindedPorts.find(port);
+    LIB_LOGV(TAG, "isPortAvailable: protocol type %d port %d total ports %d", (int)mProtocolType, port, this->mBindedPorts.size());
+
+    /*for(const auto &[p, h] : this->mBindedPorts) {
+        if(p == port) {
+            LIB_LOGV(TAG, "isPortAvailable: port %d is already binded on protocol type %d", port, (int)mProtocolType);
+            return false;
+        }
+    }*/
+
+    //return true;
+
+    // TODO: Understand why the following code is not working
+    auto it = this->mBindedPorts.find(port);
     return (it == this->mBindedPorts.end());
 }
 
 bool PacketBufProtocol::bindPort(uint16_t port, ReceiveHandler handler) {
     if (!this->isPortAvailable(port)) {
-        LIB_LOGE(TAG, "bindPort: port %d already binded", port);
+        LIB_LOGE(TAG, "bindPort: port %d already binded on protocol type %d", port, (int)mProtocolType);
         return false;
     }
-    LIB_LOGV(TAG, "bindPort: port %d is now binded", port);
     this->mBindedPorts[port] = handler;
+    LIB_LOGV(TAG, "bindPort: port %d is now binded on protocol type %d total ports %d", port, (int)mProtocolType, this->mBindedPorts.size());
     return true;
 }
 
@@ -466,12 +478,12 @@ void PacketBufProtocol::unbindPort(uint16_t port) {
     return;
   }
 
-  LIB_LOGE(TAG, "unbindPort: port %d is not binded", port);
+  LIB_LOGE(TAG, "unbindPort: port %d is not binded on protocol type %d", port, (int)mProtocolType);
 }
 
-void PacketBufProtocol::callReceiveHandler(uint8_t *payload, uint16_t size, const MeshAddress &from, int16_t rssi) {
-  if (!isPortAvailable(from.port)) {
-    LIB_LOGE(TAG, "bindPort port %d already binded", from.port);
+void PacketBufProtocol::callReceiveHandler(const uint8_t *payload, uint16_t size, const MeshAddress &from, int16_t rssi) {
+  if (isPortAvailable(from.port)) {
+    LIB_LOGE(TAG, "port %d is not binded to any callback on protocol type %d", from.port, (int)mProtocolType);
   } else {
     auto cb = mBindedPorts[from.port];
     cb(payload, size, from, rssi);
