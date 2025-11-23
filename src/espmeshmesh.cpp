@@ -41,6 +41,7 @@ static const char *TAG = "espmeshmesh";
 #define BROADCAST_DEFAULT_PORT 0
 #define UNICAST_DEFAULT_PORT 0
 #define MULTIPATH_DEFAULT_PORT 0
+#define SERIAL_DEFAULT_PORT 0
 
 #define DEF_CMD_BUFFER_SIZE 0x440
 #define MAX_CMD_BUFFER_SIZE 0x440
@@ -556,7 +557,7 @@ void EspMeshMesh::user_uart_recv_data(uint8_t byte) {
     case WAIT_CRC16_2:
       received_crc16 = received_crc16 | uint16_t(byte);
       if (computed_crc16 == received_crc16) {
-        handleFrame(mRecvBuffer, mRecvBufferPos, MeshAddress(MeshAddress::SRC_SERIAL, MeshAddress::noAddress), 0);
+        handleFrame(mRecvBuffer, mRecvBufferPos, MeshAddress(MeshAddress::SRC_SERIAL, SERIAL_DEFAULT_PORT, MeshAddress::noAddress), 0);
       } else {
         // handleFrame(SRC_SERIAL, mRecvBuffer, mRecvBufferPos, 0xFFFFFFFF);
         LIB_LOGE(TAG, "CRC16 mismatch %04X %04X", computed_crc16, received_crc16);
