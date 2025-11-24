@@ -49,15 +49,15 @@ typedef struct {
   uint8_t channel;
   uint8_t txPower;
   bool isCoordinator;
+  const char *fwVersion;
 } EspMeshMeshSetupConfig;
 
 class EspMeshMesh {
- public:
- public:
+public:
   static EspMeshMesh *singleton;
   static EspMeshMesh *getInstance();
   ConnectedPath *getConnectedPath() const { return mConnectedPath; }
- public:
+public:
   EspMeshMesh(int baud_rate, int tx_buffer, int rx_buffer);
   void pre_setup();
 #ifdef IDF_VER
@@ -70,7 +70,9 @@ class EspMeshMesh {
   void setAesPassword(const char *password) { mAesPassword = password; }
   void dump_config();
   void loop();
-
+public:
+  const std::string &fwVersion() const { return mFwVersion; }
+  const std::string &hostname() const { return mHostName; }
  public:
   void setLockdownMode(bool active) { packetbuf->setLockdownMode(active); }
   static void wifiInitMacAddr(uint8_t index);
@@ -157,7 +159,7 @@ private:
 
   Discovery mDiscovery;
 
- private:
+private:
   // UartRingBuffer;
   MemRingBuffer mUartTxBuffer;
   // Use serial
@@ -168,6 +170,10 @@ private:
   int16_t mRssiHandle = 0;
   // Encryption password
   std::string mAesPassword;
+  // Firmware version
+  std::string mFwVersion;
+  // Hostname
+  std::string mHostName;
 #ifdef ESP8266
   bool mWorkAround{false};
 #endif

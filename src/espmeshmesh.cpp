@@ -328,6 +328,8 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
   mUseSerial = mBaudRate > 0;
 
   setupWifi(config->hostname, config->channel, config->txPower);
+  mFwVersion = config->fwVersion;
+  mHostName = config->hostname;
 
   uint8_t aespassword[16];
   if (mAesPassword.size() == 0) {

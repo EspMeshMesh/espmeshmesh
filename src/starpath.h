@@ -40,7 +40,7 @@ typedef StarPathBindedPort_st StarPathBindedPort_t;
 
 class StarPathPacket: public RadioPacket {
 public:
-    enum PacketType { DiscoveryBeacon, DiscoveryBeaconReply, DataPacket };
+    enum PacketType { DiscoveryBeacon, DiscoveryBeaconReply, DataPacket, DataPacketNack };
     explicit StarPathPacket(PacketBufProtocol * owner, SentStatusHandler cb = nullptr);
     explicit StarPathPacket(PacketBufProtocol * owner, PacketType pktType, SentStatusHandler cb = nullptr);
     void allocClearData(uint16_t size) override;
@@ -56,7 +56,7 @@ class StarPathProtocol: public PacketBufProtocol {
     struct Neighbour_st {
         uint32_t id;
         uint32_t coordinatorId;
-        int16_t rssi;
+        int16_t cost;
         uint8_t hops;
     } __attribute__ ((packed));
     typedef struct Neighbour_st Neighbour_t;
@@ -67,20 +67,25 @@ public:
     void setup() override;
     void loop() override;
 public:
-    uint8_t send(StarPathPacket *pkt, bool initHeader, SentStatusHandler handler = nullptr);
+    uint8_t send(StarPathPacket *pkt, SentStatusHandler handler = nullptr);
     uint8_t send(const uint8_t *data, uint16_t size, MeshAddress target, SentStatusHandler handler = nullptr);
     void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) override;
     void radioPacketSent(uint8_t status, RadioPacket *pkt) override;
 private:
+    int16_t calculateCost(int16_t rssi) const;
+    int16_t calculateTestbedCosts(uint32_t source, uint32_t target) const;
     uint32_t calculateBeaconReplyDeadline() const;
-    uint8_t sendDiscoveryBeacon();
     void handleDiscoveryBeacon(StarPathPacket *pkt, uint32_t from, int16_t rssi);
-    uint8_t sendDiscoveryBeaconReply(uint32_t target, int16_t rssi);
     void handleDiscoveryBeaconReply(StarPathPacket *pkt, uint32_t from);
     void analyseBeacons();
     void associateToNeighbour(uint32_t neighbourId, uint32_t coordinatorId, uint8_t coordinatorHops);
+    void disassociateFromNeighbour();
     bool handleDataPacket(StarPathPacket *pkt, uint32_t from, int16_t rssi);
+    void handleDataPacketNack(StarPathPacket *pkt, uint32_t from);
     void handleDataPresentationPacket(StarPathPacket *pkt, const MeshAddress &from);
+    uint8_t sendDiscoveryBeacon();
+    uint8_t sendDiscoveryBeaconReply(uint32_t target, int16_t rssi);
+    uint8_t sendDataPacketNackPacket(uint32_t target);
     uint8_t sendPresentationPacket();
 private:
     uint16_t mLastSequenceNum = 0;
