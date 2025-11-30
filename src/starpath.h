@@ -67,8 +67,8 @@ public:
     void setup() override;
     void loop() override;
 public:
-    uint8_t send(StarPathPacket *pkt, SentStatusHandler handler = nullptr);
-    uint8_t send(const uint8_t *data, uint16_t size, MeshAddress target, SentStatusHandler handler = nullptr);
+    void send(StarPathPacket *pkt, SentStatusHandler handler = nullptr);
+    void send(const uint8_t *data, uint16_t size, MeshAddress target, SentStatusHandler handler = nullptr);
     void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) override;
     void radioPacketSent(uint8_t status, RadioPacket *pkt) override;
 private:
@@ -83,10 +83,10 @@ private:
     bool handleDataPacket(StarPathPacket *pkt, uint32_t from, int16_t rssi);
     void handleDataPacketNack(StarPathPacket *pkt, uint32_t from);
     void handleDataPresentationPacket(StarPathPacket *pkt, const MeshAddress &from);
-    uint8_t sendDiscoveryBeacon();
-    uint8_t sendDiscoveryBeaconReply(uint32_t target, int16_t rssi);
-    uint8_t sendDataPacketNackPacket(uint32_t target);
-    uint8_t sendPresentationPacket();
+    void sendDiscoveryBeacon();
+    void sendDiscoveryBeaconReply(uint32_t target, int16_t rssi);
+    void sendDataPacketNackPacket(uint32_t target);
+    void sendPresentationPacket();
 private:
     uint16_t mLastSequenceNum = 0;
     RecvDups mRecvDups;

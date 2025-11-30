@@ -160,14 +160,11 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SentStatusHandler h
     int8_t err = 0;
     SocketProtocol protocol = calcProtocolFromTarget(mTarget);
     if(protocol == broadcastProtocol) {
-        err = mParent->broadcast2->send(data, size, mTarget.port, handler ? handler : nullptr);
+        mParent->broadcast2->send(data, size, mTarget.port, handler ? handler : nullptr);
     } else if(protocol == unicastProtocol) {
-        err = mParent->unicast->send(data, size, mTarget.address, mTarget.port, handler ? handler : nullptr);
+        mParent->unicast->send(data, size, mTarget.address, mTarget.port, handler ? handler : nullptr);
     } else if(protocol == multipathProtocol) {
-        err = mParent->multipath->send(data, size, mTarget.address, mTarget.repeaters.data(), mTarget.repeaters.size(), mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, mTarget.port, handler ? handler : nullptr);
-    }
-    if(err) {
-        return errCantSendData;
+        mParent->multipath->send(data, size, mTarget.address, mTarget.repeaters.data(), mTarget.repeaters.size(), mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, mTarget.port, handler ? handler : nullptr);
     }
     return 0;
 }
@@ -183,19 +180,13 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress
 
     SocketProtocol protocol = calcProtocolFromTarget(target);
     if(protocol == broadcastProtocol) {
-        uint8_t err = mParent->broadcast2->send(data, size, target.port, [handler](bool status, RadioPacket *pkt) { 
+        mParent->broadcast2->send(data, size, target.port, [handler](bool status, RadioPacket *pkt) { 
             if(handler) handler(status); 
         });
-        if(err) {
-            return errCantSendData;
-        }
     } else if(protocol == unicastProtocol) {
-        uint8_t err = mParent->unicast->send(data, size, target.address, target.port, [handler](bool status, RadioPacket *pkt) { 
+        mParent->unicast->send(data, size, target.address, target.port, [handler](bool status, RadioPacket *pkt) { 
             if(handler) handler(status); 
         });
-        if(err) {
-            return errCantSendData;
-        }
     } else if(protocol == multipathProtocol) {
         uint8_t repeatersCount = target.repeaters.size();
         uint32_t *repeatersArray = nullptr;
@@ -203,13 +194,10 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress
             repeatersArray = new uint32_t[repeatersCount];
             for(uint8_t i = 0; i < repeatersCount; i++) repeatersArray[i] = target.repeaters[i];
         }
-        uint8_t err = mParent->multipath->send(data, size, target.address, repeatersArray, repeatersCount, mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, target.port, [handler](bool status, RadioPacket *pkt) { 
+        mParent->multipath->send(data, size, target.address, repeatersArray, repeatersCount, mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, target.port, [handler](bool status, RadioPacket *pkt) { 
             if(handler) handler(status); 
         });
         if(repeatersArray) delete[] repeatersArray;
-        if(err) {
-            return errCantSendData;
-        }
     }
 
     return 0;

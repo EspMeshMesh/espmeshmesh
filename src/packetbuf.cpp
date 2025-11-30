@@ -224,7 +224,13 @@ PacketBuf *PacketBuf::getInstance() {
     return p;
 }
 
-uint8_t PacketBuf::send(RadioPacket *pkt) {
+/**
+ * Sends a radio packet using the freedom function.
+ * If the packet buffer is busy, the packet is added to the queue.
+ * The packet is sent when the buffer is free.
+ * @param pkt The radio packet to send.
+ */
+void PacketBuf::send(RadioPacket *pkt) {
     if(!pktbufSent) {
         pktbufSent = pkt;
         pktbufSent->sendFreedom();
@@ -232,7 +238,6 @@ uint8_t PacketBuf::send(RadioPacket *pkt) {
         // FIXME: Limit maximum queue size
         mPacketQueue.push_back(pkt);
     }
-	return PKT_SEND_OK;
 }
 
 void PacketBuf::freedomCallback(uint8_t status) {

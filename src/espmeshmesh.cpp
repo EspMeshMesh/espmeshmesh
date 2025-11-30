@@ -327,8 +327,9 @@ void EspMeshMesh::setupWifi(const char *hostname, uint8_t channel, uint8_t txPow
 void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
   mUseSerial = mBaudRate > 0;
 
-  setupWifi(config->hostname, config->channel, config->txPower);
+  setupWifi(config->hostname.c_str(), config->channel, config->txPower);
   mFwVersion = config->fwVersion;
+  mCompileTime = config->compileTime;
   mHostName = config->hostname;
 
   uint8_t aespassword[16];
@@ -386,7 +387,12 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 #endif
 }
 
-void EspMeshMesh::dump_config() {}
+void EspMeshMesh::dump_config() {
+  LIB_LOGCONFIG(TAG, "EspMeshMesh configuration:");
+  LIB_LOGCONFIG(TAG, "Hostname: %s", mHostName.c_str());
+  LIB_LOGCONFIG(TAG, "Firmware version: %s", mFwVersion.c_str());
+  LIB_LOGCONFIG(TAG, "Compile time: %s", mCompileTime.c_str());
+}
 
 void EspMeshMesh::loop() {
   uint32_t now = millis();
@@ -594,7 +600,6 @@ void EspMeshMesh::flushUartTxBuffer() {
 }
 
 void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
-  uint8_t err = 0;
   switch (mFromAddress.sourceProtocol) {
     case MeshAddress::SRC_SERIAL:
       uartSendData(buff, len);
@@ -602,10 +607,10 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
     case MeshAddress::SRC_BROADCAST:
     case MeshAddress::SRC_BROADCAST2:
     case MeshAddress::SRC_UNICAST:
-      err = unicast->send(buff, len, mFromAddress.address, UNICAST_DEFAULT_PORT, nullptr);
+      unicast->send(buff, len, mFromAddress.address, UNICAST_DEFAULT_PORT, nullptr);
       break;
     case MeshAddress::SRC_MULTIPATH:
-      err = multipath->send(buff, len, mFromAddress.address, (uint32_t *) mFromAddress.repeaters.data(), mFromAddress.repeaters.size(), MultiPath::Reverse, MULTIPATH_DEFAULT_PORT, nullptr);
+      multipath->send(buff, len, mFromAddress.address, (uint32_t *) mFromAddress.repeaters.data(), mFromAddress.repeaters.size(), MultiPath::Reverse, MULTIPATH_DEFAULT_PORT, nullptr);
       break;
     case MeshAddress::SRC_POLITEBRD:
 #ifdef USE_POLITE_BROADCAST_PROTOCOL

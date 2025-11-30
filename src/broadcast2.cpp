@@ -11,7 +11,7 @@ void BroadCast2Packet::allocClearData(uint16_t size) {
 	RadioPacket::allocClearData(size+sizeof(broadcast2_header_st));
 }
 
-uint8_t Broadcast2::send(const uint8_t *data, uint16_t size, uint16_t port, SentStatusHandler handler) {
+void Broadcast2::send(const uint8_t *data, uint16_t size, uint16_t port, SentStatusHandler handler) {
   LIB_LOGV(TAG, "Broadcast2::send port %d size %d", port, size);
   BroadCast2Packet *pkt = new BroadCast2Packet(this, handler);
   pkt->allocClearData(size);
@@ -23,10 +23,7 @@ uint8_t Broadcast2::send(const uint8_t *data, uint16_t size, uint16_t port, Sent
 
     pkt->encryptClearData();
     pkt->fill80211(nullptr, mPacketBuf->nodeIdPtr());
-    uint8_t res = mPacketBuf->send(pkt);
-    if (res == PKT_SEND_ERR)
-      delete pkt;
-    return res;
+    mPacketBuf->send(pkt);
 }
 
 void Broadcast2::radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) {

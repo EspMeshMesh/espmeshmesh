@@ -83,9 +83,6 @@ struct pktbuf_recvTask_packet_st {
 
 typedef struct pktbuf_recvTask_packet_st pktbuf_recvTask_packet_t;
 
-#define PKT_SEND_OK 0
-#define PKT_SEND_ERR 1
-
 #define PACKETBUF_TASK_PRIO 2
 #define PACKETBUF_TASK_QUEUE_LEN 12
 
@@ -198,7 +195,7 @@ public:
 
 public:
   bool sendBusy() { return pktbufSent != nullptr; }
-  uint8_t send(RadioPacket *pkt);
+  void send(RadioPacket *pkt);
   void rawRecv(RxPacket *pkt);
   void setup(const uint8_t *aeskey, int aeskeylen);
   void setRecvHandler(MeshAddress::DataSrc protocol, PacketBufProtocol *handler) { this->mRecvHandler[protocol] = handler; }

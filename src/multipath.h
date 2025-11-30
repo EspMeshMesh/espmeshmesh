@@ -46,8 +46,8 @@ public:
     enum Direction { Forward, Reverse };
 	MultiPath(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_MULTIPATH), mRecvDups() {}
     void loop() override;
-    uint8_t send(MultiPathPacket *pkt, bool initHeader, SentStatusHandler handler = nullptr);
-    uint8_t send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, bool pathRev, uint8_t port, SentStatusHandler handler = nullptr);
+    void send(MultiPathPacket *pkt, bool initHeader, SentStatusHandler handler = nullptr);
+    void send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, bool pathRev, uint8_t port, SentStatusHandler handler = nullptr);
     void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) override;
     void radioPacketSent(uint8_t status, RadioPacket *pkt) override;
 private:

@@ -18,7 +18,7 @@ void UnicastPacket::allocClearData(uint16_t size) {
 
 void Unicast::loop() { mRecvDups.loop(); }
 
-uint8_t Unicast::send(UnicastPacket *pkt, uint32_t target, bool initHeader, SentStatusHandler handler) {
+void Unicast::send(UnicastPacket *pkt, uint32_t target, bool initHeader, SentStatusHandler handler) {
   UnicastHeader *header = pkt->unicastHeader();
   // Fill protocol header...
   header->protocol = PROTOCOL_UNICAST;
@@ -33,18 +33,15 @@ uint8_t Unicast::send(UnicastPacket *pkt, uint32_t target, bool initHeader, Sent
   pkt->setCallback(handler);
   pkt->encryptClearData();
   pkt->fill80211((uint8_t *) &target, mPacketBuf->nodeIdPtr());
-  uint8_t res = mPacketBuf->send(pkt);
-  if (res == PKT_SEND_ERR)
-    delete pkt;
-  return res;
+  mPacketBuf->send(pkt);
 }
 
-uint8_t Unicast::send(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, SentStatusHandler handler) {
+void Unicast::send(const uint8_t *data, uint16_t size, uint32_t target, uint16_t port, SentStatusHandler handler) {
   UnicastPacket *pkt = new UnicastPacket(this);
   pkt->allocClearData(size);
   pkt->unicastHeader()->port = port;
   memcpy(pkt->unicastPayload(), data, size);
-  return send(pkt, target, true, handler);
+  send(pkt, target, true, handler);
 }
 
 void Unicast::radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) {

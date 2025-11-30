@@ -45,11 +45,12 @@ class MeshSocket;
 #define FRAME_NOT_HANDLED -1
 
 typedef struct {
-  const char *hostname;
+  std::string hostname;
   uint8_t channel;
   uint8_t txPower;
   bool isCoordinator;
-  const char *fwVersion;
+  std::string fwVersion;
+  std::string compileTime;
 } EspMeshMeshSetupConfig;
 
 class EspMeshMesh {
@@ -71,8 +72,9 @@ public:
   void dump_config();
   void loop();
 public:
-  const std::string &fwVersion() const { return mFwVersion; }
-  const std::string &hostname() const { return mHostName; }
+  const std::string fwVersion() const { return mFwVersion; }
+  const std::string hostname() const { return mHostName; }
+  const std::string compileTime() const { return mCompileTime; }
  public:
   void setLockdownMode(bool active) { packetbuf->setLockdownMode(active); }
   static void wifiInitMacAddr(uint8_t index);
@@ -172,6 +174,8 @@ private:
   std::string mAesPassword;
   // Firmware version
   std::string mFwVersion;
+  // Compile time
+  std::string mCompileTime;
   // Hostname
   std::string mHostName;
 #ifdef ESP8266

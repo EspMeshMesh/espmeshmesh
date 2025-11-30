@@ -85,7 +85,6 @@ packet
 +16: "unused N"
 ```
 
-
 ## State of the node
 
 StarPath is a state protocol this mean that the result is not only dependent from the source and the target of the protocol but it depends also from the internal state of the protocol.
@@ -96,70 +95,115 @@ There are two main internal states:
 - Not associated to a network: When a node is not associated 
 
 
-## Association Procedure
+## Association process
 
-- Every not associated node will send periodically a beacon packet in broadcast that will contains it's mac address.
-- Every associated node that receive a beacon from a not associated node will reply with a acknowledgment packet using unicast.
-- An acknowledgment packet is constituted by the full route the that this associated node must follow to reach the coordinator.
-    - A route is a sequence of hops, it will be constituted by an array of and addresses and the corresponding **RSSI**.    
-- The not associated node will wait until a timeout in order toi receive all acknowledgment packets from it's neighbors.
-- For each acknowledgment packet received (or neighbor node discovered) the not associated node will computed the cost (**Cpath**) of using that node as route-
-    - The overall cost will be computed the sum o costs of the singles hop. 
-    - The cost of a single hop will have a fixed part base plus a variable part base on the **RSSI**. 
-- The not associated node will select the neighbor will the best cost and create a new route to reach the coordinator.
-- The first packet that the node will send is an association acknowledgment packet to the coordinator using the **starpath** protocol.
-- The coordinator reply to the association acknowledgment with the association reply to the source node.
-- The node consider itself associated to network and change its internal state to associated saving the selected rout in (ram or flash to be decided)  
-- When a network is associated network can:
-    - act as repeater for other nodes and will reply to beacons 
-    - reply to beacons from other not associated nodes.
+The main purpose of the association process is to associate that is not yet able to reach the coordinator with a neighbor node already able reach it.
+
+The association process must respect the following requirements:
+
+1. Every not associated node will send periodically a beacon packet in broadcast that will contains it's mac address.
+2. Every associated node that receive a beacon from a not associated node will reply with a acknowledgment packet using unicast.
+3. An acknowledgment packet must contains at least the total cost and number of hops obtained by using the sender node as path to reach the coordinator.
+4. The cost is a value that can go from 0 to 100 and is a model of the probability to have a transmission error using the selected path. The cost is computed using the **RSSI** provided by the nodes during the transmissions of the beacon packet..    
+5. Not all neighbors must reply at the same time but there must be a random delay between communications of the nodes to reduce the probability of channel saturation.
+6. The not associated node must keep note of of replies from neighbors.
+7. The not associated node must wait until all neighbors complete its transmissions.
+8. The not associated node must select the best neighbor and associate with it.
+9. The not associated node must compute the cost and the number of hops need to reach the coordinator using the selected neighbors.
+10. The node will change its state from not associated to associated.
+11. The new associated node will send a **Presentation** pavket to the coordinator.
+
 
 
 ```mermaid
 ---
-title: Assciation procedure
+title: Association process
 config:
     stateDiagram:
 ---
 stateDiagram-v2
     direction TB
     state "Setup procedure" as setup
-    state "Send pre beacon" as beacon
-    state "Wait acknowledgments" as wait
+    state if_is_associated <<choice>>
+    state "Wait deadline" as wait_beacon
+    state "Send beacon" as beacon
+    state "Wait others" as wait_neighbors
     state "Routing table" as route
+    state if_neighbor_found <<choice>>
     state "Send confirm" as confirm
-    state "Send post beacon" as beacon2
     [*] --> setup
-    setup --> beacon
-    beacon --> wait
-    wait --> wait
-    wait --> route
-    route --> confirm
-    confirm --> beacon2
-    beacon2 --> [*]
+    setup --> if_is_associated
+    if_is_associated --> wait_beacon: not assoc.
+    if_is_associated --> [*]: associated
+    wait_beacon --> beacon
+    beacon --> wait_neighbors
+    wait_neighbors --> route
+    route --> if_neighbor_found
+    if_neighbor_found --> confirm: found
+    if_neighbor_found --> wait_beacon: not found
+    confirm --> [*]
 ```
 
-
-Observation based on previous experiences:
+The process will continue until a neighbor is found and the association is done.
 
 The non associated nodes will send beacons at random intervals because they are powered up at radom times. The consequence of this is that there is the possibility that the network can start forming from the weak nodes instead of the strong ones (Based on which node send the beacons first). If this happen there will be router built on weak connections thats not good.
 
-One solution to that if that when a node finish the association procedure will send an 
-beacon acknowledgment packet as well. In this way the neighbors can know the a new node has been associated to the network and change it's route table. But it yet to be defined.
+??? One solution to that if that when a node finish the association procedure will send a beacon acknowledgment packet as well. In this way the neighbors can know the a new node has been associated to the network and change it's route table. But it yet to be defined. ???
 
 ## Packet header
+
+```c
+struct StarPathHeaderSt {
+    uint8_t protocol;
+    uint8_t flags;
+    uint8_t port;
+    uint8_t pktType;
+    uint16_t seqno;
+    uint16_t payloadLength;
+} __attribute__ ((packed));
+typedef struct StarPathHeaderSt StarPathHeader;
+```
+
+## Packet additional header
+
+The StarPath additional header is used to send information about the path done by the packet to reach the target. The packet is created by the source node and every router that will contribute to the path will add its information and will increment the field hopIndex.
+The information collected in this header can be used by the target to send a reply back to the originator node.
+
+```c
+enum StarPathDirection {
+    ToCoordinator,
+    ToNode
+};
+
+struct StarPathPath_st {
+    uint32_t sourceAddress;
+    uint32_t targetAddress;
+    uint32_t routerAddressses[16];
+    int16_t hopsRssi[16];
+    uint8_t hopsCount;
+    uint8_t hopIndex;
+    StarPathDirection direction;
+} __attribute__ ((packed));
+typedef struct StarPathPath_st StarPathPath;
+```
 
 ```mermaid
 ---
 title: "Startpath packet"
 ---
 packet
-+8: "Prot. ID"
-+8: "Flags"
-+8: "Source Port"
-+8: "Dest. port"
-+16: "Sequence number"
-+16: "Not used"
-+32: "Data up to 1024 bytes (variable length)"
++32: "Source address"
++32: "Target address"
++32: "router address 1"
++32: "router address 2"
++32: "router address ..."
++32: "router address 16"
++16: "router RSSI 1"
++16: "router RSSI 2"
++16: "router RSSI ..."
++16: "router RSSI ..."
++16: "router RSSI 15"
++16: "router RSSI 16"
++8: "Sequence number"
++8: "Payload length"
 ```
-

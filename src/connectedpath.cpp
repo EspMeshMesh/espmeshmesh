@@ -90,24 +90,22 @@ void ConnectedPath::loop() {
   }
 }
 
-uint8_t ConnectedPath::sendRawRadioPacket(ConnectedPathPacket *pkt) {
+bool ConnectedPath::sendRawRadioPacket(ConnectedPathPacket *pkt) {
   LIB_LOGVV(TAG, "ConnectedPath::sendRawRadioPacket sending to %06X %d bytes with flags %d", pkt->getTarget(),
            pkt->clearDataSize(), pkt->getHeader()->flags);
   if (pkt->encryptClearData()) {
     mIsRadioBusy = true;
     uint32_t target = pkt->getTarget();
     pkt->fill80211((uint8_t *) &target, mPacketBuf->nodeIdPtr());
-    uint8_t res = mPacketBuf->send(pkt);
-    if (res == PKT_SEND_ERR)
-      delete pkt;
-    return res;
+    mPacketBuf->send(pkt);
+    return true;
   } else {
-    return PKT_SEND_ERR;
     delete pkt;
+    return false;
   }
 }
 
-uint8_t ConnectedPath::sendRadioPacket(ConnectedPathPacket *pkt, bool forward, bool initHeader) {
+bool ConnectedPath::sendRadioPacket(ConnectedPathPacket *pkt, bool forward, bool initHeader) {
   ConnectedPathHeader_t *header = pkt->getHeader();
   // Fill protocol header...
   header->protocol = MeshAddress::SRC_CONNPATH;
