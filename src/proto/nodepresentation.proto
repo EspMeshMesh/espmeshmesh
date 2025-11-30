@@ -1,0 +1,16 @@
+edition = "2024";
+import "commands.proto";
+
+package espmeshmesh;
+
+message NodePresentation {
+  Command command = 1;
+  uint32 source_address = 2;
+  uint32 target_address = 3;
+  repeated uint32 repeaters = 4;
+  repeated int32 rssi = 5;
+  uint32 hops_count = 6;
+  string device_name = 7;
+  string firmware_version = 8;
+}
+

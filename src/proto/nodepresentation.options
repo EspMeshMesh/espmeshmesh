@@ -1,0 +1,2 @@
+espmeshmesh.NodePresentation.device_name        max_length:48
+espmeshmesh.NodePresentation.firmware_version   max_length:48

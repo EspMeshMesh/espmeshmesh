@@ -19,6 +19,7 @@
   "license": "BSD-2-Clause",
   "homepage": "https://www.espmeshmesh.org/",
   "dependencies": {
+    "nanopb/Nanopb": "^0.4.91"
   },
   "frameworks": "*",
   "platforms": [
