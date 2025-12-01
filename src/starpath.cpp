@@ -63,14 +63,14 @@ StarPathPacket::StarPathPacket(PacketBufProtocol * owner, PacketType pktType, Se
 }
 
 void StarPathPacket::allocClearData(uint16_t size) {
-    RadioPacket::allocClearData(size + sizeof(StarPathHeaderSt) + (mPktType == DataPacket ? sizeof(StarPathPath) : 0));
+    RadioPacket::allocClearData(size + sizeof(StarPathHeaderSt) + (mustAllocatePathData() ? sizeof(StarPathPath) : 0));
     starPathHeader()->protocol = MeshAddress::SRC_STARPATH;
     starPathHeader()->payloadLength = size;
     starPathHeader()->pktType = mPktType;
 }
 
 uint8_t *StarPathPacket::starPathPayload() {
-    if(starPathHeader()->pktType == DataPacket) {
+    if(mustAllocatePathData()) {
         return (uint8_t *)(clearData()+sizeof(StarPathHeaderSt) + sizeof(StarPathPath));
     }
     return (uint8_t *)(clearData()+sizeof(StarPathHeaderSt));
@@ -230,21 +230,13 @@ int16_t StarPathProtocol::calculateTestbedCosts(uint32_t source, uint32_t target
     return 0;
 }
 
-/**
- * Returns the deadline for sending a discovery beacon reply.
- * The reply is sent every 50ms + a random delay up to 64ms.
- */
-uint32_t StarPathProtocol::calculateBeaconReplyDeadline() const {
-    return millis() + 50 + (random_uint32() % 64);
-}
-
 void StarPathProtocol::handleDiscoveryBeacon(StarPathPacket *pkt, uint32_t from, int16_t rssi) {
     LIB_LOGD(TAG, "StarPath handleDiscoveryBeacon");
     if(mNodeState == Associated && mBeaconReplyTarget == 0) {
         // If I am associated and I'm not replying to another beacon, I can reply to the beacon
         mBeaconReplyTarget = from;
         mBeaconReplyRssi = rssi;
-        mBeaconReplyDeadline = calculateBeaconReplyDeadline();
+        mBeaconReplyDeadline = millis() + 50 + (random_uint32() % 64);
     }
 }
 

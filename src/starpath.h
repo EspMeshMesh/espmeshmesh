@@ -24,8 +24,8 @@ enum StarPathDirection {
 struct StarPathPath_st {
     uint32_t sourceAddress;
     uint32_t targetAddress;
-    uint32_t routerAddressses[16];
-    int16_t hopsRssi[16];
+    uint32_t routerAddressses[STARPATH_MAX_PATH_LENGTH];
+    int16_t hopsRssi[STARPATH_MAX_PATH_LENGTH];
     uint8_t hopsCount;
     uint8_t hopIndex;
     StarPathDirection direction;
@@ -48,6 +48,8 @@ public:
 	StarPathHeader *starPathHeader() { return (StarPathHeader *)clearData(); }
 	StarPathPath *starPathPath() { return (StarPathPath *)(clearData()+sizeof(StarPathHeaderSt)); }
 	uint8_t *starPathPayload();
+private:
+    bool mustAllocatePathData() const { return mPktType == DataPacket; }
 private:
     PacketType mPktType;
 };
@@ -74,7 +76,6 @@ public:
 private:
     int16_t calculateCost(int16_t rssi) const;
     int16_t calculateTestbedCosts(uint32_t source, uint32_t target) const;
-    uint32_t calculateBeaconReplyDeadline() const;
     void handleDiscoveryBeacon(StarPathPacket *pkt, uint32_t from, int16_t rssi);
     void handleDiscoveryBeaconReply(StarPathPacket *pkt, uint32_t from);
     void analyseBeacons();
