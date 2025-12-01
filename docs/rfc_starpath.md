@@ -110,8 +110,8 @@ The association process must respect the following requirements:
 7. The not associated node must wait until all neighbors complete its transmissions.
 8. The not associated node must select the best neighbor and associate with it.
 9. The not associated node must compute the cost and the number of hops need to reach the coordinator using the selected neighbors.
-10. The node will change its state from not associated to associated.
-11. The new associated node will send a **Presentation** pavket to the coordinator.
+10. If a best neighbor is found the node will change its state from not associated to associated.
+11. The new associated node will send a **Presentation** packet to the coordinator.
 
 
 
@@ -130,7 +130,7 @@ stateDiagram-v2
     state "Wait others" as wait_neighbors
     state "Routing table" as route
     state if_neighbor_found <<choice>>
-    state "Send confirm" as confirm
+    state "Send present." as confirm
     [*] --> setup
     setup --> if_is_associated
     if_is_associated --> wait_beacon: not assoc.
