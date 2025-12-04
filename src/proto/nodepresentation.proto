@@ -1,16 +1,13 @@
-edition = "2024";
-import "commands.proto";
+syntax = "proto3";
+import "nanopb.proto";
 
 package espmeshmesh;
 
 message NodePresentation {
-  Command command = 1;
-  uint32 source_address = 2;
-  uint32 target_address = 3;
-  repeated uint32 repeaters = 4;
-  repeated int32 rssi = 5;
-  uint32 hops_count = 6;
-  string device_name = 7;
-  string firmware_version = 8;
+  option (nanopb_msgopt).msgid = 0x43;
+
+  string hostname = 1;
+  string firmware_version = 2;
+  string compile_time = 3;
 }
 
