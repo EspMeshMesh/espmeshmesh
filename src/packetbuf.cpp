@@ -256,9 +256,11 @@ void PacketBuf::freedomCallback(uint8_t status) {
 }
 
 #ifndef IDF_VER
-void PacketBuf::recvTask(os_event_t *events) {
+void PacketBuf::recvTask_cb(ETSEvent *events) {
   if (events->sig == 0) {
-    this->recvTask(event->par);
+    if(singleton) {
+      singleton->recvTask((uint32_t)events->par);
+    }
   }
 }
 #endif
@@ -449,18 +451,7 @@ PacketBufProtocol::PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn, Mesh
 }
 
 bool PacketBufProtocol::isPortAvailable(uint16_t port) const {
-    LIB_LOGV(TAG, "isPortAvailable: protocol type %d port %d total ports %d", (int)mProtocolType, port, this->mBindedPorts.size());
-
-    /*for(const auto &[p, h] : this->mBindedPorts) {
-        if(p == port) {
-            LIB_LOGV(TAG, "isPortAvailable: port %d is already binded on protocol type %d", port, (int)mProtocolType);
-            return false;
-        }
-    }*/
-
-    //return true;
-
-    // TODO: Understand why the following code is not working
+    //LIB_LOGV(TAG, "isPortAvailable: protocol type %d port %d total ports %d", (int)mProtocolType, port, this->mBindedPorts.size());
     auto it = this->mBindedPorts.find(port);
     return (it == this->mBindedPorts.end());
 }

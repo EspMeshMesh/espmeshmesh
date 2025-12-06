@@ -22,11 +22,12 @@ static const char *TAG = "espmeshmesh.starpath";
 namespace espmeshmesh {
 
 StarPathPacket::StarPathPacket(PacketBufProtocol * owner, SentStatusHandler cb): RadioPacket(owner, cb) {
-    mPktType = DataPacket;
 }
 
-StarPathPacket::StarPathPacket(PacketBufProtocol * owner, PacketType pktType, SentStatusHandler cb): RadioPacket(owner, cb) {
-    mPktType = pktType;
+StarPathPacket::StarPathPacket(PacketBufProtocol * owner, PacketType pktType, uint16_t port, uint16_t dataSize, SentStatusHandler cb): RadioPacket(owner, cb) {
+    allocClearData(dataSize);
+    starPathHeader()->pktType = pktType;
+    starPathHeader()->port = port;
 }
 
 void StarPathPacket::allocClearData(uint16_t size) {
@@ -35,7 +36,6 @@ void StarPathPacket::allocClearData(uint16_t size) {
     memset(clearData(), 0x00, totalSize);
     starPathHeader()->protocol = MeshAddress::SRC_STARPATH;
     starPathHeader()->payloadLength = size;
-    starPathHeader()->pktType = mPktType;
 }
 
 uint8_t *StarPathPacket::starPathPayload() {
@@ -114,9 +114,10 @@ void StarPathProtocol::send(const uint8_t *data, uint16_t size, MeshAddress targ
  * @param pkt The packet to send.
  * @param handler The handler to call when the packet is sent.
  */
-void StarPathProtocol::sendRawPacket(StarPathPacket *pkt, SentStatusHandler handler) {
+void StarPathProtocol::sendRawPacket(StarPathPacket *pkt, uint32_t target, SentStatusHandler handler) {
     pkt->encryptClearData();
-    pkt->fill80211((uint8_t *)&mNeighbourId, mPacketBuf->nodeIdPtr());
+    pkt->setCallback(handler);
+    pkt->fill80211(target == MeshAddress::broadCastAddress ? nullptr : (uint8_t *)&target, mPacketBuf->nodeIdPtr());
     mPacketBuf->send(pkt);
 }
 
@@ -130,25 +131,22 @@ void StarPathProtocol::sendRawPacket(StarPathPacket *pkt, SentStatusHandler hand
  */
 void StarPathProtocol::sendDataPacket(const uint8_t *data, uint16_t size, const void *path_struct, uint8_t port, SentStatusHandler handler) {
     if(mNodeState != Associated) {
-        LIB_LOGE(TAG, "StarPath send not associated");
+        LIB_LOGE(TAG, "send not associated");
     } else {
         // Calculate the size of the message
         pb_ostream_t sizestream = {0};
         pb_encode_ex(&sizestream, espmeshmesh_PathRouting_fields, path_struct, PB_ENCODE_DELIMITED);
         
-        // Create a new packet
-        StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::DataPacket, handler);
-        pkt->allocClearData(sizestream.bytes_written + size);        
-        pkt->starPathHeader()->port = port;
-        pkt->starPathHeader()->seqno = ++mLastSequenceNum;
+        StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::DataPacket, port, sizestream.bytes_written + size, handler);
 
         // Encode the message
+        LIB_LOGD(TAG, "sendDataPacket size %d size %d", sizestream.bytes_written, size);
         pb_ostream_t stream = pb_ostream_from_buffer(pkt->starPathPayload(), sizestream.bytes_written);
-        pb_encode_ex(&sizestream, espmeshmesh_PathRouting_fields, path_struct, PB_ENCODE_DELIMITED);
+        pb_encode_ex(&stream, espmeshmesh_PathRouting_fields, path_struct, PB_ENCODE_DELIMITED);
         memcpy(pkt->starPathPayload() + sizestream.bytes_written, data, size);
-
+        
         // Encrypt and send the packet
-        sendRawPacket(pkt, handler);
+        sendRawPacket(pkt, mNeighbourId, handler);
     }
 }
 
@@ -177,10 +175,7 @@ void StarPathProtocol::sendDataPacket(const pb_msgdesc_t *fields, const void *sr
         pb_encode(&sizestream, fields, src_struct);
         
         // Create a new packet
-        StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::DataPacket, handler);
-        pkt->allocClearData(sizestream.bytes_written);        
-        pkt->starPathHeader()->port = target.port;
-        pkt->starPathHeader()->seqno = ++mLastSequenceNum;
+        StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::DataPacket, target.port, sizestream.bytes_written, handler);
 
         // Encode the message with framing
         pb_ostream_t stream = pb_ostream_from_buffer(pkt->starPathPayload(), sizestream.bytes_written);
@@ -197,32 +192,28 @@ void StarPathProtocol::sendDataPacket(const pb_msgdesc_t *fields, const void *sr
         }
 
         // Encrypt and send the packet
-        sendRawPacket(pkt, handler);
+        sendRawPacket(pkt, mNeighbourId, handler);
     }
 }
 
-void StarPathProtocol::sendBeacon(const pb_msgdesc_t *fields, const void *src_struct, SentStatusHandler handler) {
+void StarPathProtocol::sendBeacon(const pb_msgdesc_t *fields, const void *src_struct, StarPathPacket::PacketType pktType) {
     // Calculate the size of the message
     pb_ostream_t sizestream = {0};
     pb_encode(&sizestream, fields, src_struct);
 
     // Create a new packet
-    StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::NotificationBeacon, nullptr);
-
-    // Allocate the packet
-    pkt->allocClearData(sizestream.bytes_written);
-    pkt->starPathHeader()->port = 0;
+    StarPathPacket *pkt = new StarPathPacket(this, pktType, 0, sizestream.bytes_written, nullptr);
 
     // Encode the message
     pb_ostream_t stream = pb_ostream_from_buffer(pkt->starPathPayload(), sizestream.bytes_written);
     pb_encode(&stream, fields, src_struct);
 
     // Encrypt and send the packet
-    sendRawPacket(pkt, handler);
+    sendRawPacket(pkt, MeshAddress::broadCastAddress, nullptr);
 }
 
 void StarPathProtocol::radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) {
-    LIB_LOGV(TAG, "radioPacketRecv from %06X rssi %d size %d", from, rssi, size);
+    //LIB_LOGV(TAG, "radioPacketRecv from %06X rssi %d size %d", from, rssi, size);
     if(size < sizeof(StarPathHeader)) {
         LIB_LOGE(TAG, "radioPacketRecv invalid size %d but required at least %d", size, sizeof(StarPathHeader));
         return;
@@ -256,13 +247,20 @@ void StarPathProtocol::radioPacketSent(uint8_t status, RadioPacket *pkt) {
         StarPathHeader *header = oldpkt->starPathHeader();
         if(header != nullptr && header->pktType == StarPathPacket::DataPacket) {
             if((header->flags & STARPATH_FLAG_RETRANSMIT_MASK) < STARPATH_MAX_RETRANSMISSIONS) {
-                StarPathPacket *newpkt = new StarPathPacket(this, StarPathPacket::DataPacket, nullptr);
+                StarPathPacket *newpkt = new StarPathPacket(this, nullptr);
+                // Copy the packet data
                 newpkt->fromRawData(pkt->clearData(), pkt->clearDataSize());
+                // Increment the number of retransmissions
                 newpkt->starPathHeader()->flags++;
-                sendRawPacket(newpkt, nullptr);
+                // Send the packet again
+                sendRawPacket(newpkt, mNeighbourId, oldpkt->getCallback());
             } else {
+                // We have reached the maximum number of retransmissions, we send a NACK packet to the source
                 LIB_LOGE(TAG, "transmission error for %06X after %d try", pkt->target8211(), header->flags & STARPATH_FLAG_RETRANSMIT_MASK);
-                sendDataPacketNackPacket(pkt->target8211());
+                // Send a NACK packet to the source
+                if(oldpkt->sourceAddress() != MeshAddress::noAddress) {
+                    sendDataPacketNackPacket(oldpkt->sourceAddress());
+                }
             }
         }
     }
@@ -313,6 +311,8 @@ void StarPathProtocol::handleDiscoveryBeacon(StarPathPacket *pkt, uint32_t from,
     }
 }
 
+#define TOTAL_COST_MARGIN 20
+
 /**
  * Handles a notification beacon received from a neighbour.
  * Notificaion beacons are sent from neighbours. We can use this to find the best path to the coordinator.
@@ -334,7 +334,9 @@ void StarPathProtocol::handleNotificationBeacon(StarPathPacket *pkt, uint32_t fr
         // If we share the same coordinator and the neighbour is not the current neighbour
         if(mCoordinatorId == notificationbeacon.target_address && mNeighbourId != from) {
             // Calculate the full cost of the path rssi and hops
-            uint16_t fullCost = calculateFullCost(rssi, notificationbeacon.repeaters_count);
+            uint16_t fullCost = calculateFullCost(rssi, notificationbeacon.repeaters_count) + TOTAL_COST_MARGIN;
+            LIB_LOGD(TAG, "handleNotificationBeacon fullCost %d < %d", fullCost, mNeighbourCost);
+            fullCost += calculateTestbedCosts(mPacketBuf->nodeId(), from);
             // Check if the path cost is better than the current path cost
             if(fullCost < mNeighbourCost) {
                 // Check if the path contains a loop
@@ -348,7 +350,7 @@ void StarPathProtocol::handleNotificationBeacon(StarPathPacket *pkt, uint32_t fr
                 if(!loop_found) {
                     // Associate to the new neighbour
                     LIB_LOGD(TAG, "handleNotificationBeacon associate to new neighbour %06X cost %d hops %d", from, fullCost, notificationbeacon.repeaters_count);
-                    //associateToNeighbour(from, notificationbeacon.target_address, fullCost, notificationbeacon.repeaters_count);
+                    associateToNeighbour(from, notificationbeacon.target_address, fullCost, notificationbeacon.repeaters_count);
                 }
             }
         }
@@ -356,7 +358,7 @@ void StarPathProtocol::handleNotificationBeacon(StarPathPacket *pkt, uint32_t fr
         // Out neighbour notify that is not associated anymore
         if(notificationbeacon.target_address == 0 && mNeighbourId == from) {
             LIB_LOGD(TAG, "handleNotificationBeacon disassociate from neighbour %06X", from);
-            //disassociateFromNeighbour();
+            disassociateFromNeighbour();
         }
     }
 }
@@ -371,6 +373,19 @@ void StarPathProtocol::handleDiscoveryBeaconReply(StarPathPacket *pkt, uint32_t 
         pb_istream_t istream = pb_istream_from_buffer(pkt->starPathPayload(), pkt->starPathHeader()->payloadLength);
         if(!pb_decode(&istream, espmeshmesh_DiscoveryBeaconReply_fields, &discoverybeaconreply)) {
             LIB_LOGE(TAG, "handleDiscoveryBeaconReply decode discovery beacon reply failed %s", PB_GET_ERROR(&istream));
+            return;
+        }
+
+        bool loop_found = false;
+        for(uint8_t i = 0; i < discoverybeaconreply.repeaters_count; i++) {
+            if(discoverybeaconreply.repeaters[i] == mPacketBuf->nodeId()) {
+                loop_found = true;
+                break;
+            }
+        }
+    
+        if(loop_found) {
+            LIB_LOGE(TAG, "handleDiscoveryBeaconReply loop found in neighbour %02X repeaters path", from);
             return;
         }
 
@@ -390,27 +405,24 @@ void StarPathProtocol::handleDataPacket(StarPathPacket *pkt, uint32_t from, int1
         // If I am associated, I can handle the data packet
 
         // Decode the path routing structure
-        espmeshmesh_PathRouting pathrouting;
+        espmeshmesh_PathRouting pathrouting = espmeshmesh_PathRouting_init_zero;
         pb_istream_t istream = pb_istream_from_buffer(payload, header->payloadLength);
         if(!pb_decode_ex(&istream, espmeshmesh_PathRouting_fields, &pathrouting, PB_DECODE_DELIMITED)) {
-            LIB_LOGE(TAG, "handleDataPacket2 decode path routing failed %s", PB_GET_ERROR(&istream));
+            LIB_LOGE(TAG, "handleDataPacket decode path routing failed %s", PB_GET_ERROR(&istream));
         }
 
         if(pathrouting.direction == espmeshmesh_PathDirection_TO_COORDINATOR) {
             // We are going to the coordinator
 
             // Get real payload of the packet, we need it later
-            LIB_LOGD(TAG, "handleDataPacket2 payload length %d path length %d", header->payloadLength, header->payloadLength - istream.bytes_left);
             uint8_t *realPayload = payload + (header->payloadLength - istream.bytes_left);
             uint16_t realPayloadLength = istream.bytes_left;
-
-            LIB_LOGD(TAG, "handleDataPacket2 %02X %02X %02X %02X %02X %02X %02X %02X", realPayload[0], realPayload[1], realPayload[2], realPayload[3], realPayload[4], realPayload[5], realPayload[6], realPayload[7]);
 
             if(pathrouting.target_address == mPacketBuf->nodeId()) {
                 // We are the target, we can handle the data packet
 
                 // The packet is for me, make a mesh address from the path routing structure
-                LIB_LOGD(TAG, "handleDataPacket2 to coordinator last hop");
+                LIB_LOGD(TAG, "handleDataPacket to coordinator last hop");
                 MeshAddress sourceAddress = MeshAddress(
                     header->port, 
                     pathrouting.source_address, 
@@ -422,15 +434,20 @@ void StarPathProtocol::handleDataPacket(StarPathPacket *pkt, uint32_t from, int1
                 
                 // Call the receive handler
                 if(realPayload[0] == PROTO_NODE_PRESENTATION_REP) {
-                    handleDataPresentationPacket(realPayload, realPayloadLength, sourceAddress, &pathrouting, rssi);
+                    handleDataPresentationPacket(realPayload+1, realPayloadLength-1, sourceAddress, &pathrouting, rssi);
                 } else {
                     this->callReceiveHandler(realPayload, realPayloadLength, sourceAddress, rssi);
                 }
 
             } else {
                 // We are not the target, we can forward the data packet to the coordinator
-                
                 // We add ourselves to the path routing structure
+
+                if(pathrouting.repeaters_count >= STARPATH_MAX_PATH_LENGTH - 1) {
+                    LIB_LOGE(TAG, "handleDataPacket too many hops. Discarding packet.");
+                    return;
+                }
+
                 pathrouting.repeaters[pathrouting.repeaters_count++] = mPacketBuf->nodeId();
                 pathrouting.rssi[pathrouting.rssi_count++] = rssi;
                 pathrouting.hop_index++;
@@ -443,7 +460,7 @@ void StarPathProtocol::handleDataPacket(StarPathPacket *pkt, uint32_t from, int1
             // We are going to a node
         }
     } else {
-        LIB_LOGE(TAG, "handleDataPacket2 not associated");
+        LIB_LOGE(TAG, "handleDataPacket not associated. Discarding packet.");
     }
 }
 
@@ -467,13 +484,15 @@ void StarPathProtocol::handleDataPresentationPacket(uint8_t *payload, uint16_t l
     }
 
     espmeshmesh_NodePresentationRx nodepresentationrx = espmeshmesh_NodePresentationRx_init_zero;
+    nodepresentationrx.has_node_presentation = true;
     strncpy(nodepresentationrx.node_presentation.hostname, nodepresentation.hostname, 48);
     strncpy(nodepresentationrx.node_presentation.firmware_version, nodepresentation.firmware_version, 48);
     strncpy(nodepresentationrx.node_presentation.compile_time, nodepresentation.compile_time, 48);
+    nodepresentationrx.has_path_routing = true; 
     nodepresentationrx.path_routing.source_address = pathrouting->source_address;
     nodepresentationrx.path_routing.target_address = pathrouting->target_address;
     nodepresentationrx.path_routing.repeaters_count = pathrouting->repeaters_count;
-    nodepresentationrx.path_routing.rssi_count = pathrouting->rssi_count;
+    nodepresentationrx.path_routing.rssi_count = pathrouting->rssi_count + 1;
     nodepresentationrx.path_routing.hop_index = pathrouting->hop_index;
 
     for(uint8_t i = 0; i < pathrouting->hop_index; i++) {
@@ -481,16 +500,24 @@ void StarPathProtocol::handleDataPresentationPacket(uint8_t *payload, uint16_t l
         nodepresentationrx.path_routing.rssi[i] = pathrouting->rssi[i];
     }
 
+    // Add the RSSI of the last hop
+    nodepresentationrx.path_routing.rssi[nodepresentationrx.path_routing.rssi_count-1] = rssi;
+
     pb_ostream_t sizestream = {0};
-    pb_encode(&sizestream, espmeshmesh_NodePresentationRx_fields, &nodepresentationrx);
+    if(!pb_encode(&sizestream, espmeshmesh_NodePresentationRx_fields, &nodepresentationrx)) {
+        LIB_LOGE(TAG, "handleDataPresentationPacket encode error %s", PB_GET_ERROR(&sizestream));
+        return;
+    }
+
     uint8_t *encoded = new uint8_t[sizestream.bytes_written];
 
-    pb_ostream_t ostream = pb_ostream_from_buffer(encoded, sizestream.bytes_written);
+    uint8_t msgid = espmeshmesh_NodePresentationRx_msgid;
+    pb_ostream_t ostream = pb_ostream_from_buffer(encoded, sizestream.bytes_written+1);
+    pb_write(&ostream, &msgid, 1);
     pb_encode(&ostream, espmeshmesh_NodePresentationRx_fields, &nodepresentationrx);
-    send(encoded, sizestream.bytes_written, from, nullptr);
+    this->callReceiveHandler(encoded, ostream.bytes_written, from, rssi);
     delete[] encoded;
 
-    this->callReceiveHandler(encoded, sizestream.bytes_written, from, rssi);
 }
 
 /**
@@ -498,13 +525,8 @@ void StarPathProtocol::handleDataPresentationPacket(uint8_t *payload, uint16_t l
  */
 void StarPathProtocol::sendDiscoveryBeacon() {
     LIB_LOGD(TAG, "sendDiscoveryBeacon");
-    StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::DiscoveryBeacon, nullptr);
-    pkt->allocClearData(0);
-    pkt->starPathHeader()->port = 0;
-    pkt->encryptClearData();
-
-    pkt->fill80211(nullptr, mPacketBuf->nodeIdPtr());
-    mPacketBuf->send(pkt);
+    StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::DiscoveryBeacon, 0, 0, nullptr);
+    sendRawPacket(pkt, MeshAddress::broadCastAddress, nullptr);
 }
 
 void StarPathProtocol::sendNotificationBeacon() {
@@ -519,7 +541,7 @@ void StarPathProtocol::sendNotificationBeacon() {
             notificationbeacon.repeaters[i] = mRepeaters[i];
         }
 
-        sendBeacon(espmeshmesh_NotificationBeacon_fields, &notificationbeacon, nullptr);
+        sendBeacon(espmeshmesh_NotificationBeacon_fields, &notificationbeacon, StarPathPacket::NotificationBeacon);
     } else {
         LIB_LOGW(TAG, "sendNotificationBeacon not associated");
     }
@@ -535,25 +557,25 @@ void StarPathProtocol::sendDiscoveryBeaconReply(uint32_t target, int16_t rssi) {
     discoverybeaconreply.target_address = mCoordinatorId;
     discoverybeaconreply.incoming_rssi = rssi;
     discoverybeaconreply.hops = mCoordinatorHops;
+    discoverybeaconreply.repeaters_count = mRepeaters.size();
+    for(uint8_t i = 0; i < mRepeaters.size(); i++) {
+        discoverybeaconreply.repeaters[i] = mRepeaters[i];
+    }
 
     // Calculate the size of the message
     pb_ostream_t sizestream = {0};
     pb_encode(&sizestream, espmeshmesh_DiscoveryBeaconReply_fields, &discoverybeaconreply);
 
     // Create a new packet
-    StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::DiscoveryBeaconReply, nullptr);
+    StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::DiscoveryBeaconReply, 0, sizestream.bytes_written, nullptr);
     LIB_LOGD(TAG, "sendDiscoveryBeaconReply size %d", sizestream.bytes_written);
-    pkt->allocClearData(sizestream.bytes_written);
-    pkt->starPathHeader()->port = 0;
 
     // Encode the message
     pb_ostream_t stream = pb_ostream_from_buffer(pkt->starPathPayload(), sizestream.bytes_written);
     pb_encode(&stream, espmeshmesh_DiscoveryBeaconReply_fields, &discoverybeaconreply);
 
     // Encrypt and send the packet
-    pkt->encryptClearData();
-    pkt->fill80211((uint8_t *)&target, mPacketBuf->nodeIdPtr());
-    mPacketBuf->send(pkt);
+    sendRawPacket(pkt, target, nullptr);
 }
 
 /**
@@ -561,20 +583,17 @@ void StarPathProtocol::sendDiscoveryBeaconReply(uint32_t target, int16_t rssi) {
  */
 void StarPathProtocol::sendDataPacketNackPacket(uint32_t target) {
     LIB_LOGD(TAG, "sendDataPacketNackPacket to %06X", target);
-    StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::DataPacketNack, nullptr);
-    pkt->allocClearData(0);
-    pkt->starPathHeader()->port = 0;
-    pkt->encryptClearData();
-    pkt->fill80211((uint8_t *)&target, mPacketBuf->nodeIdPtr());
-    mPacketBuf->send(pkt);
+    StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::DataPacketNack, 0, 0, nullptr);
+    // Encrypt and send the packet
+    sendRawPacket(pkt, target, nullptr);
 }
 
 /**
  * Sends a data presentation packet to the coordinator.
  */
 void StarPathProtocol::sendPresentationPacket() {
-    LIB_LOGD(TAG, "sendPresentationPacket2");
-    espmeshmesh_NodePresentation nodepresentation;
+    LIB_LOGD(TAG, "sendPresentationPacket");
+    espmeshmesh_NodePresentation nodepresentation = espmeshmesh_NodePresentation_init_zero;
     strncpy(nodepresentation.hostname, espmeshmesh::EspMeshMesh::getInstance()->hostname().c_str(), 48);
     strncpy(nodepresentation.firmware_version, espmeshmesh::EspMeshMesh::getInstance()->fwVersion().c_str(), 48);
     strncpy(nodepresentation.compile_time, espmeshmesh::EspMeshMesh::getInstance()->compileTime().c_str(), 48);

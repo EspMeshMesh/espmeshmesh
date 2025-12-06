@@ -208,7 +208,9 @@ public:
   static void wifiTxDoneCb(uint8_t ifidx, uint8_t *data, uint16_t *data_len, bool txStatus);
 #else
   static void freedomCallback_cb(uint8_t status);
-  void recvTask(os_event_t *events);
+#endif
+#ifndef IDF_VER
+  static void recvTask_cb(ETSEvent *events);
 #endif
   void recvTask(uint32_t index);
 

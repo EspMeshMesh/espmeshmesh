@@ -32,13 +32,15 @@ class StarPathPacket: public RadioPacket {
 public:
     enum PacketType { DiscoveryBeacon, DiscoveryBeaconReply, DataPacket, DataPacketNack, NotificationBeacon };
     explicit StarPathPacket(PacketBufProtocol * owner, SentStatusHandler cb = nullptr);
-    explicit StarPathPacket(PacketBufProtocol * owner, PacketType pktType, SentStatusHandler cb = nullptr);
+    explicit StarPathPacket(PacketBufProtocol * owner, PacketType pktType, uint16_t port, uint16_t dataSize, SentStatusHandler cb = nullptr);
     void allocClearData(uint16_t size) override;
+    void setSourceAddress(uint32_t sourceAddress) { mSourceAddress = sourceAddress; }
+    uint32_t sourceAddress() const { return mSourceAddress; }
 public:
 	StarPathHeader *starPathHeader() { return (StarPathHeader *)clearData(); }
 	uint8_t *starPathPayload();
 private:
-    PacketType mPktType;
+    uint32_t mSourceAddress{MeshAddress::noAddress};
 };
 
 class StarPathProtocol: public PacketBufProtocol {
@@ -58,10 +60,10 @@ public:
 public:
     void send(const uint8_t *data, uint16_t size, MeshAddress target, SentStatusHandler handler = nullptr);
 private:
-    void sendRawPacket(StarPathPacket *pkt, SentStatusHandler handler = nullptr);
+    void sendRawPacket(StarPathPacket *pkt, uint32_t target, SentStatusHandler handler = nullptr);
     void sendDataPacket(const uint8_t *data, uint16_t size, const void *path_struct, uint8_t port, SentStatusHandler handler = nullptr);
     void sendDataPacket(const pb_msgdesc_t *fields, const void *src_struct, uint8_t cmdid, MeshAddress target, SentStatusHandler handler = nullptr);
-    void sendBeacon(const pb_msgdesc_t *fields, const void *src_struct, SentStatusHandler handler = nullptr);
+    void sendBeacon(const pb_msgdesc_t *fields, const void *src_struct, StarPathPacket::PacketType pktType);
 public:
     void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) override;
     void radioPacketSent(uint8_t status, RadioPacket *pkt) override;

@@ -12,6 +12,8 @@
 /* Struct definitions */
 typedef struct _espmeshmesh_DiscoveryBeaconReply {
     uint32_t target_address;
+    pb_size_t repeaters_count;
+    uint32_t repeaters[16];
     uint32_t incoming_rssi;
     uint32_t hops;
 } espmeshmesh_DiscoveryBeaconReply;
@@ -22,19 +24,21 @@ extern "C" {
 #endif
 
 /* Initializer values for message structs */
-#define espmeshmesh_DiscoveryBeaconReply_init_default {0, 0, 0}
-#define espmeshmesh_DiscoveryBeaconReply_init_zero {0, 0, 0}
+#define espmeshmesh_DiscoveryBeaconReply_init_default {0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 0}
+#define espmeshmesh_DiscoveryBeaconReply_init_zero {0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define espmeshmesh_DiscoveryBeaconReply_target_address_tag 1
-#define espmeshmesh_DiscoveryBeaconReply_incoming_rssi_tag 2
-#define espmeshmesh_DiscoveryBeaconReply_hops_tag 3
+#define espmeshmesh_DiscoveryBeaconReply_repeaters_tag 2
+#define espmeshmesh_DiscoveryBeaconReply_incoming_rssi_tag 3
+#define espmeshmesh_DiscoveryBeaconReply_hops_tag 4
 
 /* Struct field encoding specification for nanopb */
 #define espmeshmesh_DiscoveryBeaconReply_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UINT32,   target_address,    1) \
-X(a, STATIC,   SINGULAR, UINT32,   incoming_rssi,     2) \
-X(a, STATIC,   SINGULAR, UINT32,   hops,              3)
+X(a, STATIC,   REPEATED, UINT32,   repeaters,         2) \
+X(a, STATIC,   SINGULAR, UINT32,   incoming_rssi,     3) \
+X(a, STATIC,   SINGULAR, UINT32,   hops,              4)
 #define espmeshmesh_DiscoveryBeaconReply_CALLBACK NULL
 #define espmeshmesh_DiscoveryBeaconReply_DEFAULT NULL
 
@@ -45,7 +49,7 @@ extern const pb_msgdesc_t espmeshmesh_DiscoveryBeaconReply_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define ESPMESHMESH_DISOVERYBEACONREPLY_PB_H_MAX_SIZE espmeshmesh_DiscoveryBeaconReply_size
-#define espmeshmesh_DiscoveryBeaconReply_size    18
+#define espmeshmesh_DiscoveryBeaconReply_size    114
 
 #ifdef __cplusplus
 } /* extern "C" */

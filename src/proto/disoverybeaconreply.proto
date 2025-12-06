@@ -3,6 +3,7 @@ package espmeshmesh;
 
 message DiscoveryBeaconReply {
   uint32 target_address = 1;
-  uint32 incoming_rssi = 2;
-  uint32 hops = 3;
+  repeated uint32 repeaters = 2; 
+  uint32 incoming_rssi = 3;
+  uint32 hops = 4;
 }
