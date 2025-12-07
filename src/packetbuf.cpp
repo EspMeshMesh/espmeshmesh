@@ -305,7 +305,7 @@ void PacketBuf::recvTask(uint32_t index) {
     MeshAddress::DataSrc prot = (MeshAddress::DataSrc)clear[0];
     // LIB_LOGD(TAG, "recvTask sk %d len %d prot %d", index, pktbufRecvTaskPacket[index].length, prot);
 
-    if (mRecvHandler[prot] != nullptr) {
+    if (mRecvHandler.count(prot) > 0 && mRecvHandler[prot] != nullptr) {
       mRecvHandler[prot]->radioPacketRecv(clear, lastpktLen, from, lastpktRssi);
     } else {
       LIB_LOGVV(TAG, "Unknow protocol %d from %06X size %d %d %d", prot, from, lastpktLen,
