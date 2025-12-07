@@ -638,20 +638,19 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
   mFromAddress = from;
   mRssiHandle = rssi;
 
-  uint8_t *buf = new uint8_t[len];
-  memcpy(buf, data, len);
+  //uint8_t *buf = new uint8_t[len];
+  //memcpy(buf, data, len);
 
-  if (buf[0] & 0x01) {
-    replyHandleFrame(buf, len, from, rssi);
-    delete[] buf;
+  if (data[0] & 0x01) {
+    replyHandleFrame(data, len, from, rssi);
     return;
   }
 
-  switch (buf[0]) {
+  switch (data[0]) {
     case CMD_UART_ECHO_REQ:
       if (len > 1) {
         uint8_t *cpy = new uint8_t[len];
-        memcpy(cpy, buf, len);
+        memcpy(cpy, data, len);
         cpy[0] = CMD_UART_ECHO_REP;
         uartSendData(cpy, len);
         delete[] cpy;
@@ -670,33 +669,33 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
       break;
     case CMD_DISCOVERY_REQ:
       if (len > 1) {
-        err = mDiscovery.handle_frame(buf + 1, len - 1, this);
+        err = mDiscovery.handle_frame(data + 1, len - 1, this);
       }
       break;
     case CMD_BROADCAST_SEND:  // 70 AABBCCDDEE...ZZ
       if (len > 1) {
-        broadcast->send(buf + 1, len - 1);
+        broadcast->send(data + 1, len - 1);
         err = 0;
       }
       break;
     case CMD_UNICAST_SEND:  // 72 0000XXYY AABBCCDDEE...ZZ
       if (len > 5) {
         LIB_LOGD(TAG, "CMD_UNICAST_SEND len %d", len);
-        unicast->send(buf + 5, len - 5, uint32FromBuffer(buf + 1), UNICAST_DEFAULT_PORT, nullptr);
+        unicast->send(data + 5, len - 5, uint32FromBuffer(data + 1), UNICAST_DEFAULT_PORT, nullptr);
         err = 0;
       }
       break;
     case CMD_MULTIPATH_SEND:  // 76 AAAAAAAA BB CCCCCCCC........DDDDDDDD AABBCCDDEE...ZZ
       if (len > 5) {
-        uint8_t pathlen = buf[5];
+        uint8_t pathlen = data[5];
         if (len > 6 + pathlen * sizeof(uint32_t)) {
           uint16_t payloadsize = len - (6 + pathlen * sizeof(uint32_t));
-          const uint8_t *payload = buf + 6 + sizeof(uint32_t) * pathlen;
-          uint32_t target = uint32FromBuffer(buf + 1);
+          const uint8_t *payload = data + 6 + sizeof(uint32_t) * pathlen;
+          uint32_t target = uint32FromBuffer(data + 1);
           // We need to do this because the uint32 must be aligned to 4 bytes.
           uint32_t *path = new uint32_t[pathlen];
           for (int i = 0; i < pathlen; i++)
-            path[i] = uint32FromBuffer(buf + 6 + i * sizeof(uint32_t));
+            path[i] = uint32FromBuffer(data + 6 + i * sizeof(uint32_t));
           // Send the packet
           multipath->send(payload, payloadsize, target, path, pathlen, MultiPath::Forward, UNICAST_DEFAULT_PORT, nullptr);
           delete[] path;
@@ -714,7 +713,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
 #endif
     case CMD_CONNPATH_REQUEST:
       if (len > 1 && from.sourceProtocol == MeshAddress::SRC_SERIAL) {
-        err = mConnectedPath->receiveUartPacket(buf + 1, len - 1);
+        err = mConnectedPath->receiveUartPacket(data + 1, len - 1);
       }
       break;
     case CMD_FILTERED_REQUEST:
@@ -722,19 +721,19 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
         uint8_t i;
         uint8_t *groups = (uint8_t *) &mFilterGroups;
         for (i = 0; i < 4; i++)
-          if (buf[i + 1] != 0xFF && (groups[i] == 0 || (groups[i] != 0xFF && groups[i] != buf[i + 1])))
+          if (data[i + 1] != 0xFF && (groups[i] == 0 || (groups[i] != 0xFF && groups[i] != data[i + 1])))
             break;
         if (i == 4) {
           MeshAddress fromFilter(from);
           fromFilter.sourceProtocol = MeshAddress::SRC_FILTER;
-          handleFrame(buf + 5, len - 5, fromFilter, rssi);
+          handleFrame(data + 5, len - 5, fromFilter, rssi);
         }
         err = 0;
       }
       break;
     default:
       for (auto cb : mHandleFrameCbs) {
-        int8_t handled = cb(buf, len, from, rssi);
+        int8_t handled = cb(data, len, from, rssi);
         // If callback handled the frame...
         if (handled >= 0) {
           // Keep status and exit loop
@@ -749,9 +748,9 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
     // Don't reply errors when commd came from broadcast
     uint8_t *rep = new uint8_t[len + 1];
     rep[0] = CMD_ERROR_REP;
-    memcpy(rep + 1, buf, len);
+    memcpy(rep + 1, data, len);
     commandReply(rep, len + 1);
-    LIB_LOGE(TAG, "EspMeshMesh::handleFrame error frame %02X %02X size %d", buf[0], buf[1], len);
+    LIB_LOGE(TAG, "EspMeshMesh::handleFrame error frame %02X %02X size %d", data[0], data[1], len);
     delete[] rep;
   }
 }

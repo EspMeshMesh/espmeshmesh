@@ -479,7 +479,7 @@ void PacketBufProtocol::unbindPort(uint16_t port) {
 
 void PacketBufProtocol::callReceiveHandler(const uint8_t *payload, uint16_t size, const MeshAddress &from, int16_t rssi) {
   if (isPortAvailable(from.port)) {
-    LIB_LOGE(TAG, "port %d is not binded to any callback on protocol type %d", from.port, (int)mProtocolType);
+    LIB_LOGE(TAG, "from %06X port %d is not binded to any callback on protocol type %d", from.address, from.port, (int)mProtocolType);
   } else {
     auto cb = mBindedPorts[from.port];
     cb(payload, size, from, rssi);
