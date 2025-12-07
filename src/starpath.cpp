@@ -42,13 +42,16 @@ uint8_t *StarPathPacket::starPathPayload() {
     return (uint8_t *)(clearData()+sizeof(StarPathHeaderSt));
 }
 
-StarPathProtocol::StarPathProtocol(bool isCoordinator, PacketBuf *pbuf, ReceiveHandler rx_fn): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_STARPATH) {
+StarPathProtocol::StarPathProtocol(bool isCoordinator, PacketBuf *pbuf, ReceiveHandler rx_fn): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_STARPATH), mRecvDups() {
     LIB_LOGD(TAG, "StarPathProtocol constructor isCoordinator %d", isCoordinator);
     if(isCoordinator) {
         mNodeState = Associated;
         mCoordinatorId = mPacketBuf->nodeId();
     }
     mPacketBuf->setRecvHandler(MeshAddress::SRC_STARPATH,  this);
+#if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_VERY_VERBOSE
+    mRecvDups.setDebug(true);
+#endif
 }
 
 void StarPathProtocol::setup() {
@@ -59,6 +62,7 @@ void StarPathProtocol::setup() {
 }
 
 void StarPathProtocol::loop() {
+    mRecvDups.loop();
     uint32_t now = millis();
 
     if(mNodeState == Free) {
@@ -218,11 +222,17 @@ void StarPathProtocol::radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t
         LIB_LOGE(TAG, "radioPacketRecv invalid size %d but required at least %d", size, sizeof(StarPathHeader));
         return;
     }
-
+  
     StarPathPacket *pkt = new StarPathPacket(this, nullptr);
     pkt->fromRawData(payload, size);
 
     StarPathHeader *header = pkt->starPathHeader();
+
+    if (mRecvDups.checkDuplicateTable(from, header->port, header->seqno)) {
+        LIB_LOGV(TAG, "duplicated packet received from %06X:%02X with seq %d", from, header->port, header->seqno);
+        return;
+    }
+
     if(header->pktType == StarPathPacket::DataPacket) {
         handleDataPacket(pkt, from, rssi);
     } else if(header->pktType == StarPathPacket::DataPacketNack) {
