@@ -388,7 +388,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 }
 
 void EspMeshMesh::dump_config() {
-  LIB_LOGCONFIG(TAG, "EspMeshMesh configuration:");
+  LIB_LOGCONFIG(TAG, "EspMeshMesh " ESPMESHMESH_VERSION " configuration:");
   LIB_LOGCONFIG(TAG, "Hostname: %s", mHostName.c_str());
   LIB_LOGCONFIG(TAG, "Firmware version: %s", mFwVersion.c_str());
   LIB_LOGCONFIG(TAG, "Compile time: %s", mCompileTime.c_str());
@@ -452,6 +452,8 @@ void EspMeshMesh::loop() {
     mElapsed1 = millis();
   }
 }
+
+const std::string EspMeshMesh::libVersion() const { return ESPMESHMESH_VERSION; }
 
 void EspMeshMesh::uartSendData(const uint8_t *buff, uint16_t len) {
   if (!mUseSerial)
@@ -609,6 +611,7 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
     case MeshAddress::SRC_UNICAST:
       unicast->send(buff, len, mFromAddress.address, UNICAST_DEFAULT_PORT, nullptr);
       break;
+    case MeshAddress::SRC_STARPATH:
     case MeshAddress::SRC_MULTIPATH:
       multipath->send(buff, len, mFromAddress.address, (uint32_t *) mFromAddress.repeaters.data(), mFromAddress.repeaters.size(), MultiPath::Reverse, MULTIPATH_DEFAULT_PORT, nullptr);
       break;
@@ -616,13 +619,13 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
       if (mFromAddress != POLITE_DEST_BROADCAST)
         mPoliteBroadcast->send(buff, len, mFromAddress);
+      break;
 #endif
-      break;
+    case MeshAddress::SRC_NONE:
     case MeshAddress::SRC_CONNPATH:
-      // mConnectedPath->sendDataTo(buff, len, mConnectionId);
-      LIB_LOGE(TAG, "commandReply SRC_CONNPATH not handled");
-      break;
     case MeshAddress::SRC_FILTER:
+    case MeshAddress::SRC_PREROUTED:
+      LIB_LOGE(TAG, "commandReply invalid source protocol %02X", mFromAddress.sourceProtocol);
       break;
   }
 

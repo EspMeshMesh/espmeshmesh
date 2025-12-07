@@ -70,7 +70,7 @@ void MultiPath::radioPacketRecv(uint8_t *buf, uint16_t size, uint32_t from, int1
 		LIB_LOGV(TAG, "MultiPath for %06X port %d from %06X with seq %d data %d path %d/%d", header->trargetAddress, header->port, from, header->seqno, header->dataLength, header->pathIndex, header->pathLength);
 		if(size >= wsize) {
 			if(mRecvDups.checkDuplicateTable(header->sourceAddress, 0, header->seqno)) {
-				LIB_LOGE(TAG, "MultiPath duplicated packet received from %06lX with seq %d", header->sourceAddress, header->seqno);
+				LIB_LOGE(TAG, "MultiPath duplicated packet received from %06lX with seq %d originator %06lX", from, header->seqno, header->sourceAddress);
 				return;
 			}
 

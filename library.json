@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library.json",
   "name": "ESPMeshMesh-dev",
   "version": "1.3.1",
   "description": "ESPMeshMesh implementation",
@@ -25,5 +26,10 @@
   "platforms": [
     "espressif32",
     "espressif8266"
-  ]
+  ],
+  "build": {
+    "flags": [
+      "-D ESPMESHMESH_VERSION=\\\"1.3.1\\\""
+    ]
+  }
 }

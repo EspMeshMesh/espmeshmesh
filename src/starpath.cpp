@@ -119,6 +119,7 @@ void StarPathProtocol::send(const uint8_t *data, uint16_t size, MeshAddress targ
  * @param handler The handler to call when the packet is sent.
  */
 void StarPathProtocol::sendRawPacket(StarPathPacket *pkt, uint32_t target, SentStatusHandler handler) {
+    pkt->starPathHeader()->seqno = mLastSequenceNum++;
     pkt->encryptClearData();
     pkt->setCallback(handler);
     pkt->fill80211(target == MeshAddress::broadCastAddress ? nullptr : (uint8_t *)&target, mPacketBuf->nodeIdPtr());
@@ -329,8 +330,9 @@ void StarPathProtocol::handleDiscoveryBeacon(StarPathPacket *pkt, uint32_t from,
  * Notification beacons are handled only if we are associated.
  */
 void StarPathProtocol::handleNotificationBeacon(StarPathPacket *pkt, uint32_t from, int16_t rssi) {
-    LIB_LOGD(TAG, "handleNotificationBeacon from %06X", from);
-    if(mNodeState == Associated) {
+    // FIXME: detect if we are the coordinator is correct in this way.
+    if(mNodeState == Associated && mCoordinatorId != mPacketBuf->nodeId()) {
+        LIB_LOGD(TAG, "handleNotificationBeacon from %06X", from);
         // If I am associated, I can handle the notification beacon
 
         // Decode the notification beacon
@@ -496,8 +498,9 @@ void StarPathProtocol::handleDataPresentationPacket(uint8_t *payload, uint16_t l
     espmeshmesh_NodePresentationRx nodepresentationrx = espmeshmesh_NodePresentationRx_init_zero;
     nodepresentationrx.has_node_presentation = true;
     strncpy(nodepresentationrx.node_presentation.hostname, nodepresentation.hostname, 48);
-    strncpy(nodepresentationrx.node_presentation.firmware_version, nodepresentation.firmware_version, 48);
+    strncpy(nodepresentationrx.node_presentation.firmware_version, nodepresentation.firmware_version, 16);
     strncpy(nodepresentationrx.node_presentation.compile_time, nodepresentation.compile_time, 48);
+    strncpy(nodepresentationrx.node_presentation.lib_version, nodepresentation.lib_version, 16);
     nodepresentationrx.has_path_routing = true; 
     nodepresentationrx.path_routing.source_address = pathrouting->source_address;
     nodepresentationrx.path_routing.target_address = pathrouting->target_address;
@@ -519,7 +522,8 @@ void StarPathProtocol::handleDataPresentationPacket(uint8_t *payload, uint16_t l
         return;
     }
 
-    uint8_t *encoded = new uint8_t[sizestream.bytes_written];
+    LIB_LOGD(TAG, "handleDataPresentationPacket size %d", sizestream.bytes_written);
+    uint8_t *encoded = new uint8_t[sizestream.bytes_written + 1];
 
     uint8_t msgid = espmeshmesh_NodePresentationRx_msgid;
     pb_ostream_t ostream = pb_ostream_from_buffer(encoded, sizestream.bytes_written+1);
@@ -605,8 +609,9 @@ void StarPathProtocol::sendPresentationPacket() {
     LIB_LOGD(TAG, "sendPresentationPacket");
     espmeshmesh_NodePresentation nodepresentation = espmeshmesh_NodePresentation_init_zero;
     strncpy(nodepresentation.hostname, espmeshmesh::EspMeshMesh::getInstance()->hostname().c_str(), 48);
-    strncpy(nodepresentation.firmware_version, espmeshmesh::EspMeshMesh::getInstance()->fwVersion().c_str(), 48);
+    strncpy(nodepresentation.firmware_version, espmeshmesh::EspMeshMesh::getInstance()->fwVersion().c_str(), 16);
     strncpy(nodepresentation.compile_time, espmeshmesh::EspMeshMesh::getInstance()->compileTime().c_str(), 48);
+    strncpy(nodepresentation.lib_version, espmeshmesh::EspMeshMesh::getInstance()->libVersion().c_str(), 16);
     MeshAddress target = MeshAddress(0, mCoordinatorId);
     target.sourceProtocol = MeshAddress::SRC_STARPATH;
     sendDataPacket(espmeshmesh_NodePresentation_fields, &nodepresentation, espmeshmesh_NodePresentation_msgid, target, nullptr);

@@ -72,6 +72,7 @@ public:
   void dump_config();
   void loop();
 public:
+  const std::string libVersion() const;
   const std::string fwVersion() const { return mFwVersion; }
   const std::string hostname() const { return mHostName; }
   const std::string compileTime() const { return mCompileTime; }
