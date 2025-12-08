@@ -34,7 +34,9 @@ class Broadcast;
 class Broadcast2;
 class Unicast;
 class MultiPath;
+#ifdef ESPMESH_STARPATH_ENABLED
 class StarPathProtocol;
+#endif
 class PoliteBroadcastProtocol;
 class ConnectedPath;
 
@@ -135,7 +137,9 @@ private:
   Broadcast2 *broadcast2 = nullptr;
   Unicast *unicast = nullptr;
   MultiPath *multipath = nullptr;
+#ifdef ESPMESH_STARPATH_ENABLED
   StarPathProtocol *starpath = nullptr;
+#endif
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
   PoliteBroadcastProtocol *mPoliteBroadcast = nullptr;
 #endif

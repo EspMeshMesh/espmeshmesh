@@ -359,7 +359,9 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 
   unicast = new Unicast(packetbuf, handler);
   multipath = new MultiPath(packetbuf, handler);
+#ifdef ESPMESH_STARPATH_ENABLED
   starpath = new StarPathProtocol(config->isCoordinator, packetbuf, handler);
+#endif
 
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
   mPoliteBroadcast = new PoliteBroadcastProtocol(packetbuf, handler);
@@ -367,7 +369,9 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 
   mConnectedPath = new ConnectedPath(this, packetbuf);
 
+#ifdef ESPMESH_STARPATH_ENABLED
   starpath->setup();
+#endif
 
   mDiscovery.init();
   dump_config();
@@ -428,7 +432,9 @@ void EspMeshMesh::loop() {
 #endif
   // execute multipath loop
   multipath->loop();
+#ifdef ESPMESH_STARPATH_ENABLED
   starpath->loop();
+#endif
   mConnectedPath->loop();
   // Execute discovery if is running
   if (mDiscovery.isRunning())
@@ -613,7 +619,7 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
       break;
     case MeshAddress::SRC_STARPATH:
     case MeshAddress::SRC_MULTIPATH:
-      multipath->send(buff, len, mFromAddress.address, (uint32_t *) mFromAddress.repeaters.data(), mFromAddress.repeaters.size(), MultiPath::Reverse, MULTIPATH_DEFAULT_PORT, nullptr);
+      multipath->send(buff, len, mFromAddress, nullptr);
       break;
     case MeshAddress::SRC_POLITEBRD:
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
@@ -695,13 +701,9 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
           uint16_t payloadsize = len - (6 + pathlen * sizeof(uint32_t));
           const uint8_t *payload = data + 6 + sizeof(uint32_t) * pathlen;
           uint32_t target = uint32FromBuffer(data + 1);
-          // We need to do this because the uint32 must be aligned to 4 bytes.
-          uint32_t *path = new uint32_t[pathlen];
-          for (int i = 0; i < pathlen; i++)
-            path[i] = uint32FromBuffer(data + 6 + i * sizeof(uint32_t));
           // Send the packet
-          multipath->send(payload, payloadsize, target, path, pathlen, MultiPath::Forward, UNICAST_DEFAULT_PORT, nullptr);
-          delete[] path;
+          MeshAddress targetAddress(MULTIPATH_DEFAULT_PORT, target, data + 6, pathlen, false);
+          multipath->send(payload, payloadsize, targetAddress, nullptr);
           err = 0;
         }
       }

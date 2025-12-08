@@ -4,6 +4,7 @@
 #include "broadcast2.h"
 #include "unicast.h"
 #include "multipath.h"
+#include "starpath.h"
 
 #include <functional>
 #include <cstring>
@@ -85,6 +86,21 @@ int8_t MeshSocket::open(SocketType type) {
         mStatus = Connected;
         mType = type;
     }
+#ifdef ESPMESH_STARPATH_ENABLED
+    if(mTarget.address == MeshAddress::coordinatorAddress || mTarget.address == bindAllAddress) {
+        StarPathProtocol *starpath = mParent->starpath;
+        if(starpath == nullptr) {
+            return errNoParentNetworkAvailable;
+        }
+        bool res = starpath->bindPort(mTarget.port, std::bind(&MeshSocket::recvFromProtocol, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+        if(!res) {
+            return errProtCantBeBinded;
+        }
+        mIsStarpath = true;
+        mStatus = Connected;
+        mType = type;
+    }
+#endif
     if((mTarget.address != MeshAddress::broadCastAddress && mTarget.repeaters.size() == 0) || mTarget.address == bindAllAddress) {
         // Unicast address
         Unicast *unicast = mParent->unicast;
@@ -125,14 +141,24 @@ uint8_t MeshSocket::close() {
     if(mIsBroadcast) {
         Broadcast2 *broadcast2 = mParent->broadcast2;
         if(broadcast2) broadcast2->unbindPort(mTarget.port);
+        mIsBroadcast = false;
     }
     if(mIsUnicast) {
         Unicast *unicast = mParent->unicast;
         if(unicast) unicast->unbindPort(mTarget.port);
+        mIsUnicast = false;
     }
+#ifdef ESPMESH_STARPATH_ENABLED
+    if(mIsStarpath) {
+        StarPathProtocol *starpath = mParent->starpath;
+        if(starpath) starpath->unbindPort(mTarget.port);
+        mIsStarpath = false;
+    }
+#endif
     if(mIsMultipath) {
         MultiPath *multipath = mParent->multipath;
         if(multipath) multipath->unbindPort(mTarget.port);
+        mIsMultipath = false;
     }
 
     mStatus = Closed;
@@ -157,22 +183,31 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SentStatusHandler h
         LIB_LOGE(TAG, "Socket::send  sent status callback not implemented yet!");
     }
 
-    int8_t err = 0;
     SocketProtocol protocol = calcProtocolFromTarget(mTarget);
     if(protocol == broadcastProtocol) {
         mParent->broadcast2->send(data, size, mTarget.port, handler ? handler : nullptr);
+    } else if(protocol == starpathProtocol) {
+#ifdef ESPMESH_STARPATH_ENABLED
+        if(!mParent->starpath->send(data, size, mTarget, handler ? handler : nullptr)) {
+            return errCantSendData;
+        }
+#else
+        return errCantSendData;
+#endif
     } else if(protocol == unicastProtocol) {
         mParent->unicast->send(data, size, mTarget.address, mTarget.port, handler ? handler : nullptr);
     } else if(protocol == multipathProtocol) {
-        mParent->multipath->send(data, size, mTarget.address, mTarget.repeaters.data(), mTarget.repeaters.size(), mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, mTarget.port, handler ? handler : nullptr);
+        mParent->multipath->send(data, size, mTarget, handler ? handler : nullptr);
     }
-    return 0;
+    return errSuccess;
 }
+
+#define SENT_CB(handler) [handler](bool status, RadioPacket *pkt) { if(handler) handler(status); }
 
 int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress target, SocketSentStatusHandler handler) {
     if(mStatus != Connected) {
         return errIsNotConnected;
-    }\
+    }
 
     if(target.address == MeshAddress::noAddress) {
         return errInvalidTargetAddress;
@@ -180,27 +215,41 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress
 
     SocketProtocol protocol = calcProtocolFromTarget(target);
     if(protocol == broadcastProtocol) {
-        mParent->broadcast2->send(data, size, target.port, [handler](bool status, RadioPacket *pkt) { 
-            if(handler) handler(status); 
-        });
+        mParent->broadcast2->send(data, size, target.port, SENT_CB(handler));
+    } else if(protocol == starpathProtocol) {
+#ifdef ESPMESH_STARPATH_ENABLED
+        // I use statpath only to send data to the coordinator, the return is done using multipath.
+        if(target.address == MeshAddress::coordinatorAddress) {
+            if(!mParent->starpath->send(data, size, target, SENT_CB(handler))) {
+                return errCantSendData;
+            }
+        } else {
+            mParent->multipath->send(data, size, target, SENT_CB(handler));
+        }
+#else
+        return errCantSendData;
+#endif
     } else if(protocol == unicastProtocol) {
-        mParent->unicast->send(data, size, target.address, target.port, [handler](bool status, RadioPacket *pkt) { 
-            if(handler) handler(status); 
-        });
+        mParent->unicast->send(data, size, target.address, target.port, SENT_CB(handler));
     } else if(protocol == multipathProtocol) {
         uint8_t repeatersCount = target.repeaters.size();
+        
         uint32_t *repeatersArray = nullptr;
         if(repeatersCount > 0) {
             repeatersArray = new uint32_t[repeatersCount];
             for(uint8_t i = 0; i < repeatersCount; i++) repeatersArray[i] = target.repeaters[i];
         }
-        mParent->multipath->send(data, size, target.address, repeatersArray, repeatersCount, mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, target.port, [handler](bool status, RadioPacket *pkt) { 
-            if(handler) handler(status); 
-        });
+
+        mParent->multipath->send(
+            data, 
+            size, 
+            target, 
+            SENT_CB(handler));
+
         if(repeatersArray) delete[] repeatersArray;
     }
 
-    return 0;
+    return errSuccess;
 }
 
 // TODO: Implement Stream recv and receive multiple datagrams
@@ -270,6 +319,9 @@ void MeshSocket::recvDatagramCb(SocketRecvDatagramHandler handler) {
 MeshSocket::SocketProtocol MeshSocket::calcProtocolFromTarget(const MeshAddress &target) {
     if(target.address == MeshAddress::broadCastAddress) {
         return broadcastProtocol;
+    }
+    if(target.address == MeshAddress::coordinatorAddress) {
+        return starpathProtocol;
     }
     if(target.repeaters.empty()) {
         return unicastProtocol;

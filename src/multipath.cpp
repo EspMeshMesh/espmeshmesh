@@ -53,12 +53,22 @@ void MultiPath::send(MultiPathPacket *pkt, bool initHeader, SentStatusHandler ha
 	mPacketBuf->send(pkt);
 }
 
-void MultiPath::send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, bool pathRev, uint8_t port, SentStatusHandler handler) {
+/*void MultiPath::send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, uint8_t port, SentStatusHandler handler) {
 	MultiPathPacket *pkt = new MultiPathPacket(this);
 	pkt->allocClearData(size, pathSize);
 	pkt->multipathHeader()->port = port;
 	pkt->multipathHeader()->trargetAddress = target;
 	for(int i=0;i<pathSize;i++) pkt->setPathItem(path[i], i);
+	pkt->setPayload(data);
+	send(pkt, true, handler);
+}*/
+
+void MultiPath::send(const uint8_t *data, uint16_t size, const MeshAddress &target, SentStatusHandler handler) {
+	MultiPathPacket *pkt = new MultiPathPacket(this);
+	pkt->allocClearData(size, target.repeaters.size());
+	pkt->multipathHeader()->port = target.port;
+	pkt->multipathHeader()->trargetAddress = target.address;
+	for(int i=0;i<target.repeaters.size();i++) pkt->setPathItem(target.repeaters[i], i);
 	pkt->setPayload(data);
 	send(pkt, true, handler);
 }

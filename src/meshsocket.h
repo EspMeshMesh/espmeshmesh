@@ -30,7 +30,7 @@ private:
 
 class MeshSocket {
 private:
-    enum SocketProtocol {unicastProtocol, multipathProtocol, broadcastProtocol, politeProtocol};
+    enum SocketProtocol {unicastProtocol, multipathProtocol, broadcastProtocol, politeProtocol, starpathProtocol};
 public:
     enum SocketType {
         SOCK_DGRAM,   // Use to create a datagram socket.
@@ -113,14 +113,16 @@ public:
      * @brief Close the socket and release the resources
      */
     uint8_t close();
+
     /**
-     * @brief Send data to the target
-     * @param data A buffer containing the data to send
-     * @param size The size of the buffer
+     * @brief Send a single datagram to the target node using the appropriate protocol.
+     * @param data The data to send.
+     * @param size The size of the data.
+     * @param target The target address.
      * @param Optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise).
-     * this callback is prioritary over the callback set the sentStatusCb function. If this parameter is prvided the sentStatusCb
-     * function will not be called for this packet.
-     * @return 0 if the data is sent correctly, otherwise an error code
+     *   this callback is prioritary over the callback set the sentStatusCb function. If this parameter is prvided the sentStatusCb
+     *   function will not be called for this packet.
+     * @return errSuccess if the data is sent correctly, otherwise an error code.
      */
     int16_t send(const uint8_t *data, uint16_t size, SentStatusHandler handler=nullptr);
     /**
@@ -128,7 +130,7 @@ public:
      * @param data A buffer containing the data to send
      * @param size The size of the buffer
      * @param target The address of the target node
-     * @param optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise). \
+     * @param optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise).
      */
     int16_t sendDatagram(const uint8_t *data, uint16_t size, MeshAddress target, SocketSentStatusHandler handler=nullptr);
     /**
@@ -178,10 +180,10 @@ private:
     bool mIsBroadcast{false};
     bool mIsUnicast{false};
     bool mIsMultipath{false};
+    bool mIsStarpath{false};
 private:
     StatusFlags mStatus{Closed};
     MeshAddress mTarget;
-    bool mIsReversePath{false};
     // TODO: Implement SOCK_FLOOD
     SocketType mType{SOCK_DGRAM};
 private:

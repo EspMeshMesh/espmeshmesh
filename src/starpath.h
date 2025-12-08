@@ -1,4 +1,5 @@
 #pragma once
+#ifdef ESPMESH_STARPATH_ENABLED
 #include "packetbuf.h"
 #include "recvdups.h"
 
@@ -58,7 +59,8 @@ public:
     void setup() override;
     void loop() override;
 public:
-    void send(const uint8_t *data, uint16_t size, MeshAddress target, SentStatusHandler handler = nullptr);
+    bool iAmCoordinator() const { return mCoordinatorId == mPacketBuf->nodeId(); }
+    bool send(const uint8_t *data, uint16_t size, MeshAddress target, SentStatusHandler handler = nullptr);
 private:
     void sendRawPacket(StarPathPacket *pkt, uint32_t target, SentStatusHandler handler = nullptr);
     void sendDataPacket(const uint8_t *data, uint16_t size, const void *path_struct, uint8_t port, SentStatusHandler handler = nullptr);
@@ -71,6 +73,7 @@ private:
     uint16_t calculateCost(int16_t rssi) const;
     uint16_t calculateFullCost(int16_t rssi, uint8_t hops) const;
     int16_t calculateTestbedCosts(uint32_t source, uint32_t target) const;
+    bool containsLoop(const uint32_t *repeaters, uint8_t repeaters_count) const;
 private:
     void handleDiscoveryBeacon(StarPathPacket *pkt, uint32_t from, int16_t rssi);
     void handleNotificationBeacon(StarPathPacket *pkt, uint32_t from, int16_t rssi);
@@ -92,9 +95,9 @@ private:
     uint16_t mLastSequenceNum = 0;
     RecvDups mRecvDups;
     NodeState mNodeState{Free};
-    uint32_t mNeighbourId{0};
+    uint32_t mNeighbourId{MeshAddress::noAddress};
     uint16_t mNeighbourCost{UINT16_MAX};
-    uint32_t mCoordinatorId{0};
+    uint32_t mCoordinatorId{MeshAddress::noAddress};
     uint8_t mCoordinatorHops{0};
     std::vector<uint32_t> mRepeaters;
 private:
@@ -108,4 +111,4 @@ private:
 };
 
 }
-
+#endif
