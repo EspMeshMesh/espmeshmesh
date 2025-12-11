@@ -1,5 +1,4 @@
 #pragma once
-
 #include <vector>
 #include <cstdint>
 
@@ -19,7 +18,8 @@ struct MeshAddress {
      */
     static const uint32_t noAddress = 0;
     static const uint32_t broadCastAddress = UINT32_MAX;
-    
+    static const uint32_t coordinatorAddress = UINT32_MAX-1;
+
     typedef enum {
         SRC_NONE       = 0x00,
         SRC_BROADCAST  = 0x01,
@@ -27,17 +27,26 @@ struct MeshAddress {
         SRC_PREROUTED  = 0x03,
         SRC_MULTIPATH  = 0x04,
         SRC_POLITEBRD  = 0x05,
-        SRC_CONNPATH   = 0x07,
         SRC_BROADCAST2 = 0x06,
+        SRC_CONNPATH   = 0x07,
+        SRC_STARPATH   = 0x08,
         SRC_FILTER     = 0xfe,
         SRC_SERIAL     = 0xff,
     } DataSrc;
-
+    
     MeshAddress(): repeaters(std::vector<uint32_t>()), port(0), address(0) {}
     MeshAddress(uint8_t port, uint32_t address): repeaters(std::vector<uint32_t>()), port(port), address(address) {}
+    MeshAddress(DataSrc sourceProtocol, uint8_t port, uint32_t address): sourceProtocol(sourceProtocol), port(port), address(address) {}
     MeshAddress(uint8_t port, uint32_t address, std::vector<uint32_t> repeaters): repeaters(repeaters), port(port), address(address) {}
-    MeshAddress(uint8_t port, uint32_t address, uint8_t *path, uint8_t pathCount, bool reversed=false);
+    MeshAddress(const MeshAddress &other): sourceProtocol(other.sourceProtocol), repeaters(other.repeaters), port(other.port), address(other.address) {}
+
+    MeshAddress(const MeshAddress &other, bool reversed);
+    MeshAddress(uint8_t port, uint32_t address, const uint8_t *path, uint8_t pathCount, bool reversed=false);
+ 
     bool isBroadcast() const { return address == broadCastAddress; }
+    MeshAddress reverse() const { return MeshAddress(*this, true); }
+
+    DataSrc sourceProtocol{SRC_NONE};
     std::vector<uint32_t> repeaters;
     uint8_t port{0};
     uint32_t address{0};

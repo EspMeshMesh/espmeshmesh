@@ -87,7 +87,7 @@ RadioPacket::~RadioPacket() {
     if(mClearData) delete mClearData;
 }
 
-void RadioPacket::fromRawData(uint8_t *buf, uint16_t size) {
+void RadioPacket::fromRawData(const uint8_t *buf, uint16_t size) {
     mClearDataSize = size;
     mClearData = new uint8_t[mClearDataSize];
 	memcpy(clearData(), buf, size);
@@ -119,8 +119,9 @@ bool RadioPacket::encryptClearData() {
     }
 }
 
-void RadioPacket::callCallback(uint8_t status, RadioPacket *data) {
-    if(mCallbackArg) mCallback(mCallbackArg, status, data);
+void RadioPacket::reportSentStatus(uint8_t status, RadioPacket *data) {
+  if (this->mOwner)
+    this->mOwner->radioPacketSent(status, data);
 }
 
 void RadioPacket::sendFreedom() {
@@ -177,19 +178,19 @@ void RadioPacket::fill80211(uint8_t *targetId, uint8_t *pktbufNodeIdPtr) {
 		ieee80211_hdr->addr1[5] = targetId[0];
 	} else {
   #ifdef USE_BROADCAST_WITH_MULTICAST
-    ieee80211_hdr->addr1[0] = 0x01;
-    ieee80211_hdr->addr1[1] = 0x00;
-    ieee80211_hdr->addr1[2] = 0x5E;
-    ieee80211_hdr->addr1[3] = 0x7F;
-    ieee80211_hdr->addr1[4] = 0x00;
-    ieee80211_hdr->addr1[5] = 0x01;
+        ieee80211_hdr->addr1[0] = 0x01;
+        ieee80211_hdr->addr1[1] = 0x00;
+        ieee80211_hdr->addr1[2] = 0x5E;
+        ieee80211_hdr->addr1[3] = 0x7F;
+        ieee80211_hdr->addr1[4] = 0x00;
+        ieee80211_hdr->addr1[5] = 0x01;
   #else
-    ieee80211_hdr->addr1[0] = 0xFF;
-    ieee80211_hdr->addr1[1] = 0xFF;
-    ieee80211_hdr->addr1[2] = 0xFF;
-    ieee80211_hdr->addr1[3] = 0xFF;
-    ieee80211_hdr->addr1[4] = 0xFF;
-    ieee80211_hdr->addr1[5] = 0xFF;
+        ieee80211_hdr->addr1[0] = 0xFF;
+        ieee80211_hdr->addr1[1] = 0xFF;
+        ieee80211_hdr->addr1[2] = 0xFF;
+        ieee80211_hdr->addr1[3] = 0xFF;
+        ieee80211_hdr->addr1[4] = 0xFF;
+        ieee80211_hdr->addr1[5] = 0xFF;
   #endif
     }
 
@@ -223,7 +224,13 @@ PacketBuf *PacketBuf::getInstance() {
     return p;
 }
 
-uint8_t PacketBuf::send(RadioPacket *pkt) {
+/**
+ * Sends a radio packet using the freedom function.
+ * If the packet buffer is busy, the packet is added to the queue.
+ * The packet is sent when the buffer is free.
+ * @param pkt The radio packet to send.
+ */
+void PacketBuf::send(RadioPacket *pkt) {
     if(!pktbufSent) {
         pktbufSent = pkt;
         pktbufSent->sendFreedom();
@@ -231,14 +238,14 @@ uint8_t PacketBuf::send(RadioPacket *pkt) {
         // FIXME: Limit maximum queue size
         mPacketQueue.push_back(pkt);
     }
-	return PKT_SEND_OK;
 }
 
 void PacketBuf::freedomCallback(uint8_t status) {
 	if(pktbufSent) {
-        pktbufSent->callCallback(status, pktbufSent);
-        if(pktbufSent->isAutoDelete()) delete pktbufSent;
-        pktbufSent = nullptr;
+    pktbufSent->reportSentStatus(status, pktbufSent);
+    if (pktbufSent->isAutoDelete())
+      delete pktbufSent;
+    pktbufSent = nullptr;
 	}
 
     if(mPacketQueue.size()>0) {
@@ -248,65 +255,68 @@ void PacketBuf::freedomCallback(uint8_t status) {
     }
 }
 
-#ifdef IDF_VER
-void PacketBuf::recvTask(uint32_t index) {
-    {
-#else
-void PacketBuf::recvTask_cb(os_event_t *events) {
+#ifndef IDF_VER
+void PacketBuf::recvTask_cb(ETSEvent *events) {
+  if (events->sig == 0) {
     if(singleton) {
-        singleton->recvTask(events);
+      singleton->recvTask((uint32_t)events->par);
     }
+  }
 }
-
-void PacketBuf::recvTask(os_event_t *events) {
-    if(events->sig == 0) {
-        uint32_t index = events->par;
 #endif
-        ieee80211_hdr_p ieee80211_hdr = (ieee80211_hdr_p)pktbufRecvTaskPacket[index].data;
 
-        if(pktbufRecvTaskPacket[index].length < PACKETBUF_80211_SIZE+5) {
-            LIB_LOGE(TAG, "recvTask short packet");
-            return;
-        }
+void PacketBuf::recvTask(uint32_t index) {
+  ieee80211_hdr_p ieee80211_hdr = (ieee80211_hdr_p) pktbufRecvTaskPacket[index].data;
 
-        lastpktLen = pktbufRecvTaskPacket[index].length - PACKETBUF_80211_SIZE - 4;
-        int16_t lastpktRssi = pktbufRecvTaskPacket[index].rssi;
+  if (pktbufRecvTaskPacket[index].length < PACKETBUF_80211_SIZE + 5) {
+    LIB_LOGE(TAG, "recvTask short packet");
+    return;
+  }
+
+  lastpktLen = pktbufRecvTaskPacket[index].length - PACKETBUF_80211_SIZE - 4;
+  int16_t lastpktRssi = pktbufRecvTaskPacket[index].rssi;
 
 #ifdef IDF_VER
-        if(heap_caps_get_free_size(MALLOC_CAP_8BIT)<lastpktLen+128 || heap_caps_get_free_size(MALLOC_CAP_8BIT)<MEMORY_TRESHOLD) {
-            LIB_LOGE(TAG, "recvTask low memory a:%d r:%d l:%ld", heap_caps_get_free_size(MALLOC_CAP_8BIT), lastpktLen, pktbufRecvTaskPacket[index].length);
-#else
-        if(ESP.getMaxFreeBlockSize()<lastpktLen+128 || ESP.getMaxFreeBlockSize()<MEMORY_TRESHOLD) {
-            LIB_LOGE(TAG, "recvTask low memory a:%d r:%d l:%d", ESP.getMaxFreeBlockSize(), lastpktLen, pktbufRecvTaskPacket[index].length);
-#endif
-            return;
-        }
-
-        uint8_t *clear = new uint8_t[lastpktLen];
-        decrypt_data(clear, pktbufRecvTaskPacket[index].data + PACKETBUF_80211_SIZE, lastpktLen);
-
-        uint32_t from; uint8_t *fromptr = (uint8_t *)&from;
-        // Address in wifi packet is LE
-        fromptr[0] = ieee80211_hdr->addr2[5];
-        fromptr[1] = ieee80211_hdr->addr2[4];
-        fromptr[2] = ieee80211_hdr->addr2[3];
-        fromptr[3] = ieee80211_hdr->addr2[2];
-
-        uint8_t prot = clear[0];
-        //LIB_LOGD(TAG, "recvTask sk %d len %d prot %d", index, pktbufRecvTaskPacket[index].length, prot);
-
-        if(prot < mRecvHandlerCount && mRecvHandler[prot] != nullptr) {
-            mRecvHandler[prot](clear, lastpktLen, from, lastpktRssi);
-        } else {
-            LIB_LOGVV(TAG, "Unknow protocol %d from %06X size %d %d %d", prot, from, lastpktLen, ieee80211_hdr->frame_control.Type, ieee80211_hdr->frame_control.Subtype);
-            //DEBUG_ARRAY("Pay: ", pktbufRecvTaskPacket[events->par].data, pktbufRecvTaskPacket[events->par].length);
-            LIB_LOGVV(TAG, "Bytes %02X %02X %02X %02X %02X %02X", clear[0], clear[1], clear[2], clear[3], clear[4], clear[5]);
-        }
-
-        delete []clear;
-        delete pktbufRecvTaskPacket[index].data;
-        memset(&pktbufRecvTaskPacket[index], 0, sizeof(pktbuf_recvTask_packet_t));
+    if (heap_caps_get_free_size(MALLOC_CAP_8BIT) < lastpktLen + 128 ||
+        heap_caps_get_free_size(MALLOC_CAP_8BIT) < MEMORY_TRESHOLD) {
+      LIB_LOGE(TAG, "recvTask low memory a:%d r:%d l:%ld", heap_caps_get_free_size(MALLOC_CAP_8BIT), lastpktLen,
+               pktbufRecvTaskPacket[index].length);
+      return;
     }
+#else
+    if (ESP.getMaxFreeBlockSize() < lastpktLen + 128 || ESP.getMaxFreeBlockSize() < MEMORY_TRESHOLD) {
+      LIB_LOGE(TAG, "recvTask low memory a:%d r:%d l:%d", ESP.getMaxFreeBlockSize(), lastpktLen,
+               pktbufRecvTaskPacket[index].length);
+      return;
+    }
+#endif
+
+    uint8_t *clear = new uint8_t[lastpktLen];
+    decrypt_data(clear, pktbufRecvTaskPacket[index].data + PACKETBUF_80211_SIZE, lastpktLen);
+
+    uint32_t from;
+    uint8_t *fromptr = (uint8_t *) &from;
+    // Address in wifi packet is LE
+    fromptr[0] = ieee80211_hdr->addr2[5];
+    fromptr[1] = ieee80211_hdr->addr2[4];
+    fromptr[2] = ieee80211_hdr->addr2[3];
+    fromptr[3] = ieee80211_hdr->addr2[2];
+
+    MeshAddress::DataSrc prot = (MeshAddress::DataSrc)clear[0];
+    // LIB_LOGD(TAG, "recvTask sk %d len %d prot %d", index, pktbufRecvTaskPacket[index].length, prot);
+
+    if (mRecvHandler.count(prot) > 0 && mRecvHandler[prot] != nullptr) {
+      mRecvHandler[prot]->radioPacketRecv(clear, lastpktLen, from, lastpktRssi);
+    } else {
+      LIB_LOGVV(TAG, "Unknow protocol %d from %06X size %d %d %d", prot, from, lastpktLen,
+                ieee80211_hdr->frame_control.Type, ieee80211_hdr->frame_control.Subtype);
+      // DEBUG_ARRAY("Pay: ", pktbufRecvTaskPacket[events->par].data, pktbufRecvTaskPacket[events->par].length);
+      LIB_LOGVV(TAG, "Bytes %02X %02X %02X %02X %02X %02X", clear[0], clear[1], clear[2], clear[3], clear[4], clear[5]);
+    }
+
+    delete[] clear;
+    delete pktbufRecvTaskPacket[index].data;
+    memset(&pktbufRecvTaskPacket[index], 0, sizeof(pktbuf_recvTask_packet_t));
 }
 
 #ifdef IDF_VER
@@ -429,13 +439,58 @@ void IRAM_ATTR __attribute__((hot)) PacketBuf::rawRecv(RxPacket *pkt) {
     }
 }
 
+PacketBufProtocol::PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn, MeshAddress::DataSrc protocol):  
+    mPacketBuf(pbuf), mProtocolType(protocol) {
+
+    if (rx_fn) {
+    this->bindPort(0, rx_fn);
+    }
+    if (protocol != MeshAddress::SRC_NONE) {
+    pbuf->setRecvHandler(protocol, this);
+    }
+}
+
+bool PacketBufProtocol::isPortAvailable(uint16_t port) const {
+    //LIB_LOGV(TAG, "isPortAvailable: protocol type %d port %d total ports %d", (int)mProtocolType, port, this->mBindedPorts.size());
+    auto it = this->mBindedPorts.find(port);
+    return (it == this->mBindedPorts.end());
+}
+
+bool PacketBufProtocol::bindPort(uint16_t port, ReceiveHandler handler) {
+    if (!this->isPortAvailable(port)) {
+        LIB_LOGE(TAG, "bindPort: port %d already binded on protocol type %d", port, (int)mProtocolType);
+        return false;
+    }
+    this->mBindedPorts[port] = handler;
+    LIB_LOGV(TAG, "bindPort: port %d is now binded on protocol type %d total ports %d", port, (int)mProtocolType, this->mBindedPorts.size());
+    return true;
+}
+
+void PacketBufProtocol::unbindPort(uint16_t port) {
+  LIB_LOGV(TAG, "unbindPort: ports size %d", this->mBindedPorts.size());
+  const auto it = this->mBindedPorts.find(port);
+  if (it != this->mBindedPorts.end()) {
+    this->mBindedPorts.erase(it);
+    return;
+  }
+
+  LIB_LOGE(TAG, "unbindPort: port %d is not binded on protocol type %d", port, (int)mProtocolType);
+}
+
+void PacketBufProtocol::callReceiveHandler(const uint8_t *payload, uint16_t size, const MeshAddress &from, int16_t rssi) {
+  if (isPortAvailable(from.port)) {
+    LIB_LOGE(TAG, "from %06X port %d is not binded to any callback on protocol type %d", from.address, from.port, (int)mProtocolType);
+  } else {
+    auto cb = mBindedPorts[from.port];
+    cb(payload, size, from, rssi);
+  }
+}
+
 #ifdef IDF_VER
 void promiscuousRxq(void* buf, wifi_promiscuous_pkt_type_t type) {
     //wifi_promiscuous_pkt_t *p = (wifi_promiscuous_pkt_t*)buf;
     if(type == WIFI_PKT_DATA && PacketBuf::singleton) PacketBuf::singleton->rawRecv((RxPacket *)buf);
 }
 #endif
-
-
 
 }  // namespace espmeshmesh

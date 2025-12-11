@@ -23,18 +23,23 @@ typedef std::function<int8_t(const uint8_t *data, uint16_t len, uint32_t from)> 
 typedef void (*EspHomeDataReceivedCbFn)(uint16_t, uint8_t *, uint16_t);
 
 typedef enum { WAIT_START, WAIT_DATA, WAIT_ESCAPE, WAIT_CRC16_1, WAIT_CRC16_2 } RecvState;
-typedef enum { CODE_DATA_START=0xFE, CODE_DATA_START_CRC16=0xFD, CODE_DATA_END = 0xEF, CODE_DATA_ESCAPE = 0xEA } SpcialByteCodes;
+typedef enum {
+  CODE_DATA_START = 0xFE,
+  CODE_DATA_START_CRC16 = 0xFD,
+  CODE_DATA_END = 0xEF,
+  CODE_DATA_ESCAPE = 0xEA
+} SpcialByteCodes;
 
 class Broadcast;
 class Broadcast2;
 class Unicast;
-#ifdef USE_MULTIPATH_PROTOCOL
 class MultiPath;
+#ifdef ESPMESH_STARPATH_ENABLED
+class StarPathProtocol;
 #endif
 class PoliteBroadcastProtocol;
-#ifdef USE_CONNECTED_PROTOCOL
 class ConnectedPath;
-#endif
+
 class MeshSocket;
 
 #define HANDLE_UART_OK 0
@@ -42,20 +47,20 @@ class MeshSocket;
 #define FRAME_NOT_HANDLED -1
 
 typedef struct {
-  const char *hostname;
+  std::string hostname;
   uint8_t channel;
   uint8_t txPower;
+  bool isCoordinator;
+  std::string fwVersion;
+  std::string compileTime;
 } EspMeshMeshSetupConfig;
 
 class EspMeshMesh {
- public:
- public:
+public:
   static EspMeshMesh *singleton;
   static EspMeshMesh *getInstance();
-#ifdef USE_CONNECTED_PROTOCOL
   ConnectedPath *getConnectedPath() const { return mConnectedPath; }
-#endif
- public:
+public:
   EspMeshMesh(int baud_rate, int tx_buffer, int rx_buffer);
   void pre_setup();
 #ifdef IDF_VER
@@ -68,53 +73,39 @@ class EspMeshMesh {
   void setAesPassword(const char *password) { mAesPassword = password; }
   void dump_config();
   void loop();
-
+public:
+  const std::string libVersion() const;
+  const std::string fwVersion() const { return mFwVersion; }
+  const std::string hostname() const { return mHostName; }
+  const std::string compileTime() const { return mCompileTime; }
  public:
   void setLockdownMode(bool active) { packetbuf->setLockdownMode(active); }
   static void wifiInitMacAddr(uint8_t index);
   void commandReply(const uint8_t *buff, uint16_t len);
   void uartSendData(const uint8_t *buff, uint16_t len);
+
+  MeshAddress::DataSrc lastCommandSourceProtocol() const { return mFromAddress.sourceProtocol; }
   int16_t lastPacketRssi() const { return mRssiHandle; }
-  MeshAddress::DataSrc lastCommandSourceProtocol() const { return commandSource; }
-  bool lastCommandFromBroadcast() const { return commandSource == MeshAddress::SRC_BROADCAST || commandSource == MeshAddress::SRC_POLITEBRD; }
-  uint32_t broadcastFromAddress() const { return mBroadcastFromAddress; }
-  void broadCastSendData(const uint8_t *buff, uint16_t len);
+  const MeshAddress &lastFromAddress() const { return mFromAddress; }
+
   /**
    * @brief Send data using broadcast2 protocol with port selector.
    * @param buff Data to send
    * @param len Length of data to send
    * @param port Port to send data to. Data will be received only from callbacks registered with this port.
    */
-  void broadcast2SendData(const uint8_t *buff, uint16_t len, bool port);
-  /**
-   * @brief Register a callback to receive data from a specific port of broadcast2 protocol.
-   * @param port Port to register callback for
-   * @param handler Callback function
-   * @param arg Argument to pass to callback
-   */
-  void registerBroadcast2Port(uint16_t port, Broadcast2ReceiveRadioPacketHandler handler);
+  void broadcastSendData(const uint8_t *buff, uint16_t len);
+  void broadcastSendData(const uint8_t *buff, uint16_t len, uint16_t port);
   /**
    * @brief Send data using unicast protocol.
    * @param buff Data to send
    * @param len Length of data to send
    * @param addr Address to send data to
-   */
-  void uniCastSendData(const uint8_t *buff, uint16_t len, uint32_t addr);
-  /**
-   * @brief Send data using unicast protocol with port selector.
-   * @param buff Data to send
-   * @param len Length of data to send
-   * @param addr Address to send data to
    * @param port Port to send data to. Data will be received only from callbacks registered with this port.
    */
-  void unicastSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint16_t port);
-#ifdef USE_MULTIPATH_PROTOCOL
+  void unicastSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint16_t port = 0);
   void multipathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint32_t *path);
-#endif
-#ifdef USE_CONNECTED_PROTOCOL
-  void connectedpathSendData(const uint8_t *buff, uint16_t len, uint32_t addr, uint8_t pathlen, uint8_t *path);
-#endif
-public:
+ public:
   static unsigned long elapsedMillis(unsigned long t2, unsigned long t1) {
     return t2 >= t1 ? t2 - t1 : (~(t1 - t2)) + 1;
   }
@@ -127,21 +118,10 @@ public:
   void flushUartTxBuffer();
 
  private:
-  void handleFrame(const uint8_t *data, uint16_t len, MeshAddress::DataSrc src, uint32_t from);
-  void replyHandleFrame(const uint8_t *buf, uint16_t len, MeshAddress::DataSrc src, uint32_t from);
+  void handleFrame(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi=0);
+  void replyHandleFrame(const uint8_t *buf, uint16_t len, const MeshAddress &from, int16_t rssi = 0);
 
  private:
-  static void user_broadcast_recv_cb(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-  void user_broadcast_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-  void user_broadcast2_recv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-  void unicastRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-  void multipathRecv(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path, uint8_t pathSize);
-  static void politeBroadcastReceive(void *arg, uint8_t *data, uint16_t size, uint32_t from);
-  void politeBroadcastReceiveCb(uint8_t *data, uint16_t size, uint32_t from);
-  static void onConnectedPathNewClientCb(void *arg, uint32_t from, uint16_t handle);
-  void onConnectedPathNewClient(uint32_t from, uint16_t handle);
-  static void onConnectedPathReceiveCb(void *arg, const uint8_t *data, uint16_t size, uint8_t connid);
-  void onConnectedPathReceive(const uint8_t *data, uint16_t size, uint8_t connid);
   void sendLog(int level, const char *tag, const char *payload, size_t payload_len);
 
  private:
@@ -151,14 +131,14 @@ public:
   int mTxBuffer;
   int mRxBuffer;
 
- private:
-  MeshAddress::DataSrc commandSource = MeshAddress::SRC_SERIAL;
+private:
   PacketBuf *packetbuf = nullptr;
   Broadcast *broadcast = nullptr;
   Broadcast2 *broadcast2 = nullptr;
   Unicast *unicast = nullptr;
-#ifdef USE_MULTIPATH_PROTOCOL
   MultiPath *multipath = nullptr;
+#ifdef ESPMESH_STARPATH_ENABLED
+  StarPathProtocol *starpath = nullptr;
 #endif
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
   PoliteBroadcastProtocol *mPoliteBroadcast = nullptr;
@@ -167,10 +147,7 @@ public:
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
   uint32_t mPoliteFromAddress = 0;
 #endif
-#ifdef USE_CONNECTED_PROTOCOL
   ConnectedPath *mConnectedPath = nullptr;
-  uint8_t mConnectionId = 0;
-#endif
 
 #ifdef ESP8266
   HardwareSerial *mHwSerial = nullptr;
@@ -185,13 +162,11 @@ public:
   RecvState mRecvState = WAIT_START;
   uint8_t *mRecvBuffer = nullptr;
   uint16_t mRecvBufferPos = 0;
-  uint8_t mRecvFromId[4];
-  uint32_t mRecvPath[16];
-  uint8_t mRecvPathSize = 0;
+  MeshAddress mFromAddress;
 
   Discovery mDiscovery;
 
- private:
+private:
   // UartRingBuffer;
   MemRingBuffer mUartTxBuffer;
   // Use serial
@@ -202,20 +177,27 @@ public:
   int16_t mRssiHandle = 0;
   // Encryption password
   std::string mAesPassword;
+  // Firmware version
+  std::string mFwVersion;
+  // Compile time
+  std::string mCompileTime;
+  // Hostname
+  std::string mHostName;
 #ifdef ESP8266
   bool mWorkAround{false};
 #endif
 
-public:
-  void addHandleFrameCb(HandleFrameCbFn cb) { mHandleFrameCbs.push_back(cb); }
-private:
-  std::list<HandleFrameCbFn> mHandleFrameCbs;
+ public:
+  void addHandleFrameCb(PacketFrameHandler cb) { mHandleFrameCbs.push_back(cb); }
 
-public:
+ private:
+  std::list<PacketFrameHandler> mHandleFrameCbs;
+
+ public:
   void setLogCb(LogCbFn cb) { setLibLogCb(cb); }
-public:
+
+ public:
   friend class MeshSocket;
 };
 
 }  // namespace espmeshmesh
-

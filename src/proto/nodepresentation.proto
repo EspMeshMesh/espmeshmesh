@@ -1,0 +1,14 @@
+syntax = "proto3";
+import "nanopb.proto";
+
+package espmeshmesh;
+
+message NodePresentation {
+  option (nanopb_msgopt).msgid = 0x43;
+
+  string hostname = 1;
+  string firmware_version = 2;
+  string compile_time = 3;
+  string lib_version = 4;
+}
+

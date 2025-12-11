@@ -1,5 +1,6 @@
 #pragma once
 #include "defines.h"
+#include "meshaddress.h"
 
 #ifdef IDF_VER
 #include <esp_wifi.h>
@@ -15,6 +16,8 @@ typedef struct _event_ {
 #endif
 
 #include <list>
+#include <map>
+
 #include <functional>
 
 /* -------------------------------------------------------
@@ -30,16 +33,11 @@ typedef struct _event_ {
  * Address3 = FF FF FF FF FF FF
 ------------------------------------------------------- */
 
-#ifdef USE_ESP32
-extern "C" {
-// typedef void (* wifi_tx_done_cb_t)(uint8_t ifidx, uint8_t *data, uint16_t *data_len, bool txStatus);
-// esp_err_t esp_wifi_set_tx_done_cb(wifi_tx_done_cb_t cb);
-}
-#endif
-
 #include <cstdint>
 
 namespace espmeshmesh {
+
+class PacketBuf;
 
 #ifdef USE_ESP32
 #define RxPacket wifi_promiscuous_pkt_t
@@ -85,72 +83,26 @@ struct pktbuf_recvTask_packet_st {
 
 typedef struct pktbuf_recvTask_packet_st pktbuf_recvTask_packet_t;
 
-#define PROTOCOL_BROADCAST    1
-#define PROTOCOL_UNICAST      2
-#define PROTOCOL_PREROUTED    3
-#define PROTOCOL_MULTIPATH    4
-#define PROTOCOL_POLITEBRD    5
-#define PROTOCOL_BROADCAST_V2 6
-#define PROTOCOL_CONNPATH     7
-#define PROTOCOL_LAST         8
-
-#define PKT_SEND_OK 0
-#define PKT_SEND_ERR 1
-
 #define PACKETBUF_TASK_PRIO 2
 #define PACKETBUF_TASK_QUEUE_LEN 12
 
-inline uint32_t uint32FromBuffer(const uint8_t *buffer, bool little = false) {
-  if (little)
-    return (uint32_t) ((buffer[3]) + (buffer[2] << 8) + (buffer[1] << 16) + (buffer[0] << 24));
-  else
-    return (uint32_t) ((buffer[0]) + (buffer[1] << 8) + (buffer[2] << 16) + (buffer[3] << 24));
-}
-
-inline uint16_t uint16FromBuffer(const uint8_t *buffer) { return (uint16_t) ((buffer[0]) + (buffer[1] << 8)); }
-
-inline void uint32toBuffer(uint8_t *buffer, uint32_t value) {
-  buffer[0] = (value & 0xFF);
-  buffer[1] = ((value >> 8) & 0xFF);
-  buffer[2] = ((value >> 16) & 0xFF);
-  buffer[3] = ((value >> 24) & 0xFF);
-}
-
-inline void uint16toBuffer(uint8_t *buffer, uint16_t value) {
-  buffer[0] = (value & 0xFF);
-  buffer[1] = ((value >> 8) & 0xFF);
-}
-
 class RadioPacket;
-typedef void (*pktbufSentCbFn)(void *arg, uint8_t status, RadioPacket *data);
-
-class Broadcast;
-class Broadcast2;
-class Unicast;
-#ifdef USE_MULTIPATH_PROTOCOL
-class MultiPath;
-#endif
-#ifdef USE_POLITE_BROADCAST_PROTOCOL
-class PoliteBroadcastProtocol;
-#endif
-#ifdef USE_CONNECTED_PROTOCOL
-class ConnectedPath;
-#endif
+class PacketBufProtocol;
 
 #define PACKETBUF_80211_SIZE 24
 
 class RadioPacket {
  public:
-  explicit RadioPacket(pktbufSentCbFn cb, void *arg) : mCallback(cb), mCallbackArg(arg) {}
+  explicit RadioPacket(PacketBufProtocol *owner, SentStatusHandler cb) {
+    this->mOwner = owner;
+    this->mCallback = std::move(cb);
+  }
   virtual ~RadioPacket();
   bool isAutoDelete() const { return mAutoDelete; }
   bool isBroadcast() const { return mIsBroadcast; }
   void setAutoDelete(bool autodel) { mAutoDelete = autodel; }
-  void setCallback(pktbufSentCbFn cb, void *arg) {
-    mCallback = cb;
-    mCallbackArg = arg;
-  }
-  void fromRawData(uint8_t *buf, uint16_t size);
+
+  void fromRawData(const uint8_t *buf, uint16_t size);
 
  public:
   virtual void allocClearData(uint16_t size);
@@ -163,7 +115,17 @@ class RadioPacket {
  public:
   uint16_t encryptedDataSize() const { return mEncryptedDataSize; }
   uint8_t *encryptedData() const { return mEncryptedData; }
-  void callCallback(uint8_t status, RadioPacket *data);
+
+  void reportSentStatus(uint8_t status, RadioPacket *data);
+  void setCallback(SentStatusHandler cb) { this->mCallback = std::move(cb); }
+  SentStatusHandler getCallback() { return this->mCallback; }
+  void callCallback(uint8_t status, RadioPacket *data) {
+    if (this->mCallback) {
+      this->mCallback(status, data);
+    }
+  }
+
+
   void sendFreedom();
 
  public:
@@ -178,8 +140,8 @@ class RadioPacket {
   void setIsBroadcast() { mIsBroadcast = true; }
 
  private:
-  pktbufSentCbFn mCallback = nullptr;
-  void *mCallbackArg = nullptr;
+  SentStatusHandler mCallback{nullptr};
+  PacketBufProtocol *mOwner{nullptr};
   // Full encrypted 802.11 packet
   uint8_t *mEncryptedData = nullptr;
   // Size of  encrypted data
@@ -195,19 +157,28 @@ class RadioPacket {
 };
 
 /**
- * @brief PacketBuf recv handler
- * @param status true if the packet has been sent correctly, false otherwise
- */
-typedef std::function<void(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi)> PacketBufRecvHandler;
-
-/**
- * @brief PacketBuf base class for all protocols
+ * @brief PacketBufProtocol base class for all protocols
  */
 class PacketBufProtocol {
 public:
-  virtual ~PacketBufProtocol() {}
-  virtual void setup() {};
-  virtual void loop() {};
+ PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr, MeshAddress::DataSrc protocol=MeshAddress::SRC_NONE);
+ virtual ~PacketBufProtocol() {}
+ virtual void setup() {};
+ virtual void loop() {};
+
+ MeshAddress::DataSrc protocolType() const { return mProtocolType; }
+ bool isPortAvailable(uint16_t port) const;
+ bool bindPort(uint16_t port, ReceiveHandler handler);
+ void unbindPort(uint16_t port);
+ void callReceiveHandler(const uint8_t *payload, uint16_t size,const MeshAddress &from, int16_t rssi);
+
+ virtual void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) = 0;
+ virtual void radioPacketSent(uint8_t status, RadioPacket *pkt) { pkt->callCallback(status, pkt); };
+
+protected:
+ PacketBuf *mPacketBuf{nullptr};
+ std::map<uint16_t, ReceiveHandler> mBindedPorts;
+ MeshAddress::DataSrc mProtocolType = MeshAddress::SRC_NONE;
 };
 
 /**
@@ -224,52 +195,51 @@ public:
 
 public:
   bool sendBusy() { return pktbufSent != nullptr; }
-  uint8_t send(RadioPacket *pkt);
+  void send(RadioPacket *pkt);
   void rawRecv(RxPacket *pkt);
   void setup(const uint8_t *aeskey, int aeskeylen);
-  void setRecvHandler(uint8_t protocol, PacketBufRecvHandler handler) { mRecvHandler[protocol] = handler; }
+  void setRecvHandler(MeshAddress::DataSrc protocol, PacketBufProtocol *handler) { this->mRecvHandler[protocol] = handler; }
 #ifdef IDF_VER
   void loop();
 #endif
  private:
   void freedomCallback(uint8_t status);
 #ifdef IDF_VER
-  void recvTask(uint32_t index);
   static void wifiTxDoneCb(uint8_t ifidx, uint8_t *data, uint16_t *data_len, bool txStatus);
 #else
   static void freedomCallback_cb(uint8_t status);
-  static void recvTask_cb(os_event_t *events);
-  void recvTask(os_event_t *events);
 #endif
+#ifndef IDF_VER
+  static void recvTask_cb(ETSEvent *events);
+#endif
+  void recvTask(uint32_t index);
 
  public:
   void setLockdownMode(bool active) { isLockdownModeActive = active; }
-private:
+
+ private:
   bool isLockdownModeActive = false;
 
  private:
   RadioPacket *pktbufSent = nullptr;
   std::list<RadioPacket *> mPacketQueue;
-  pktbufSentCbFn pktbufSentCb = nullptr;
-  void *pktbufSentCbArgs = nullptr;
+
 #ifdef IDF_VER
   QueueHandle_t mRecvQueue;
 #endif
   uint32_t pktbufNodeId = 0;
   uint8_t *pktbufNodeIdPtr = nullptr;
   uint16_t lastpktLen = 0;
-  
-private:
+
+ private:
 #ifndef IDF_VER
   os_event_t pktbufRecvTaskQueue[PACKETBUF_TASK_QUEUE_LEN];
 #endif
   pktbuf_recvTask_packet_t pktbufRecvTaskPacket[PACKETBUF_TASK_QUEUE_LEN];
   uint32_t pktbufRecvTaskIndex;
 
-private:
-  const uint8_t mRecvHandlerCount = 8;
-  PacketBufRecvHandler mRecvHandler[8] = {nullptr};
+ private:
+  std::map<MeshAddress::DataSrc, PacketBufProtocol *> mRecvHandler;
 };
 
 }  // namespace espmeshmesh
-

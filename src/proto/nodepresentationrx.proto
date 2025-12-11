@@ -1,0 +1,13 @@
+syntax = "proto3";
+import "nanopb.proto";
+import "nodepresentation.proto";
+import "pathrouting.proto";
+
+package espmeshmesh;
+
+message NodePresentationRx {
+  option (nanopb_msgopt).msgid = 0x45;
+
+  NodePresentation node_presentation = 1;
+  PathRouting path_routing = 2;
+}

@@ -77,7 +77,6 @@ class Discovery {
   uint8_t discovery_table_index = 0;
   DiscoveryItem_t discovery_table[DISCOVERY_TABLE_SIZE];
   CmdStart_st mStart;
-  CmdStartCompat_st mStartCompat;
   uint32_t mStartTime = 0;
   uint32_t mBeaconDelay;
   uint8_t mRunPhase = 0;

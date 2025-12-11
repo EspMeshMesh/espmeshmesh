@@ -4,6 +4,7 @@
 #include "broadcast2.h"
 #include "unicast.h"
 #include "multipath.h"
+#include "starpath.h"
 
 #include <functional>
 #include <cstring>
@@ -13,7 +14,7 @@
 
 namespace espmeshmesh {
 
-SocketDatagram::SocketDatagram(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi): mData(new uint8_t[size]), mSize(size), mFrom(from), mRssi(rssi) {
+SocketDatagram::SocketDatagram(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi): mData(new uint8_t[size]), mSize(size), mFrom(from), mRssi(rssi) {
     memcpy(mData, data, size);
 }
 
@@ -47,7 +48,7 @@ uint8_t MeshSocket::listen(SocketNewConnectionHandler handler) {
     return errSuccess;
 }
 
-int8_t MeshSocket::open(SocketType type) {     
+int8_t MeshSocket::open(SocketType type) {
     if(mParent == nullptr) {
         mParent = EspMeshMesh::getInstance();
     }
@@ -77,7 +78,7 @@ int8_t MeshSocket::open(SocketType type) {
         if(mTarget.repeaters.size() > 0) {
             return errRepeatersNotAllowed;
         }
-        bool res = broadcast2->bindPort(mTarget.port, std::bind(&MeshSocket::recvFromBroadcast, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+        bool res = broadcast2->bindPort(mTarget.port, std::bind(&MeshSocket::recvFromProtocol, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
         if(!res) {
             return errProtCantBeBinded;
         }
@@ -85,13 +86,28 @@ int8_t MeshSocket::open(SocketType type) {
         mStatus = Connected;
         mType = type;
     }
+#ifdef ESPMESH_STARPATH_ENABLED
+    if(mTarget.address == MeshAddress::coordinatorAddress || mTarget.address == bindAllAddress) {
+        StarPathProtocol *starpath = mParent->starpath;
+        if(starpath == nullptr) {
+            return errNoParentNetworkAvailable;
+        }
+        bool res = starpath->bindPort(mTarget.port, std::bind(&MeshSocket::recvFromProtocol, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+        if(!res) {
+            return errProtCantBeBinded;
+        }
+        mIsStarpath = true;
+        mStatus = Connected;
+        mType = type;
+    }
+#endif
     if((mTarget.address != MeshAddress::broadCastAddress && mTarget.repeaters.size() == 0) || mTarget.address == bindAllAddress) {
         // Unicast address
         Unicast *unicast = mParent->unicast;
         if(unicast == nullptr) {
             return errNoParentNetworkAvailable;
         }   
-        bool res = unicast->bindPort(mTarget.port, std::bind(&MeshSocket::recvFromUnicast, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+        bool res = unicast->bindPort(mTarget.port, std::bind(&MeshSocket::recvFromProtocol, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
         if(!res) {
             return errProtCantBeBinded;
         }
@@ -105,7 +121,7 @@ int8_t MeshSocket::open(SocketType type) {
         if(multipath == nullptr) {
             return errNoParentNetworkAvailable;
         }
-        bool res = multipath->bindPort(mTarget.port, std::bind(&MeshSocket::recvFromMultipath, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6));
+        bool res = multipath->bindPort(mTarget.port, std::bind(&MeshSocket::recvFromProtocol, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
         if(!res) {
             return errProtCantBeBinded;
         }
@@ -113,7 +129,6 @@ int8_t MeshSocket::open(SocketType type) {
         mStatus = Connected;
         mType = type;
     }
-
     LIB_LOGV(TAG, "Socket opened successfully %d", mStatus);
     return errSuccess;
 }
@@ -126,17 +141,26 @@ uint8_t MeshSocket::close() {
     if(mIsBroadcast) {
         Broadcast2 *broadcast2 = mParent->broadcast2;
         if(broadcast2) broadcast2->unbindPort(mTarget.port);
+        mIsBroadcast = false;
     }
     if(mIsUnicast) {
         Unicast *unicast = mParent->unicast;
         if(unicast) unicast->unbindPort(mTarget.port);
+        mIsUnicast = false;
     }
+#ifdef ESPMESH_STARPATH_ENABLED
+    if(mIsStarpath) {
+        StarPathProtocol *starpath = mParent->starpath;
+        if(starpath) starpath->unbindPort(mTarget.port);
+        mIsStarpath = false;
+    }
+#endif
     if(mIsMultipath) {
         MultiPath *multipath = mParent->multipath;
         if(multipath) multipath->unbindPort(mTarget.port);
+        mIsMultipath = false;
     }
 
-   
     mStatus = Closed;
     mRecvHandler = nullptr;
     mRecvDatagramHandler = nullptr;
@@ -150,7 +174,7 @@ uint8_t MeshSocket::close() {
     return 0;
 }
 
-/*int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler) {
+int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SentStatusHandler handler) {
     if(mStatus != Connected) {
         return errIsNotConnected;
     }
@@ -159,20 +183,26 @@ uint8_t MeshSocket::close() {
         LIB_LOGE(TAG, "Socket::send  sent status callback not implemented yet!");
     }
 
-    int8_t err = 0;
     SocketProtocol protocol = calcProtocolFromTarget(mTarget);
     if(protocol == broadcastProtocol) {
-        err = mParent->broadcast2->send(data, size, mTarget.port, handler ? handler : mSentStatusHandler);
-    } else if(protocol == unicastProtocol) {
-        err = mParent->unicast->send(data, size, mTarget.address, mTarget.port, handler ? handler : mSentStatusHandler);
-    } else if(protocol == multipathProtocol) {
-        err = mParent->multipath->send(data, size, mTarget.address, mTarget.repeaters.data(), mTarget.repeaters.size(), mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, mTarget.port, handler ? handler : mSentStatusHandler);
-    }
-    if(err) {
+        mParent->broadcast2->send(data, size, mTarget.port, handler ? handler : nullptr);
+    } else if(protocol == starpathProtocol) {
+#ifdef ESPMESH_STARPATH_ENABLED
+        if(!mParent->starpath->send(data, size, mTarget, handler ? handler : nullptr)) {
+            return errCantSendData;
+        }
+#else
         return errCantSendData;
+#endif
+    } else if(protocol == unicastProtocol) {
+        mParent->unicast->send(data, size, mTarget.address, mTarget.port, handler ? handler : nullptr);
+    } else if(protocol == multipathProtocol) {
+        mParent->multipath->send(data, size, mTarget, handler ? handler : nullptr);
     }
-    return 0;
-}*/
+    return errSuccess;
+}
+
+#define SENT_CB(handler) [handler](bool status, RadioPacket *pkt) { if(handler) handler(status); }
 
 int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress target, SocketSentStatusHandler handler) {
     if(mStatus != Connected) {
@@ -185,35 +215,41 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress
 
     SocketProtocol protocol = calcProtocolFromTarget(target);
     if(protocol == broadcastProtocol) {
-        uint8_t err = mParent->broadcast2->send(data, size, target.port, handler ? handler : mSentStatusHandler);
-        if(err) {
-            return errCantSendData;
+        mParent->broadcast2->send(data, size, target.port, SENT_CB(handler));
+    } else if(protocol == starpathProtocol) {
+#ifdef ESPMESH_STARPATH_ENABLED
+        // I use statpath only to send data to the coordinator, the return is done using multipath.
+        if(target.address == MeshAddress::coordinatorAddress) {
+            if(!mParent->starpath->send(data, size, target, SENT_CB(handler))) {
+                return errCantSendData;
+            }
+        } else {
+            mParent->multipath->send(data, size, target, SENT_CB(handler));
         }
+#else
+        return errCantSendData;
+#endif
     } else if(protocol == unicastProtocol) {
-        uint8_t err = mParent->unicast->send(data, size, target.address, target.port, handler ? handler : mSentStatusHandler);
-        if(err) {
-            return errCantSendData;
-        }
+        mParent->unicast->send(data, size, target.address, target.port, SENT_CB(handler));
     } else if(protocol == multipathProtocol) {
         uint8_t repeatersCount = target.repeaters.size();
+        
         uint32_t *repeatersArray = nullptr;
         if(repeatersCount > 0) {
             repeatersArray = new uint32_t[repeatersCount];
             for(uint8_t i = 0; i < repeatersCount; i++) repeatersArray[i] = target.repeaters[i];
         }
-        uint8_t err = mParent->multipath->send(data, size, target.address, repeatersArray, repeatersCount, mIsReversePath ? MultiPath::Reverse : MultiPath::Forward, target.port, handler ? handler : mSentStatusHandler);
+
+        mParent->multipath->send(
+            data, 
+            size, 
+            target, 
+            SENT_CB(handler));
+
         if(repeatersArray) delete[] repeatersArray;
-        if(err) {
-            return errCantSendData;
-        }
     }
 
-    return 0;
-}
-
-
-void MeshSocket::sentStatusCb(SocketSentStatusHandler handler) {
-    // TODO: Implement
+    return errSuccess;
 }
 
 // TODO: Implement Stream recv and receive multiple datagrams
@@ -240,15 +276,11 @@ int16_t MeshSocket::recv(uint8_t *data, uint16_t size) {
     return datagramSize;
 }
 
-int16_t MeshSocket::recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, int16_t &rssi) {
+int16_t MeshSocket::recvDatagram(uint8_t *data, uint16_t size, MeshAddress &from, int16_t &rssi) {
     if(mStatus != Connected) {
         return errIsNotConnected;
     }
 
-    if( mType == SOCK_STREAM) {
-        return errIsNotDatagram;
-    }
-    
     if(mRecvDatagrams.size() == 0) {
         return 0;
     }
@@ -266,6 +298,7 @@ int16_t MeshSocket::recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, i
 
     mRecvDatagrams.pop_front();
     mRecvDatagramsSize -= datagramSize;
+
     delete datagram;
 
     return datagramSize;
@@ -287,15 +320,18 @@ MeshSocket::SocketProtocol MeshSocket::calcProtocolFromTarget(const MeshAddress 
     if(target.address == MeshAddress::broadCastAddress) {
         return broadcastProtocol;
     }
+    if(target.address == MeshAddress::coordinatorAddress) {
+        return starpathProtocol;
+    }
     if(target.repeaters.empty()) {
         return unicastProtocol;
     }
     return multipathProtocol;
 }
 
-void MeshSocket::recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
+void MeshSocket::recvFromProtocol(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi) {
     if(mRecvDatagramHandler) {
-        mRecvDatagramHandler(data, size, MeshAddress(0, from), rssi);
+        mRecvDatagramHandler(data, size, from, rssi);
     } else if(mRecvHandler) {
         mRecvHandler(data, size);
     } else {
@@ -308,36 +344,5 @@ void MeshSocket::recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, 
         mRecvDatagramsSize += size;
     }
 }
-
-void MeshSocket::recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi) {
-    if(mRecvDatagramHandler) {
-        mRecvDatagramHandler(data, size, MeshAddress(0, from), rssi);
-    } else if(mRecvHandler) {
-        mRecvHandler(data, size);
-    } else {
-        if(mRecvDatagramsSize + size > mRecvDatagramsMaxSize) {
-            LIB_LOGE(TAG, "recvFromUnicast buffer overflow %d %d", mRecvDatagramsSize, size);
-            return;
-        }
-        mRecvDatagrams.push_back(new SocketDatagram(data, size, from, rssi));
-        mRecvDatagramsSize += size;
-    }
-}
-
-void MeshSocket::recvFromMultipath(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path, uint8_t pathSize) {
-    if(mRecvDatagramHandler) {
-        mRecvDatagramHandler(data, size, MeshAddress(0, from, path, pathSize, true), rssi);
-    } else if(mRecvHandler) {
-        mRecvHandler(data, size);
-    } else {
-        if(mRecvDatagramsSize + size > mRecvDatagramsMaxSize) {
-            LIB_LOGE(TAG, "recvFromMultipath buffer overflow %d %d", mRecvDatagramsSize, size);
-            return;
-        }
-        mRecvDatagrams.push_back(new SocketDatagram(data, size, from, rssi));
-        mRecvDatagramsSize += size;
-    }
-}
-
 
 }  // namespace espmeshmesh

@@ -1,13 +1,12 @@
 #pragma once
-
 #include "packetbuf.h"
 #include "meshaddress.h"
 #include <functional>
 
 namespace espmeshmesh {
 
-typedef std::function<void(uint8_t *data, uint16_t size)> SocketReceiveHandler;
-typedef std::function<void(uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> SocketRecvDatagramHandler;
+typedef std::function<void(const uint8_t *data, uint16_t size)> SocketReceiveHandler;
+typedef std::function<void(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> SocketRecvDatagramHandler;
 typedef std::function<void(bool status)> SocketSentStatusHandler;
 typedef std::function<void(uint32_t from)> SocketNewConnectionHandler;
 
@@ -15,26 +14,25 @@ class EspMeshMesh;
 
 class SocketDatagram {
 public:
-    SocketDatagram(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
+    SocketDatagram(const uint8_t *data, uint16_t size,const MeshAddress &from, int16_t rssi);
     ~SocketDatagram();
 
     uint8_t *data() const { return mData; }
     uint16_t size() const { return mSize; }
-    uint32_t from() const { return mFrom; }
+    const MeshAddress &from() const { return mFrom; }
     int16_t rssi() const { return mRssi; }
 private:
     uint8_t *mData;
     uint16_t mSize;
-    uint32_t mFrom;
+    MeshAddress mFrom;
     int16_t mRssi;
 };
 
 class MeshSocket {
 private:
-    enum SocketProtocol {broadcastProtocol, unicastProtocol, multipathProtocol, politeProtocol, connpathProtocol};
+    enum SocketProtocol {unicastProtocol, multipathProtocol, broadcastProtocol, politeProtocol, starpathProtocol};
 public:
     enum SocketType {
-        SOCK_STREAM,  // USe to create a stream socket. 
         SOCK_DGRAM,   // Use to create a datagram socket.
         SOCK_FLOOD    // Use to create a datagram socket that will flood the network.
     };
@@ -72,8 +70,9 @@ public:
      * @param port Port t bind on all protocols
      */
     MeshSocket(uint8_t port);
+
     /**
-     * @brief Create a new socket that will send and receive data from the target. 
+     * @brief Create a new socket that will send and receive data from the target.
      * If the target is the broadcast address, the socket will send and receive data to all neighboors.
      * @param port Port to use for the socket
      * @param target Target to send data to
@@ -94,7 +93,7 @@ public:
      * @brief Return true if the target address is the broadcast address
      * @return True if the target address is the broadcast address
      */
-    bool isBradcastTarget() const { return mTarget.address == MeshAddress::broadCastAddress; }
+    bool isBroadcastTarget() const { return mTarget.isBroadcast(); }
     /**
      * @brief Return the status of the socket
      * @return Status of the socket
@@ -114,39 +113,31 @@ public:
      * @brief Close the socket and release the resources
      */
     uint8_t close();
+
     /**
-     * @brief Send data to the target
-     * @param data A buffer containing the data to send
-     * @param size The size of the buffer
-     * @param Optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise). 
-     * this callback is prioritary over the callback set the sentStatusCb function. If this parameter is prvided the sentStatusCb 
-     * function will not be called for this packet.
-     * @return 0 if the data is sent correctly, otherwise an error code
+     * @brief Send a single datagram to the target node using the appropriate protocol.
+     * @param data The data to send.
+     * @param size The size of the data.
+     * @param target The target address.
+     * @param Optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise).
+     *   this callback is prioritary over the callback set the sentStatusCb function. If this parameter is prvided the sentStatusCb
+     *   function will not be called for this packet.
+     * @return errSuccess if the data is sent correctly, otherwise an error code.
      */
-    // int16_t send(const uint8_t *data, uint16_t size, SocketSentStatusHandler handler=nullptr);
-    
+    int16_t send(const uint8_t *data, uint16_t size, SentStatusHandler handler=nullptr);
     /**
      * @brief Overloaded of the sendDatagram function to use a vector of repeaters
      * @param data A buffer containing the data to send
      * @param size The size of the buffer
      * @param target The address of the target node
-     * @param optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise). \
+     * @param optional callback to receive the sent status information (true if the packet has been sent correctly, false otherwise).
      */
     int16_t sendDatagram(const uint8_t *data, uint16_t size, MeshAddress target, SocketSentStatusHandler handler=nullptr);
-    
     /**
-     * @brief Set the sent status callback for all the packets sent from this socket. 
-     * This callback is called when a packet has been sent from radio layer. 
-     * The callback will be called with true argument if the packet has been sent correctly, otherwise with false. This callback function 
-     * is not called if a prioritary handler is provided with the send or sendDatagram functions.
-     * @param handler Sent status callback.
-     */
-    void sentStatusCb(SocketSentStatusHandler handler);
-    /**
-     * @brief Receive data from the socket the function is not blocking and will fill the buffer with the received data up to size. 
-     * If the type of socket is not SOCK_DGRAM or SOCK_FLOOD, the function will return the data coorresponding to one or more received datagrams. 
-     * IF the size of the biffer is not enough to contain the first received datagram, the function will return an error code. 
-     * If the sieze of buffer is enough, the function will return more the one datagram concatenated. If you need to receive only one datagram, 
+     * @brief Receive data from the socket the function is not blocking and will fill the buffer with the received data up to size.
+     * If the type of socket is not SOCK_DGRAM or SOCK_FLOOD, the function will return the data coorresponding to one or more received datagrams.
+     * IF the size of the biffer is not enough to contain the first received datagram, the function will return an error code.
+     * If the sieze of buffer is enough, the function will return more the one datagram concatenated. If you need to receive only one datagram,
      * you can use the recvDatagram function.
      * @param data Data to receive
      * @param size Size of the data
@@ -155,7 +146,7 @@ public:
     int16_t recv(uint8_t *data, uint16_t size);
     /**
      * @brief Receive a datagram using the opened socket, the function is not blocking and will return the last received datagram.
-     * If the socket is not opened, the function will return an error code, if the type of socket is not SOCK_DGRAM or SOCK_FLOOD, 
+     * If the socket is not opened, the function will return an error code, if the type of socket is not SOCK_DGRAM or SOCK_FLOOD,
      * the function will return an error code.
      * @param data buffer that will contain the received data
      * @param size the maximum size of the data to receive
@@ -163,7 +154,7 @@ public:
      * @param rssi a variable that will contain the received signal strength indication
      * @return in case of error, the function will return an error code, otherwise it will return the number of bytes received
      */
-    int16_t recvDatagram(uint8_t *data, uint16_t size, uint32_t &from, int16_t &rssi);
+    int16_t recvDatagram(uint8_t *data, uint16_t size, MeshAddress &from, int16_t &rssi);
     /**
      * @brief Return the number of bytes available to receive
      * @return Number of bytes available to receive
@@ -182,20 +173,18 @@ public:
 private:
     static SocketProtocol calcProtocolFromTarget(const MeshAddress &target);
 private:
-    void recvFromBroadcast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-    void recvFromUnicast(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi);
-    void recvFromMultipath(uint8_t *data, uint16_t size, uint32_t from, int16_t rssi, uint8_t *path, uint8_t pathSize);
+    void recvFromProtocol(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi=0);
 private:
     EspMeshMesh *mParent{0};
 private:
     bool mIsBroadcast{false};
     bool mIsUnicast{false};
     bool mIsMultipath{false};
+    bool mIsStarpath{false};
 private:
     StatusFlags mStatus{Closed};
     MeshAddress mTarget;
-    bool mIsReversePath{false};
-    // TODO: Implement SOCK_STREAM and SOCK_FLOOD
+    // TODO: Implement SOCK_FLOOD
     SocketType mType{SOCK_DGRAM};
 private:
     std::list<SocketDatagram *> mRecvDatagrams;
@@ -209,3 +198,4 @@ private:
 };
 
 } // namespace espmeshmesh
+
