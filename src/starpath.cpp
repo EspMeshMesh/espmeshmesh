@@ -45,6 +45,7 @@ uint8_t *StarPathPacket::starPathPayload() {
 
 StarPathProtocol::StarPathProtocol(bool isCoordinator, PacketBuf *pbuf, ReceiveHandler rx_fn): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_STARPATH), mRecvDups() {
     LIB_LOGD(TAG, "StarPathProtocol constructor isCoordinator %d", isCoordinator);
+    clearBestNeighbour();
     if(isCoordinator) {
         mNodeState = Associated;
         mCurrentNeighbour.coordinatorId = MeshAddress::coordinatorAddress;
@@ -216,7 +217,7 @@ void StarPathProtocol::sendBeacon(const pb_msgdesc_t *fields, const void *src_st
     // Encode the message
     pb_ostream_t stream = pb_ostream_from_buffer(pkt->starPathPayload(), sizestream.bytes_written);
     pb_encode(&stream, fields, src_struct);
-
+    
     // Encrypt and send the packet
     sendRawPacket(pkt, MeshAddress::broadCastAddress, nullptr);
 }
@@ -577,6 +578,7 @@ void StarPathProtocol::handleDataPresentationPacket(uint8_t *payload, uint16_t l
 void StarPathProtocol::sendDiscoveryBeacon() {
     LIB_LOGD(TAG, "sendDiscoveryBeacon");
     StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::DiscoveryBeacon, 0, 0, nullptr);
+    clearBestNeighbour();
     sendRawPacket(pkt, MeshAddress::broadCastAddress, nullptr);
 }
 
@@ -602,7 +604,7 @@ void StarPathProtocol::sendDiscoveryBeaconReply(uint32_t target, int16_t rssi) {
     LIB_LOGD(TAG, "sendDiscoveryBeaconReply to %06X rssi %d", target, rssi);
     // Fill output message
     espmeshmesh_DiscoveryBeaconReply discoverybeaconreply;
-    discoverybeaconreply.coordinator_id = mCurrentNeighbour.coordinatorId;
+    discoverybeaconreply.coordinator_id = iAmCoordinator() ? mPacketBuf->nodeId() : mCurrentNeighbour.coordinatorId;
     discoverybeaconreply.incoming_cost = calculateFullCost(rssi, (uint8_t)mCurrentNeighbour.repeaters.size());
     // TODO: Remove this once we end test phase
     discoverybeaconreply.incoming_cost += calculateTestbedCosts(mPacketBuf->nodeId(), target);
@@ -642,7 +644,7 @@ void StarPathProtocol::sendDataPacketNackPacket(uint32_t target) {
  * Sends a data presentation packet to the coordinator.
  */
 void StarPathProtocol::sendPresentationPacket() {
-    LIB_LOGD(TAG, "sendPresentationPacket");
+    LIB_LOGD(TAG, "sendPresentationPacket %06X %06X", mCurrentNeighbour.id, mCurrentNeighbour.coordinatorId);
     espmeshmesh_NodePresentation nodepresentation = espmeshmesh_NodePresentation_init_zero;
     strncpy(nodepresentation.hostname, espmeshmesh::EspMeshMesh::getInstance()->hostname().c_str(), 48);
     strncpy(nodepresentation.firmware_version, espmeshmesh::EspMeshMesh::getInstance()->fwVersion().c_str(), 16);
@@ -651,6 +653,13 @@ void StarPathProtocol::sendPresentationPacket() {
     MeshAddress target = MeshAddress(0, mCurrentNeighbour.coordinatorId);
     target.sourceProtocol = MeshAddress::SRC_STARPATH;
     sendDataPacket(espmeshmesh_NodePresentation_fields, &nodepresentation, espmeshmesh_NodePresentation_msgid, target, nullptr);
+}
+
+void StarPathProtocol::clearBestNeighbour() {
+    mBestNeighbour.id = MeshAddress::noAddress;
+    mBestNeighbour.coordinatorId = MeshAddress::noAddress;
+    mBestNeighbour.cost = UINT16_MAX;
+    mBestNeighbour.repeaters.clear();
 }
 
 void StarPathProtocol::analyseBeacons() {
