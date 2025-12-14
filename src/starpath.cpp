@@ -47,7 +47,8 @@ StarPathProtocol::StarPathProtocol(bool isCoordinator, PacketBuf *pbuf, ReceiveH
     LIB_LOGD(TAG, "StarPathProtocol constructor isCoordinator %d", isCoordinator);
     if(isCoordinator) {
         mNodeState = Associated;
-        mCoordinatorId = mPacketBuf->nodeId();
+        mCurrentNeighbour.coordinatorId = MeshAddress::coordinatorAddress;
+        mCurrentNeighbour.id = mPacketBuf->nodeId();
     }
     mPacketBuf->setRecvHandler(MeshAddress::SRC_STARPATH,  this);
 #if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_VERY_VERBOSE
@@ -109,7 +110,7 @@ bool StarPathProtocol::send(const uint8_t *data, uint16_t size, MeshAddress targ
 
     espmeshmesh_PathRouting pathrouting = espmeshmesh_PathRouting_init_zero;
     pathrouting.source_address = mPacketBuf->nodeId();
-    pathrouting.target_address = target.address == MeshAddress::coordinatorAddress ? mCoordinatorId : target.address;
+    pathrouting.target_address = target.address == MeshAddress::coordinatorAddress ? mCurrentNeighbour.coordinatorId : target.address;
     pathrouting.direction = espmeshmesh_PathDirection_TO_COORDINATOR;
 
     sendDataPacket(data, size, &pathrouting, target.port, handler);
@@ -154,7 +155,7 @@ void StarPathProtocol::sendDataPacket(const uint8_t *data, uint16_t size, const 
         memcpy(pkt->starPathPayload() + sizestream.bytes_written, data, size);
         
         // Encrypt and send the packet
-        sendRawPacket(pkt, mNeighbourId, handler);
+        sendRawPacket(pkt, mCurrentNeighbour.id, handler);
     }
 }
 
@@ -200,7 +201,7 @@ void StarPathProtocol::sendDataPacket(const pb_msgdesc_t *fields, const void *sr
         }
 
         // Encrypt and send the packet
-        sendRawPacket(pkt, mNeighbourId, handler);
+        sendRawPacket(pkt, mCurrentNeighbour.id, handler);
     }
 }
 
@@ -267,12 +268,12 @@ void StarPathProtocol::radioPacketSent(uint8_t status, RadioPacket *pkt) {
                 // Increment the number of retransmissions
                 newpkt->starPathHeader()->flags++;
                 // Send the packet again
-                sendRawPacket(newpkt, mNeighbourId, oldpkt->getCallback());
+                sendRawPacket(newpkt, mCurrentNeighbour.id, oldpkt->getCallback());
             } else {
                 // We have reached the maximum number of retransmissions, we send a NACK packet to the source
                 LIB_LOGE(TAG, "transmission error for %06X from %06X after %d try", pkt->target8211(), oldpkt->sourceAddress(), header->flags & STARPATH_FLAG_RETRANSMIT_MASK);
                 // disassociate from the neighbour
-                if(pkt->target8211() == mNeighbourId) {
+                if(pkt->target8211() == mCurrentNeighbour.id) {
                     disassociateFromNeighbour();
                 }
                 // Send a NACK packet to the source
@@ -285,12 +286,23 @@ void StarPathProtocol::radioPacketSent(uint8_t status, RadioPacket *pkt) {
 }
 
 uint16_t StarPathProtocol::calculateCost(int16_t rssi) const {
+#ifdef ESP8266
+    const int16_t esp8266RssiMax = 50;
+    const int16_t esp8266RssiMin = 0;
+
+    if(rssi < esp8266RssiMin) rssi = esp8266RssiMin;
+
+    int16_t cost = 100 - (rssi*100 - esp8266RssiMin*100) / (esp8266RssiMax-esp8266RssiMin);
+#endif
+
+#ifdef IDF_VER
     const int16_t esp32RssiMax = 0;
     const int16_t esp32RssiMin = -80;
 
     if(rssi < esp32RssiMin) rssi = esp32RssiMin;
 
     int16_t cost = 100 - (rssi*100 - esp32RssiMin*100) / (esp32RssiMax-esp32RssiMin);
+#endif
     return cost;
 }
 
@@ -331,6 +343,8 @@ bool StarPathProtocol::containsLoop(const uint32_t *repeaters, uint8_t repeaters
     return false;
 }
 
+#define TOTAL_COST_MARGIN 20
+
 void StarPathProtocol::handleDiscoveryBeacon(StarPathPacket *pkt, uint32_t from, int16_t rssi) {
     LIB_LOGD(TAG, "handleDiscoveryBeacon");
     if(mNodeState == Associated && mBeaconReplyTarget == 0) {
@@ -340,8 +354,6 @@ void StarPathProtocol::handleDiscoveryBeacon(StarPathPacket *pkt, uint32_t from,
         mBeaconReplyDeadline = millis() + 50 + (random_uint32() % 64);
     }
 }
-
-#define TOTAL_COST_MARGIN 20
 
 /**
  * Handles a notification beacon received from a neighbour.
@@ -362,30 +374,38 @@ void StarPathProtocol::handleNotificationBeacon(StarPathPacket *pkt, uint32_t fr
             return;
         }
 
-        if(mCoordinatorId == notificationbeacon.target_address) {
+        if(mCurrentNeighbour.coordinatorId == notificationbeacon.coordinator_id) {
             // We share the same coordinator
-            if(mNeighbourId == from) {
+            if(mCurrentNeighbour.id == from) {
                 // Sender of packet is my neighboor
-                if(notificationbeacon.target_address == MeshAddress::noAddress) {
+                if(notificationbeacon.coordinator_id == MeshAddress::noAddress) {
                     // My neighboor has lost association with the coordinator, I have to disassociate from him
                     disassociateFromNeighbour();
                 }
             } else {
                 // Sender of packet is not my neighboor. 
-                if(notificationbeacon.target_address != MeshAddress::noAddress) {
+                if(notificationbeacon.coordinator_id != MeshAddress::noAddress) {
                     // Sender packet is associated to the coordinator. Check if the path is better than the current path
 
                     //Calculate the full cost of the path rssi and hops
                     uint16_t fullCost = calculateFullCost(rssi, notificationbeacon.repeaters_count) + TOTAL_COST_MARGIN;
-                    LIB_LOGD(TAG, "handleNotificationBeacon fullCost %d < %d", fullCost, mNeighbourCost);
+                    LIB_LOGI(TAG, "handleNotificationBeacon from %06X rssi %d. Is cost %d < %d ?", from, rssi, fullCost, mCurrentNeighbour.cost);
                     fullCost += calculateTestbedCosts(mPacketBuf->nodeId(), from);
                     // Check if the path cost is better than the current path cost
-                    if(fullCost < mNeighbourCost) {
+                    if(fullCost < mCurrentNeighbour.cost) {
                         // Check if the path contains a loop
                         if(!containsLoop(notificationbeacon.repeaters, notificationbeacon.repeaters_count)) {
                             // Associate to the new neighbour
                             LIB_LOGD(TAG, "handleNotificationBeacon associate to new neighbour %06X cost %d hops %d", from, fullCost, notificationbeacon.repeaters_count);
-                            associateToNeighbour(from, notificationbeacon.target_address, fullCost, notificationbeacon.repeaters_count);
+
+                            Neighbour_t neighbour;
+                            neighbour.id = from;
+                            neighbour.coordinatorId = notificationbeacon.coordinator_id;
+                            neighbour.cost = fullCost;
+                            for(uint8_t i = 0; i < notificationbeacon.repeaters_count; i++) {
+                                neighbour.repeaters.push_back(notificationbeacon.repeaters[i]);
+                            }
+                            associateToNeighbour(neighbour);
                         }
                     }
                 }
@@ -413,12 +433,16 @@ void StarPathProtocol::handleDiscoveryBeaconReply(StarPathPacket *pkt, uint32_t 
             return;
         }
 
-        // Add the neighbour to the discovery list
-        mNeighbours.push_back({
-            from, discoverybeaconreply.target_address, 
-            calculateFullCost(discoverybeaconreply.incoming_rssi, (uint8_t)discoverybeaconreply.hops), 
-            (uint8_t)discoverybeaconreply.hops
-        });
+        LIB_LOGI(TAG, "handleDiscoveryBeaconReply from %06X hops %d rssi %d", from, discoverybeaconreply.hops, discoverybeaconreply.incoming_cost);
+
+        if(discoverybeaconreply.incoming_cost < mBestNeighbour.cost) {
+            mBestNeighbour.id = from;
+            mBestNeighbour.coordinatorId = discoverybeaconreply.coordinator_id;
+            mBestNeighbour.cost = discoverybeaconreply.incoming_cost;
+            for(uint8_t i = 0; i < discoverybeaconreply.repeaters_count; i++) {
+                mBestNeighbour.repeaters.push_back(discoverybeaconreply.repeaters[i]);
+            }
+        }
     }
 }
 
@@ -491,7 +515,7 @@ void StarPathProtocol::handleDataPacket(StarPathPacket *pkt, uint32_t from, int1
 
 void StarPathProtocol::handleDataPacketNack(StarPathPacket *pkt, uint32_t from) {
     LIB_LOGD(TAG, "handleDataPacketNack");
-    if(from == mNeighbourId) disassociateFromNeighbour();
+    if(from == mCurrentNeighbour.id) disassociateFromNeighbour();
 }
 
 /**
@@ -561,11 +585,11 @@ void StarPathProtocol::sendNotificationBeacon() {
     
     // This beacon is sent to all neighbours, it notify my state. If not associated, the target address is 0.
     espmeshmesh_NotificationBeacon notificationbeacon = espmeshmesh_NotificationBeacon_init_zero;
-    notificationbeacon.target_address = mCoordinatorId;
-    notificationbeacon.total_cost = mNeighbourCost;
-    notificationbeacon.repeaters_count = mRepeaters.size();
-    for(uint8_t i = 0; i < mRepeaters.size(); i++) {
-        notificationbeacon.repeaters[i] = mRepeaters[i];
+    notificationbeacon.coordinator_id = mCurrentNeighbour.coordinatorId;
+    notificationbeacon.total_cost = mCurrentNeighbour.cost;
+    notificationbeacon.repeaters_count = mCurrentNeighbour.repeaters.size();
+    for(uint8_t i = 0; i < mCurrentNeighbour.repeaters.size(); i++) {
+        notificationbeacon.repeaters[i] = mCurrentNeighbour.repeaters[i];
     }
 
     sendBeacon(espmeshmesh_NotificationBeacon_fields, &notificationbeacon, StarPathPacket::NotificationBeacon);
@@ -578,12 +602,14 @@ void StarPathProtocol::sendDiscoveryBeaconReply(uint32_t target, int16_t rssi) {
     LIB_LOGD(TAG, "sendDiscoveryBeaconReply to %06X rssi %d", target, rssi);
     // Fill output message
     espmeshmesh_DiscoveryBeaconReply discoverybeaconreply;
-    discoverybeaconreply.target_address = mCoordinatorId;
-    discoverybeaconreply.incoming_rssi = rssi;
-    discoverybeaconreply.hops = mCoordinatorHops;
-    discoverybeaconreply.repeaters_count = mRepeaters.size();
-    for(uint8_t i = 0; i < mRepeaters.size(); i++) {
-        discoverybeaconreply.repeaters[i] = mRepeaters[i];
+    discoverybeaconreply.coordinator_id = mCurrentNeighbour.coordinatorId;
+    discoverybeaconreply.incoming_cost = calculateFullCost(rssi, (uint8_t)mCurrentNeighbour.repeaters.size());
+    // TODO: Remove this once we end test phase
+    discoverybeaconreply.incoming_cost += calculateTestbedCosts(mPacketBuf->nodeId(), target);
+    discoverybeaconreply.hops = mCurrentNeighbour.repeaters.size();
+    discoverybeaconreply.repeaters_count = mCurrentNeighbour.repeaters.size();
+    for(uint8_t i = 0; i < mCurrentNeighbour.repeaters.size(); i++) {
+        discoverybeaconreply.repeaters[i] = mCurrentNeighbour.repeaters[i];
     }
 
     // Calculate the size of the message
@@ -622,50 +648,35 @@ void StarPathProtocol::sendPresentationPacket() {
     strncpy(nodepresentation.firmware_version, espmeshmesh::EspMeshMesh::getInstance()->fwVersion().c_str(), 16);
     strncpy(nodepresentation.compile_time, espmeshmesh::EspMeshMesh::getInstance()->compileTime().c_str(), 48);
     strncpy(nodepresentation.lib_version, espmeshmesh::EspMeshMesh::getInstance()->libVersion().c_str(), 16);
-    MeshAddress target = MeshAddress(0, mCoordinatorId);
+    MeshAddress target = MeshAddress(0, mCurrentNeighbour.coordinatorId);
     target.sourceProtocol = MeshAddress::SRC_STARPATH;
     sendDataPacket(espmeshmesh_NodePresentation_fields, &nodepresentation, espmeshmesh_NodePresentation_msgid, target, nullptr);
 }
 
 void StarPathProtocol::analyseBeacons() {
     LIB_LOGD(TAG, "analyseBeacons");
-    uint32_t bestNeighbourId = 0;
-    uint32_t bestCoordinatorId = 0;
-    int16_t bestNeighbourCost = INT16_MAX;
-    uint8_t bestNeighbourHops = 0;
 
-    for(auto &neighbour : mNeighbours) {
-        int16_t totalCost = neighbour.cost;
-        LIB_LOGD(TAG, "analyseBeacon from %06X hops %d cost %d totalCost %d", neighbour.id, neighbour.hops, neighbour.cost, totalCost);
-        totalCost += calculateTestbedCosts(mPacketBuf->nodeId(), neighbour.id);
-        if(totalCost < bestNeighbourCost) { 
-            bestNeighbourCost = totalCost;
-            bestNeighbourId = neighbour.id;
-            bestCoordinatorId = neighbour.coordinatorId;
-            bestNeighbourHops = neighbour.hops;
-        }
+    if(mBestNeighbour.id != MeshAddress::noAddress) {
+        LIB_LOGD(TAG, "analyseBeacons best neighbour %06X cost %d hops %d", mBestNeighbour.id, mBestNeighbour.cost, mBestNeighbour.repeaters.size());
+        associateToNeighbour(mBestNeighbour);
     }
-    if(bestNeighbourId != 0) {
-        LIB_LOGD(TAG, "analyseBeacons best neighbour %06X cost %d hops %d", bestNeighbourId, bestNeighbourCost, bestNeighbourHops);
-        associateToNeighbour(bestNeighbourId, bestCoordinatorId, bestNeighbourCost, bestNeighbourHops);
-    }
-    mNeighbours.clear();
 }
 
-void StarPathProtocol::associateToNeighbour(uint32_t neighbourId, uint32_t coordinatorId, uint16_t neighbourCost, uint8_t coordinatorHops) {
+void StarPathProtocol::associateToNeighbour(const Neighbour_t &neighbour) {
     LIB_LOGD(TAG, "associateToNeighbour");
 
     // Sanity check. We can't associate to ourselves.
-    if(iAmCoordinator() || neighbourId == mPacketBuf->nodeId()) {
-        LIB_LOGE(TAG, "associateToNeighbour neighbourId %06X is myself or coordinator", neighbourId);
+    if(iAmCoordinator() || neighbour.id == mPacketBuf->nodeId()) {
+        LIB_LOGE(TAG, "associateToNeighbour neighbourId %06X is myself or coordinator", neighbour.id);
         return;
     }
 
     mNodeState = Associated;
-    mNeighbourId = neighbourId;
-    mCoordinatorId = coordinatorId;
-    mCoordinatorHops = coordinatorHops + 1;
-    mNeighbourCost = neighbourCost;
+    mCurrentNeighbour.id = neighbour.id;
+    mCurrentNeighbour.coordinatorId = neighbour.coordinatorId;
+    mCurrentNeighbour.cost = neighbour.cost;
+    mCurrentNeighbour.repeaters = neighbour.repeaters;
+    mCurrentNeighbour.repeaters.push_back(neighbour.id);
     // Stop sending association beacons
     mNextDiscoveryBeaconDeadline = 0;
     // Notify neighbours that I am associated with a new neighbour
@@ -685,11 +696,10 @@ void StarPathProtocol::disassociateFromNeighbour() {
     }
 
     mNodeState = Free;
-    mNeighbourId = MeshAddress::noAddress;
-    mCoordinatorId = MeshAddress::noAddress;
-    mCoordinatorHops = 0;
-    mNeighbourCost = UINT16_MAX;
-    mRepeaters.clear();
+    mCurrentNeighbour.id = MeshAddress::noAddress;
+    mCurrentNeighbour.coordinatorId = MeshAddress::noAddress;
+    mCurrentNeighbour.cost = UINT16_MAX;
+    mCurrentNeighbour.repeaters.clear();
     // Notify neighbours that I am not associated anymore
     mNextNotificationBeaconDeadline = millis() + 500 + (random_uint32() % 100);
     // Resume sending association beacons

@@ -11,10 +11,10 @@
 
 /* Struct definitions */
 typedef struct _espmeshmesh_DiscoveryBeaconReply {
-    uint32_t target_address;
+    uint32_t coordinator_id;
     pb_size_t repeaters_count;
     uint32_t repeaters[16];
-    uint32_t incoming_rssi;
+    uint32_t incoming_cost;
     uint32_t hops;
 } espmeshmesh_DiscoveryBeaconReply;
 
@@ -28,16 +28,16 @@ extern "C" {
 #define espmeshmesh_DiscoveryBeaconReply_init_zero {0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, 0}
 
 /* Field tags (for use in manual encoding/decoding) */
-#define espmeshmesh_DiscoveryBeaconReply_target_address_tag 1
+#define espmeshmesh_DiscoveryBeaconReply_coordinator_id_tag 1
 #define espmeshmesh_DiscoveryBeaconReply_repeaters_tag 2
-#define espmeshmesh_DiscoveryBeaconReply_incoming_rssi_tag 3
+#define espmeshmesh_DiscoveryBeaconReply_incoming_cost_tag 3
 #define espmeshmesh_DiscoveryBeaconReply_hops_tag 4
 
 /* Struct field encoding specification for nanopb */
 #define espmeshmesh_DiscoveryBeaconReply_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, UINT32,   target_address,    1) \
+X(a, STATIC,   SINGULAR, UINT32,   coordinator_id,    1) \
 X(a, STATIC,   REPEATED, UINT32,   repeaters,         2) \
-X(a, STATIC,   SINGULAR, UINT32,   incoming_rssi,     3) \
+X(a, STATIC,   SINGULAR, UINT32,   incoming_cost,     3) \
 X(a, STATIC,   SINGULAR, UINT32,   hops,              4)
 #define espmeshmesh_DiscoveryBeaconReply_CALLBACK NULL
 #define espmeshmesh_DiscoveryBeaconReply_DEFAULT NULL

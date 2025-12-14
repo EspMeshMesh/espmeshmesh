@@ -49,8 +49,8 @@ class StarPathProtocol: public PacketBufProtocol {
         uint32_t id;
         uint32_t coordinatorId;
         uint16_t cost;
-        uint8_t hops;
-    } __attribute__ ((packed));
+        std::vector<uint32_t> repeaters;
+    };
     typedef struct Neighbour_st Neighbour_t;
 
     enum NodeState {Free, Binded, Associated};
@@ -59,7 +59,7 @@ public:
     void setup() override;
     void loop() override;
 public:
-    bool iAmCoordinator() const { return mCoordinatorId == mPacketBuf->nodeId(); }
+    bool iAmCoordinator() const { return mCurrentNeighbour.coordinatorId == mPacketBuf->nodeId(); }
     bool send(const uint8_t *data, uint16_t size, MeshAddress target, SentStatusHandler handler = nullptr);
 private:
     void sendRawPacket(StarPathPacket *pkt, uint32_t target, SentStatusHandler handler = nullptr);
@@ -89,17 +89,14 @@ private:
     void sendPresentationPacket();
 private:
     void analyseBeacons();
-    void associateToNeighbour(uint32_t neighbourId, uint32_t coordinatorId, uint16_t neighbourCost, uint8_t coordinatorHops);
+    void associateToNeighbour(const Neighbour_t &neighbour);
     void disassociateFromNeighbour();
 private:
     uint16_t mLastSequenceNum = 0;
     RecvDups mRecvDups;
     NodeState mNodeState{Free};
-    uint32_t mNeighbourId{MeshAddress::noAddress};
-    uint16_t mNeighbourCost{UINT16_MAX};
-    uint32_t mCoordinatorId{MeshAddress::noAddress};
-    uint8_t mCoordinatorHops{0};
-    std::vector<uint32_t> mRepeaters;
+    Neighbour_t mCurrentNeighbour;
+    Neighbour_t mBestNeighbour;
 private:
     uint32_t mNextDiscoveryBeaconDeadline{0};
     uint32_t mNextNotificationBeaconDeadline{0};
@@ -107,7 +104,6 @@ private:
     uint32_t mBeaconReplyDeadline{0};
     uint32_t mBeaconReplyTarget{0};
     int16_t mBeaconReplyRssi{0};
-    std::vector<Neighbour_t> mNeighbours;
 };
 
 }
