@@ -59,7 +59,7 @@ public:
     void setup() override;
     void loop() override;
 public:
-    bool iAmCoordinator() const { return mCurrentNeighbour.coordinatorId == MeshAddress::coordinatorAddress; }
+    bool iAmCoordinator() const { return mIsCoordinator; }
     bool send(const uint8_t *data, uint16_t size, MeshAddress target, SentStatusHandler handler = nullptr);
 private:
     void sendRawPacket(StarPathPacket *pkt, uint32_t target, SentStatusHandler handler = nullptr);
@@ -95,6 +95,7 @@ private:
 private:
     uint16_t mLastSequenceNum = 0;
     RecvDups mRecvDups;
+    bool mIsCoordinator{false};
     NodeState mNodeState{Free};
     Neighbour_t mCurrentNeighbour;
     Neighbour_t mBestNeighbour;

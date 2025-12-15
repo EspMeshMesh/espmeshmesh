@@ -48,6 +48,7 @@ StarPathProtocol::StarPathProtocol(bool isCoordinator, PacketBuf *pbuf, ReceiveH
     clearBestNeighbour();
     if(isCoordinator) {
         mNodeState = Associated;
+        mIsCoordinator = true;
         mCurrentNeighbour.coordinatorId = MeshAddress::coordinatorAddress;
         mCurrentNeighbour.id = mPacketBuf->nodeId();
     }
