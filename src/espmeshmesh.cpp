@@ -43,8 +43,8 @@ static const char *TAG = "espmeshmesh";
 #define MULTIPATH_DEFAULT_PORT 0
 #define SERIAL_DEFAULT_PORT 0
 
-#define DEF_CMD_BUFFER_SIZE 0x440
-#define MAX_CMD_BUFFER_SIZE 0x440
+#define DEF_CMD_BUFFER_SIZE 0x500
+#define MAX_CMD_BUFFER_SIZE 0x500
 
 EspMeshMesh *EspMeshMesh::singleton = nullptr;
 

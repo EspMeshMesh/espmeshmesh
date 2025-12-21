@@ -32,6 +32,8 @@ static const char *TAG = "espmeshmesh.ConnectedPath";
 #define CONN_EXISTS(X) (X < CONNPATH_MAX_CONNECTIONS)
 #define CONN_OPERATIVE(X) (X < CONNPATH_MAX_CONNECTIONS && !mConnectsions[X].isInvalid && mConnectsions[X].isOperative)
 
+#define RADIO_OUTPUT_BUFFER_SIZE 0x500
+
 void ConnectedPathPacket::allocClearData(uint16_t size) {
   RadioPacket::allocClearData(size + sizeof(ConnectedPathHeaderSt));
   getHeader()->dataLength = size;
@@ -48,8 +50,7 @@ void ConnectedPathPacket::setTarget(uint32_t target, uint16_t handle) {
 }
 
 ConnectedPath::ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf)
-    : PacketBufProtocol(packetbuf, nullptr, MeshAddress::SRC_CONNPATH), mMeshMesh(meshmesh), mRecvDups(), mRadioOutputBuffer(256) {
-  mRadioOutputBuffer.resize(1024);
+    : PacketBufProtocol(packetbuf, nullptr, MeshAddress::SRC_CONNPATH), mMeshMesh(meshmesh), mRecvDups(), mRadioOutputBuffer(RADIO_OUTPUT_BUFFER_SIZE) {
   memset((uint8_t *) mConnectsions, 0x0, sizeof(mConnectsions));
   for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++)
     connectionSetInvalid(i);
@@ -62,10 +63,7 @@ ConnectedPath::ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf)
 void ConnectedPath::loop() {
   mRecvDups.loop();
 
-  if (mRetransmitPacket != nullptr) {
-    sendRawRadioPacket(mRetransmitPacket);
-    mRetransmitPacket = nullptr;
-  } else if (mRadioOutputBuffer.filledSpace() > 0 && mIsRadioBusy == false) {
+  if(mRadioOutputBuffer.filledSpace() > 0) {
     processOutputBuffer();
   }
 
@@ -91,10 +89,9 @@ void ConnectedPath::loop() {
 }
 
 bool ConnectedPath::sendRawRadioPacket(ConnectedPathPacket *pkt) {
-  LIB_LOGVV(TAG, "ConnectedPath::sendRawRadioPacket sending to %06X %d bytes with flags %d", pkt->getTarget(),
+  LIB_LOGV(TAG, "ConnectedPath::sendRawRadioPacket sending to %06X %d bytes with flags %d", pkt->getTarget(),
            pkt->clearDataSize(), pkt->getHeader()->flags);
   if (pkt->encryptClearData()) {
-    mIsRadioBusy = true;
     uint32_t target = pkt->getTarget();
     pkt->fill80211((uint8_t *) &target, mPacketBuf->nodeIdPtr());
     mPacketBuf->send(pkt);
@@ -298,19 +295,18 @@ void ConnectedPath::radioPacketSent(uint8_t status, RadioPacket *pkt) {
     ConnectedPathHeader_t *header = oldpkt->getHeader();
     if (header != nullptr) {
       if ((header->flags & CONNPATH_FLAG_RETRANSMIT_MASK) < CONNPATH_MAX_RETRANSMISSIONS) {
-        mRetransmitPacket = new ConnectedPathPacket(this, nullptr);
-        mRetransmitPacket->fromRawData(pkt->clearData(), pkt->clearDataSize());
-        mRetransmitPacket->getHeader()->flags++;
-        mRetransmitPacket->setTarget(oldpkt->getTarget(), oldpkt->getHandle());
-        return;
+        ConnectedPathPacket *newpkt = new ConnectedPathPacket(this, nullptr);
+        newpkt->fromRawData(pkt->clearData(), pkt->clearDataSize());
+        newpkt->getHeader()->flags++;
+        newpkt->setTarget(oldpkt->getTarget(), oldpkt->getHandle());
+        sendRawRadioPacket(newpkt);
       } else {
+        LIB_LOGD(TAG, "transmission error for %06X after %d try", pkt->target8211(), header->flags & CONNPATH_FLAG_RETRANSMIT_MASK);
         radioPacketError(pkt->target8211(), header->sourceHandle, header->subprotocol);
         // FIXME: Signal error to packet creator
       }
     }
   }
-  // Free Radio for next packet
-  mIsRadioBusy = false;
 }
 
 void ConnectedPath::radioPacketError(uint32_t address, uint16_t handle, uint8_t subprot) {
@@ -530,7 +526,7 @@ void ConnectedPath::processOutputBuffer() {
     uint16_t readed = mRadioOutputBuffer.viewData2((uint8_t *) &header, sizeof(header), offset);
     if (readed == sizeof(ConnectedPathOutputBufferHeader)) {
       if (checkHeader(header, lastHeader, now, isfirst)) {
-        if (bufferTotalSize + header.dataSize < 1024) {
+        if (bufferTotalSize + header.dataSize < 0x500) {
           bufferTotalSize += header.dataSize;
           setheader(lastHeader, header.connId, header.forward, header.subProtocol, header.pkttime, header.dataSize);
           offset += sizeof(ConnectedPathOutputBufferHeader) + header.dataSize;

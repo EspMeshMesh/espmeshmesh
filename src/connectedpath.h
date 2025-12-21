@@ -169,8 +169,6 @@ class ConnectedPath: public PacketBufProtocol {
   uint16_t mNextHandle = 1;
 
  private:
-  bool mIsRadioBusy{false};
-  ConnectedPathPacket *mRetransmitPacket = nullptr;
   MemRingBuffer mRadioOutputBuffer;
 };
 

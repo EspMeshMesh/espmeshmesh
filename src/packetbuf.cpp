@@ -242,10 +242,11 @@ void PacketBuf::send(RadioPacket *pkt) {
 
 void PacketBuf::freedomCallback(uint8_t status) {
 	if(pktbufSent) {
-    pktbufSent->reportSentStatus(status, pktbufSent);
-    if (pktbufSent->isAutoDelete())
-      delete pktbufSent;
-    pktbufSent = nullptr;
+        pktbufSent->reportSentStatus(status, pktbufSent);
+        if (pktbufSent->isAutoDelete()) {
+            delete pktbufSent;
+        }
+        pktbufSent = nullptr;
 	}
 
     if(mPacketQueue.size()>0) {
