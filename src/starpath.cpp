@@ -614,7 +614,7 @@ void StarPathProtocol::sendDiscoveryBeaconReply(uint32_t target, int16_t rssi) {
     discoverybeaconreply.coordinator_id = iAmCoordinator() ? mPacketBuf->nodeId() : mCurrentNeighbour.coordinatorId;
     discoverybeaconreply.incoming_cost = calculateFullCost(rssi, (uint8_t)mCurrentNeighbour.repeaters.size());
     // TODO: Remove this once we end test phase
-    discoverybeaconreply.incoming_cost += calculateTestbedCosts(mPacketBuf->nodeId(), target);
+    discoverybeaconreply.incoming_cost += calculateTestbedCosts(target, mPacketBuf->nodeId());
     discoverybeaconreply.hops = mCurrentNeighbour.repeaters.size();
     discoverybeaconreply.repeaters_count = mCurrentNeighbour.repeaters.size();
     for(uint8_t i = 0; i < mCurrentNeighbour.repeaters.size(); i++) {
