@@ -20,6 +20,12 @@ static const char *TAG = "espmeshmesh.starpath";
 #define STARPATH_FLAG_RETRANSMIT_MASK 0x0F
 #define STARPATH_MAX_RETRANSMISSIONS 0x04
 
+#define STARPATH_FIRST_DISCOVERY_BEACON_DELAY 2500
+#define STARPATH_FIRST_DISCOVERY_BEACON_SPAN 1000
+#define STARPATH_EVERY_DISCOVERY_BEACON_DELAY 5000
+#define STARPATH_EVERY_DISCOVERY_BEACON_SPAN 64
+#define STARPATH_BEACON_ANALYSIS_DELAY 900
+
 namespace espmeshmesh {
 
 StarPathPacket::StarPathPacket(PacketBufProtocol * owner, SentStatusHandler cb): RadioPacket(owner, cb) {
@@ -61,7 +67,7 @@ StarPathProtocol::StarPathProtocol(bool isCoordinator, PacketBuf *pbuf, ReceiveH
 void StarPathProtocol::setup() {
     if(mNodeState == Free) {
         // First beacon
-        mNextDiscoveryBeaconDeadline = millis() + 1500 + (random_uint32() % 1000);
+        mNextDiscoveryBeaconDeadline = millis() + STARPATH_FIRST_DISCOVERY_BEACON_DELAY + (random_uint32() % STARPATH_FIRST_DISCOVERY_BEACON_SPAN);
     }
 }
 
@@ -71,8 +77,8 @@ void StarPathProtocol::loop() {
 
     if(mNodeState == Free) {
         if(mNextDiscoveryBeaconDeadline != 0 && now > mNextDiscoveryBeaconDeadline) {
-            mNextDiscoveryBeaconDeadline = now + 1000 + (random_uint32() % 64);
-            mBeaconAnalysisDeadline = now + 900;
+            mNextDiscoveryBeaconDeadline = now + STARPATH_EVERY_DISCOVERY_BEACON_DELAY + (random_uint32() % STARPATH_EVERY_DISCOVERY_BEACON_SPAN);
+            mBeaconAnalysisDeadline = now + STARPATH_BEACON_ANALYSIS_DELAY;
             sendDiscoveryBeacon();
         }
 
@@ -435,7 +441,7 @@ void StarPathProtocol::handleDiscoveryBeaconReply(StarPathPacket *pkt, uint32_t 
             return;
         }
 
-        LIB_LOGI(TAG, "handleDiscoveryBeaconReply from %06X hops %d rssi %d", from, discoverybeaconreply.hops, discoverybeaconreply.incoming_cost);
+        LIB_LOGI(TAG, "handleDiscoveryBeaconReply from %06X hops %d cost %d", from, discoverybeaconreply.hops, discoverybeaconreply.incoming_cost);
 
         if(discoverybeaconreply.incoming_cost < mBestNeighbour.cost) {
             mBestNeighbour.id = from;
@@ -499,7 +505,7 @@ void StarPathProtocol::handleDataPacket(StarPathPacket *pkt, uint32_t from, int1
                 }
 
                 pathrouting.repeaters[pathrouting.repeaters_count++] = mPacketBuf->nodeId();
-                pathrouting.rssi[pathrouting.rssi_count++] = rssi;
+                pathrouting.costs[pathrouting.costs_count++] = calculateCost(rssi);
                 pathrouting.hop_index++;
     
                 // Forward the data packet to the next router
@@ -544,16 +550,16 @@ void StarPathProtocol::handleDataPresentationPacket(uint8_t *payload, uint16_t l
     nodepresentationrx.path_routing.source_address = pathrouting->source_address;
     nodepresentationrx.path_routing.target_address = pathrouting->target_address;
     nodepresentationrx.path_routing.repeaters_count = pathrouting->repeaters_count;
-    nodepresentationrx.path_routing.rssi_count = pathrouting->rssi_count + 1;
+    nodepresentationrx.path_routing.costs_count = pathrouting->costs_count + 1;
     nodepresentationrx.path_routing.hop_index = pathrouting->hop_index;
 
     for(uint8_t i = 0; i < pathrouting->hop_index; i++) {
         nodepresentationrx.path_routing.repeaters[i] = pathrouting->repeaters[i];
-        nodepresentationrx.path_routing.rssi[i] = pathrouting->rssi[i];
+        nodepresentationrx.path_routing.costs[i] = pathrouting->costs[i];                                                   // Convert the RSSI to a cost   
     }
 
     // Add the RSSI of the last hop
-    nodepresentationrx.path_routing.rssi[nodepresentationrx.path_routing.rssi_count-1] = rssi;
+    nodepresentationrx.path_routing.costs[nodepresentationrx.path_routing.costs_count-1] = calculateCost(rssi);
 
     pb_ostream_t sizestream = {0};
     if(!pb_encode(&sizestream, espmeshmesh_NodePresentationRx_fields, &nodepresentationrx)) {
@@ -602,7 +608,7 @@ void StarPathProtocol::sendNotificationBeacon() {
  * Sends a discovery beacon reply packet to the becaon originator.
  */
 void StarPathProtocol::sendDiscoveryBeaconReply(uint32_t target, int16_t rssi) {
-    LIB_LOGD(TAG, "sendDiscoveryBeaconReply to %06X rssi %d", target, rssi);
+    LIB_LOGI(TAG, "sendDiscoveryBeaconReply to %06X rssi %d cost %d hops %d", target, rssi, calculateCost(rssi), mCurrentNeighbour.repeaters.size());
     // Fill output message
     espmeshmesh_DiscoveryBeaconReply discoverybeaconreply;
     discoverybeaconreply.coordinator_id = iAmCoordinator() ? mPacketBuf->nodeId() : mCurrentNeighbour.coordinatorId;
@@ -621,7 +627,6 @@ void StarPathProtocol::sendDiscoveryBeaconReply(uint32_t target, int16_t rssi) {
 
     // Create a new packet
     StarPathPacket *pkt = new StarPathPacket(this, StarPathPacket::DiscoveryBeaconReply, 0, sizestream.bytes_written, nullptr);
-    LIB_LOGD(TAG, "sendDiscoveryBeaconReply size %d", sizestream.bytes_written);
 
     // Encode the message
     pb_ostream_t stream = pb_ostream_from_buffer(pkt->starPathPayload(), sizestream.bytes_written);
@@ -713,7 +718,7 @@ void StarPathProtocol::disassociateFromNeighbour() {
     // Notify neighbours that I am not associated anymore
     mNextNotificationBeaconDeadline = millis() + 500 + (random_uint32() % 100);
     // Resume sending association beacons
-    mNextDiscoveryBeaconDeadline = millis() + 1000 + (random_uint32() % 100);
+    mNextDiscoveryBeaconDeadline = millis() + STARPATH_FIRST_DISCOVERY_BEACON_DELAY + (random_uint32() % STARPATH_EVERY_DISCOVERY_BEACON_SPAN);
 }
 
 }

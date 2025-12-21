@@ -21,8 +21,8 @@ typedef struct _espmeshmesh_PathRouting {
     uint32_t target_address;
     pb_size_t repeaters_count;
     uint32_t repeaters[16];
-    pb_size_t rssi_count;
-    int32_t rssi[16];
+    pb_size_t costs_count;
+    int32_t costs[16];
     uint32_t hop_index;
     espmeshmesh_PathDirection direction;
 } espmeshmesh_PathRouting;
@@ -48,7 +48,7 @@ extern "C" {
 #define espmeshmesh_PathRouting_source_address_tag 1
 #define espmeshmesh_PathRouting_target_address_tag 2
 #define espmeshmesh_PathRouting_repeaters_tag    3
-#define espmeshmesh_PathRouting_rssi_tag         4
+#define espmeshmesh_PathRouting_costs_tag        4
 #define espmeshmesh_PathRouting_hop_index_tag    5
 #define espmeshmesh_PathRouting_direction_tag    6
 
@@ -57,7 +57,7 @@ extern "C" {
 X(a, STATIC,   SINGULAR, UINT32,   source_address,    1) \
 X(a, STATIC,   SINGULAR, UINT32,   target_address,    2) \
 X(a, STATIC,   REPEATED, UINT32,   repeaters,         3) \
-X(a, STATIC,   REPEATED, INT32,    rssi,              4) \
+X(a, STATIC,   REPEATED, INT32,    costs,             4) \
 X(a, STATIC,   SINGULAR, UINT32,   hop_index,         5) \
 X(a, STATIC,   SINGULAR, UENUM,    direction,         6)
 #define espmeshmesh_PathRouting_CALLBACK NULL
