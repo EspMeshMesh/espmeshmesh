@@ -9,6 +9,16 @@ namespace espmeshmesh {
 
 #define STARPATH_MAX_PATH_LENGTH 16
 
+#ifdef IDF_VER
+struct StarPathNeighbourForRtcSt {
+    uint32_t id;
+    uint32_t coordinatorId;
+    uint16_t cost;
+    uint8_t repeaters_count;
+    uint32_t repeaters[STARPATH_MAX_PATH_LENGTH];
+} __attribute__ ((packed)) ;
+typedef struct StarPathNeighbourForRtcSt StarPathNeighbourForRtc;
+#endif
 struct StarPathHeaderSt {
     uint8_t protocol;
     uint8_t flags;
@@ -45,6 +55,7 @@ private:
 };
 
 class StarPathProtocol: public PacketBufProtocol {
+public:
     struct Neighbour_st {
         uint32_t id;
         uint32_t coordinatorId;
@@ -58,6 +69,8 @@ public:
     StarPathProtocol(bool isCoordinator, PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr);
     void setup() override;
     void loop() override;
+    void shutdown() override;
+    bool teardown() override;
 public:
     bool iAmCoordinator() const { return mIsCoordinator; }
     bool send(const uint8_t *data, uint16_t size, MeshAddress target, SentStatusHandler handler = nullptr);
@@ -69,6 +82,7 @@ private:
 public:
     void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) override;
     void radioPacketSent(uint8_t status, RadioPacket *pkt) override;
+    void presentationPacketSent(uint8_t status, RadioPacket *pkt);
 private:
     uint16_t calculateCost(int16_t rssi) const;
     uint16_t calculateFullCost(int16_t rssi, uint8_t hops) const;
@@ -86,13 +100,23 @@ private:
     void sendNotificationBeacon();
     void sendDiscoveryBeaconReply(uint32_t target, int16_t rssi);
     void sendDataPacketNackPacket(uint32_t target);
-    void sendPresentationPacket();
+    void sendPresentationPacket(int type);
 private:
     void clearBestNeighbour();
+#ifdef IDF_VER
+    void saveCurrentNeighbourToRtc();
+#endif
     void analyseBeacons();
     void associateToNeighbour(const Neighbour_t &neighbour);
+#ifdef IDF_VER
+    void associateToNeighbourFromRtc();
+#endif
     void disassociateFromNeighbour();
+#ifdef IDF_VER
+    StarPathNeighbourForRtc mNeighbourForRtc;
+#endif
 private:
+    bool mIsTeardownInProgress{false};
     uint16_t mLastSequenceNum = 0;
     RecvDups mRecvDups;
     bool mIsCoordinator{false};
@@ -102,6 +126,7 @@ private:
 private:
     uint32_t mNextDiscoveryBeaconDeadline{0};
     uint32_t mNextNotificationBeaconDeadline{0};
+    uint32_t mNextHelloBeaconDeadline{0};
     uint32_t mBeaconAnalysisDeadline{0};
     uint32_t mBeaconReplyDeadline{0};
     uint32_t mBeaconReplyTarget{0};

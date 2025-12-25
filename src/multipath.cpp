@@ -125,8 +125,9 @@ void MultiPath::radioPacketSent(uint8_t status, RadioPacket *pkt) {
 			}
 
         }
+	} else {
+		pkt->callCallback(status, pkt);
 	}
-	pkt->callCallback(status, pkt);
 }
 
 }  // namespace espmeshmesh

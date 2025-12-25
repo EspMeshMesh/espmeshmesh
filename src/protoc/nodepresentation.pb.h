@@ -9,12 +9,20 @@
 #error Regenerate this file with the current version of nanopb generator.
 #endif
 
+/* Enum definitions */
+typedef enum _espmeshmesh_NodePresentationFlags {
+    espmeshmesh_NodePresentationFlags_NODE_PRESENTATION_TYPE_HELLO = 0,
+    espmeshmesh_NodePresentationFlags_NODE_PRESENTATION_TYPE_GOODBYE = 1,
+    espmeshmesh_NodePresentationFlags_NODE_PRESENTATION_TYPE_REFRESH = 2
+} espmeshmesh_NodePresentationFlags;
+
 /* Struct definitions */
 typedef struct _espmeshmesh_NodePresentation {
     char hostname[49];
     char firmware_version[17];
     char compile_time[49];
     char lib_version[17];
+    espmeshmesh_NodePresentationFlags type;
 } espmeshmesh_NodePresentation;
 
 
@@ -22,22 +30,32 @@ typedef struct _espmeshmesh_NodePresentation {
 extern "C" {
 #endif
 
+/* Helper constants for enums */
+#define _espmeshmesh_NodePresentationFlags_MIN espmeshmesh_NodePresentationFlags_NODE_PRESENTATION_TYPE_HELLO
+#define _espmeshmesh_NodePresentationFlags_MAX espmeshmesh_NodePresentationFlags_NODE_PRESENTATION_TYPE_REFRESH
+#define _espmeshmesh_NodePresentationFlags_ARRAYSIZE ((espmeshmesh_NodePresentationFlags)(espmeshmesh_NodePresentationFlags_NODE_PRESENTATION_TYPE_REFRESH+1))
+
+#define espmeshmesh_NodePresentation_type_ENUMTYPE espmeshmesh_NodePresentationFlags
+
+
 /* Initializer values for message structs */
-#define espmeshmesh_NodePresentation_init_default {"", "", "", ""}
-#define espmeshmesh_NodePresentation_init_zero   {"", "", "", ""}
+#define espmeshmesh_NodePresentation_init_default {"", "", "", "", _espmeshmesh_NodePresentationFlags_MIN}
+#define espmeshmesh_NodePresentation_init_zero   {"", "", "", "", _espmeshmesh_NodePresentationFlags_MIN}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define espmeshmesh_NodePresentation_hostname_tag 1
 #define espmeshmesh_NodePresentation_firmware_version_tag 2
 #define espmeshmesh_NodePresentation_compile_time_tag 3
 #define espmeshmesh_NodePresentation_lib_version_tag 4
+#define espmeshmesh_NodePresentation_type_tag    5
 
 /* Struct field encoding specification for nanopb */
 #define espmeshmesh_NodePresentation_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, STRING,   hostname,          1) \
 X(a, STATIC,   SINGULAR, STRING,   firmware_version,   2) \
 X(a, STATIC,   SINGULAR, STRING,   compile_time,      3) \
-X(a, STATIC,   SINGULAR, STRING,   lib_version,       4)
+X(a, STATIC,   SINGULAR, STRING,   lib_version,       4) \
+X(a, STATIC,   SINGULAR, UENUM,    type,              5)
 #define espmeshmesh_NodePresentation_CALLBACK NULL
 #define espmeshmesh_NodePresentation_DEFAULT NULL
 
@@ -48,13 +66,13 @@ extern const pb_msgdesc_t espmeshmesh_NodePresentation_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define ESPMESHMESH_NODEPRESENTATION_PB_H_MAX_SIZE espmeshmesh_NodePresentation_size
-#define espmeshmesh_NodePresentation_size        136
+#define espmeshmesh_NodePresentation_size        138
 
 /* Message IDs (where set with "msgid" option) */
 #define PB_MSG_67 espmeshmesh_NodePresentation
 
 #define NODEPRESENTATION_MESSAGES \
-	PB_MSG(67,136,espmeshmesh_NodePresentation) \
+	PB_MSG(67,138,espmeshmesh_NodePresentation) \
 
 #define espmeshmesh_NodePresentation_msgid 67
 

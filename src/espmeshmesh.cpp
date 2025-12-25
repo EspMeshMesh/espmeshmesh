@@ -26,6 +26,7 @@
 #include <esp_wifi.h>
 #include <esp_event.h>
 #include <esp_rom_md5.h>
+#include <esp_sleep.h>
 #include <cstring>
 #endif
 
@@ -325,6 +326,7 @@ void EspMeshMesh::setupWifi(const char *hostname, uint8_t channel, uint8_t txPow
 }
 
 void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
+  mTeardownDeadline = 0;
   mUseSerial = mBaudRate > 0;
 
   setupWifi(config->hostname.c_str(), config->channel, config->txPower);
@@ -396,6 +398,9 @@ void EspMeshMesh::dump_config() {
   LIB_LOGCONFIG(TAG, "Hostname: %s", mHostName.c_str());
   LIB_LOGCONFIG(TAG, "Firmware version: %s", mFwVersion.c_str());
   LIB_LOGCONFIG(TAG, "Compile time: %s", mCompileTime.c_str());
+#ifdef IDF_VER
+  LIB_LOGCONFIG(TAG, "Reset cause: %d", esp_sleep_get_wakeup_cause());
+#endif
 }
 
 void EspMeshMesh::loop() {
@@ -457,6 +462,26 @@ void EspMeshMesh::loop() {
 #endif
     mElapsed1 = millis();
   }
+}
+
+void EspMeshMesh::shutdown() {
+  LIB_LOGI(TAG, "Shutting down meshmesh...");
+#ifdef ESPMESH_STARPATH_ENABLED
+  starpath->shutdown();
+#endif
+}
+
+bool EspMeshMesh::teardown() {
+  bool teardown = true;
+  // If any component returns false, the teardown is not complete
+#ifdef ESPMESH_STARPATH_ENABLED
+  teardown &= starpath->teardown();
+#endif
+  if(teardown && mTeardownDeadline == 0) {
+    // Delay the teardown for 100 milliseconds
+    mTeardownDeadline = millis() + 100;
+  }
+  return mTeardownDeadline != 0 && millis() > mTeardownDeadline ? true : false;
 }
 
 const std::string EspMeshMesh::libVersion() const { return ESPMESHMESH_VERSION; }
@@ -646,9 +671,6 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
 
   mFromAddress = from;
   mRssiHandle = rssi;
-
-  //uint8_t *buf = new uint8_t[len];
-  //memcpy(buf, data, len);
 
   if (data[0] & 0x01) {
     replyHandleFrame(data, len, from, rssi);

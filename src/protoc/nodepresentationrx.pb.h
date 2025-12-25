@@ -48,13 +48,13 @@ extern const pb_msgdesc_t espmeshmesh_NodePresentationRx_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define ESPMESHMESH_NODEPRESENTATIONRX_PB_H_MAX_SIZE espmeshmesh_NodePresentationRx_size
-#define espmeshmesh_NodePresentationRx_size      434
+#define espmeshmesh_NodePresentationRx_size      436
 
 /* Message IDs (where set with "msgid" option) */
 #define PB_MSG_69 espmeshmesh_NodePresentationRx
 
 #define NODEPRESENTATIONRX_MESSAGES \
-	PB_MSG(69,434,espmeshmesh_NodePresentationRx) \
+	PB_MSG(69,436,espmeshmesh_NodePresentationRx) \
 
 #define espmeshmesh_NodePresentationRx_msgid 69
 

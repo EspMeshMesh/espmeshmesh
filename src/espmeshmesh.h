@@ -73,6 +73,8 @@ public:
   void setAesPassword(const char *password) { mAesPassword = password; }
   void dump_config();
   void loop();
+  void shutdown();
+  bool teardown();
 public:
   const std::string libVersion() const;
   const std::string fwVersion() const { return mFwVersion; }
@@ -167,6 +169,8 @@ private:
   Discovery mDiscovery;
 
 private:
+  // Deadline to delay the teardown
+  uint32_t mTeardownDeadline = 0;
   // UartRingBuffer;
   MemRingBuffer mUartTxBuffer;
   // Use serial
@@ -186,7 +190,6 @@ private:
 #ifdef ESP8266
   bool mWorkAround{false};
 #endif
-
  public:
   void addHandleFrameCb(PacketFrameHandler cb) { mHandleFrameCbs.push_back(cb); }
 

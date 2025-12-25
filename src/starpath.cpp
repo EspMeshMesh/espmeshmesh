@@ -14,6 +14,9 @@
 #include "protoc/nodepresentation.pb.h"
 #include "protoc/pathrouting.pb.h"
 #include "protoc/nodepresentationrx.pb.h"
+#ifdef IDF_VER
+#include <esp_sleep.h>
+#endif
 
 static const char *TAG = "espmeshmesh.starpath";
 
@@ -27,6 +30,10 @@ static const char *TAG = "espmeshmesh.starpath";
 #define STARPATH_BEACON_ANALYSIS_DELAY 900
 
 namespace espmeshmesh {
+
+#ifdef IDF_VER
+RTC_DATA_ATTR StarPathNeighbourForRtc neighbourForRtc = {0};
+#endif
 
 StarPathPacket::StarPathPacket(PacketBufProtocol * owner, SentStatusHandler cb): RadioPacket(owner, cb) {
 }
@@ -51,6 +58,11 @@ uint8_t *StarPathPacket::starPathPayload() {
 
 StarPathProtocol::StarPathProtocol(bool isCoordinator, PacketBuf *pbuf, ReceiveHandler rx_fn): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_STARPATH), mRecvDups() {
     LIB_LOGD(TAG, "StarPathProtocol constructor isCoordinator %d", isCoordinator);
+#ifdef IDF_VER
+    if(esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED) {
+        neighbourForRtc.id = MeshAddress::noAddress;
+    }
+#endif
     clearBestNeighbour();
     if(isCoordinator) {
         mNodeState = Associated;
@@ -65,10 +77,42 @@ StarPathProtocol::StarPathProtocol(bool isCoordinator, PacketBuf *pbuf, ReceiveH
 }
 
 void StarPathProtocol::setup() {
+#ifdef IDF_VER
     if(mNodeState == Free) {
-        // First beacon
+    // First ckeck if we are waking up from sleep
+        if(esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_UNDEFINED) {
+            // We are waking up from sleep
+            LIB_LOGD(TAG, "StarPathProtocol setup waking up from sleep");
+            LIB_LOGD(TAG, "StarPathProtocol id %06X cid %06X cost %d repeaters_count %d", neighbourForRtc.id, neighbourForRtc.coordinatorId, neighbourForRtc.cost, neighbourForRtc.repeaters_count);
+
+            if(neighbourForRtc.id != MeshAddress::noAddress) {
+                // RTC memory has the best neighbour information, so we can associate to it
+                associateToNeighbourFromRtc();
+            }
+        }
+    }
+#endif
+
+    if(mNodeState == Free) {
+        // We are still not 
         mNextDiscoveryBeaconDeadline = millis() + STARPATH_FIRST_DISCOVERY_BEACON_DELAY + (random_uint32() % STARPATH_FIRST_DISCOVERY_BEACON_SPAN);
     }
+}
+
+void StarPathProtocol::shutdown() {
+    mIsTeardownInProgress = true;
+#ifdef IDF_VER
+    saveCurrentNeighbourToRtc();
+#endif
+    clearBestNeighbour();
+    // Send a goodbye packet to the coordinator
+    sendPresentationPacket(espmeshmesh_NodePresentationFlags_NODE_PRESENTATION_TYPE_GOODBYE);
+    // Disassociate from the neighbour
+    disassociateFromNeighbour();
+}
+
+bool StarPathProtocol::teardown() {
+    return !mIsTeardownInProgress;
 }
 
 void StarPathProtocol::loop() {
@@ -99,6 +143,11 @@ void StarPathProtocol::loop() {
         if(mNextNotificationBeaconDeadline != 0 && now > mNextNotificationBeaconDeadline) {
             mNextNotificationBeaconDeadline = 0;
             sendNotificationBeacon();
+        }
+
+        if(mNextHelloBeaconDeadline != 0 && now > mNextHelloBeaconDeadline) {
+            mNextHelloBeaconDeadline = 0;
+            sendPresentationPacket(espmeshmesh_NodePresentationFlags_NODE_PRESENTATION_TYPE_HELLO);
         }
     }
 }
@@ -290,6 +339,17 @@ void StarPathProtocol::radioPacketSent(uint8_t status, RadioPacket *pkt) {
                 }
             }
         }
+    } else {
+        pkt->callCallback(status, pkt);
+    }
+}
+
+void StarPathProtocol::presentationPacketSent(uint8_t status, RadioPacket *pkt) {
+    if(status) {
+        LIB_LOGE(TAG, "presentationPacketSent transmission error");
+    }
+    if(mIsTeardownInProgress) {
+        mIsTeardownInProgress = false;
     }
 }
 
@@ -546,6 +606,7 @@ void StarPathProtocol::handleDataPresentationPacket(uint8_t *payload, uint16_t l
     strncpy(nodepresentationrx.node_presentation.firmware_version, nodepresentation.firmware_version, 16);
     strncpy(nodepresentationrx.node_presentation.compile_time, nodepresentation.compile_time, 48);
     strncpy(nodepresentationrx.node_presentation.lib_version, nodepresentation.lib_version, 16);
+    nodepresentationrx.node_presentation.type = nodepresentation.type;
     nodepresentationrx.has_path_routing = true; 
     nodepresentationrx.path_routing.source_address = pathrouting->source_address;
     nodepresentationrx.path_routing.target_address = pathrouting->target_address;
@@ -649,16 +710,18 @@ void StarPathProtocol::sendDataPacketNackPacket(uint32_t target) {
 /**
  * Sends a data presentation packet to the coordinator.
  */
-void StarPathProtocol::sendPresentationPacket() {
-    LIB_LOGD(TAG, "sendPresentationPacket %06X %06X", mCurrentNeighbour.id, mCurrentNeighbour.coordinatorId);
+void StarPathProtocol::sendPresentationPacket(int type) {
+    LIB_LOGD(TAG, "sendPresentationPacket type %d nid %06X cid %06X", type, mCurrentNeighbour.id, mCurrentNeighbour.coordinatorId);
     espmeshmesh_NodePresentation nodepresentation = espmeshmesh_NodePresentation_init_zero;
     strncpy(nodepresentation.hostname, espmeshmesh::EspMeshMesh::getInstance()->hostname().c_str(), 48);
     strncpy(nodepresentation.firmware_version, espmeshmesh::EspMeshMesh::getInstance()->fwVersion().c_str(), 16);
     strncpy(nodepresentation.compile_time, espmeshmesh::EspMeshMesh::getInstance()->compileTime().c_str(), 48);
     strncpy(nodepresentation.lib_version, espmeshmesh::EspMeshMesh::getInstance()->libVersion().c_str(), 16);
+    nodepresentation.type = (espmeshmesh_NodePresentationFlags)type;
     MeshAddress target = MeshAddress(0, mCurrentNeighbour.coordinatorId);
     target.sourceProtocol = MeshAddress::SRC_STARPATH;
-    sendDataPacket(espmeshmesh_NodePresentation_fields, &nodepresentation, espmeshmesh_NodePresentation_msgid, target, nullptr);
+    sendDataPacket(espmeshmesh_NodePresentation_fields, &nodepresentation, espmeshmesh_NodePresentation_msgid, target, 
+        std::bind(&StarPathProtocol::presentationPacketSent, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 void StarPathProtocol::clearBestNeighbour() {
@@ -667,6 +730,18 @@ void StarPathProtocol::clearBestNeighbour() {
     mBestNeighbour.cost = UINT16_MAX;
     mBestNeighbour.repeaters.clear();
 }
+
+#ifdef IDF_VER
+void StarPathProtocol::saveCurrentNeighbourToRtc() {
+    neighbourForRtc.id = mCurrentNeighbour.id;
+    neighbourForRtc.coordinatorId = mCurrentNeighbour.coordinatorId;
+    neighbourForRtc.cost = mCurrentNeighbour.cost;
+    neighbourForRtc.repeaters_count = mCurrentNeighbour.repeaters.size();
+    for(uint8_t i = 0; i < mCurrentNeighbour.repeaters.size(); i++) {
+        neighbourForRtc.repeaters[i] = mCurrentNeighbour.repeaters[i];
+    }
+}
+#endif
 
 void StarPathProtocol::analyseBeacons() {
     LIB_LOGD(TAG, "analyseBeacons");
@@ -697,8 +772,21 @@ void StarPathProtocol::associateToNeighbour(const Neighbour_t &neighbour) {
     // Notify neighbours that I am associated with a new neighbour
     mNextNotificationBeaconDeadline = millis() + 500 + (random_uint32() % 100);
     // Send a presentation packet to the coordinator
-    sendPresentationPacket();
+    mNextHelloBeaconDeadline = millis() + 100 + (random_uint32() % 10);
 }
+
+#ifdef IDF_VER
+void StarPathProtocol::associateToNeighbourFromRtc() {
+    LIB_LOGD(TAG, "associateToNeighbourFromRtc");
+    mBestNeighbour.id = neighbourForRtc.id;
+    mBestNeighbour.coordinatorId = neighbourForRtc.coordinatorId;
+    mBestNeighbour.cost = neighbourForRtc.cost;
+    for(uint8_t i = 0; i < neighbourForRtc.repeaters_count; i++) {
+        mBestNeighbour.repeaters.push_back(neighbourForRtc.repeaters[i]);
+    }
+    associateToNeighbour(mBestNeighbour);
+}
+#endif
 
 void StarPathProtocol::disassociateFromNeighbour() {
     LIB_LOGD(TAG, "disassociateFromNeighbour");

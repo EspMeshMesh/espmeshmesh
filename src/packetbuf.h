@@ -165,6 +165,8 @@ public:
  virtual ~PacketBufProtocol() {}
  virtual void setup() {};
  virtual void loop() {};
+ virtual void shutdown() {};
+ virtual bool teardown() { return true; };
 
  MeshAddress::DataSrc protocolType() const { return mProtocolType; }
  bool isPortAvailable(uint16_t port) const;
