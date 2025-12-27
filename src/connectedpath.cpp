@@ -50,7 +50,13 @@ void ConnectedPathPacket::setTarget(uint32_t target, uint16_t handle) {
 }
 
 ConnectedPath::ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf)
-    : PacketBufProtocol(packetbuf, nullptr, MeshAddress::SRC_CONNPATH), mMeshMesh(meshmesh), mRecvDups(), mRadioOutputBuffer(RADIO_OUTPUT_BUFFER_SIZE) {
+    : PacketBufProtocol(packetbuf, nullptr, MeshAddress::SRC_CONNPATH), mMeshMesh(meshmesh), mRecvDups() {
+
+  mOutputBuffer = new uint8_t[RADIO_OUTPUT_BUFFER_SIZE];
+  mOutputBufferIndex = 0;
+  mOutputBufferDeadline = 0;
+  mOutputBufferConnId = CONNPATH_MAX_CONNECTIONS;
+
   memset((uint8_t *) mConnectsions, 0x0, sizeof(mConnectsions));
   for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++)
     connectionSetInvalid(i);
@@ -63,11 +69,14 @@ ConnectedPath::ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf)
 void ConnectedPath::loop() {
   mRecvDups.loop();
 
-  if(mRadioOutputBuffer.filledSpace() > 0) {
-    processOutputBuffer();
+  uint32_t now = millis();
+  if (mOutputBufferIndex > 0) {
+    if (now > mOutputBufferDeadline) {
+      sendOutputBuffer();
+    }
   }
 
-  if (mConnectionInoperativeCount > 0 && mRadioOutputBuffer.filledSpace() == 0) {
+  if (mConnectionInoperativeCount > 0) {
     for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++) {
       if (!mConnectsions[i].isInvalid && !mConnectsions[i].isOperative) {
         LIB_LOGD(TAG, "ConnectedPath::loop invalidate inoperative connection %d", i);
@@ -77,7 +86,6 @@ void ConnectedPath::loop() {
     }
   }
 
-  uint32_t now = millis();
   if (EspMeshMesh::elapsedMillis(now, mConnectionsCheckTime) > 120000) {
     mConnectionsCheckTime = now;
     for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++) {
@@ -122,40 +130,24 @@ void ConnectedPath::enqueueRadioPacket(uint8_t subprot, uint8_t connid, bool for
     return;
   }
 
-  ConnectedPathOutputBufferHeader header;
-  header.pkttime = millis();
-  header.connId = connid;
-  header.forward = forward ? 1 : 0;
-  header.subProtocol = subprot;
-  header.dataSize = datasize;
-  mRadioOutputBuffer.pushData((uint8_t *) &header, sizeof(header));
-  if (datasize > 0)
-    mRadioOutputBuffer.pushData(data, datasize);
-
   if (subprot != CONNPATH_SEND_DATA) {
     LIB_LOGD(TAG, "ConnectedPath::enqueueRadioPacket prot %d connid %d size %d from %06X:%04X %s to %06X:%04X", subprot,
               connid, datasize, mConnectsions[connid].sourceAddr, mConnectsions[connid].sourceHandle, FORWARD2TXT(forward),
               mConnectsions[connid].destAddr, mConnectsions[connid].destHandle);
   }
-}
 
-void ConnectedPath::enqueueRadioDataTo(const uint8_t *data, uint16_t size, uint8_t connid, bool forward) {
-  if (!CONN_EXISTS(connid) || !mConnectsions[connid].isOperative) {
-    return;
+  // I'm sending a control packet so I need to send the output buffer first
+  if(mOutputBufferIndex > 0) {
+    sendOutputBuffer();
   }
 
-  ConnectedPathOutputBufferHeader header;
-  header.pkttime = millis();
-  header.connId = connid;
-  header.forward = forward ? 1 : 0;
-  header.subProtocol = CONNPATH_SEND_DATA;
-  header.dataSize = size;
-  mRadioOutputBuffer.pushData((uint8_t *) &header, sizeof(header));
-  mRadioOutputBuffer.pushData(data, size);
+  ConnectedPathPacket *pkt = createPacket(
+    subprot, datasize, 
+    forward ? mConnectsions[connid].destAddr : mConnectsions[connid].sourceAddr, 
+    forward ? mConnectsions[connid].destHandle : mConnectsions[connid].sourceHandle, 
+    data);
 
-  LIB_LOGVV(TAG, "ConnectedPath::enqueueRadioDataTo connid %d size %d from %06X:%04X %s to %06X:%04X", connid, size,
-           mConnectsions[connid].sourceAddr, mConnectsions[connid].sourceHandle, FORWARD2TXT(forward),
-           mConnectsions[connid].destAddr, mConnectsions[connid].destHandle);
+  sendRadioPacket(pkt, forward, true);
 }
 
 void ConnectedPath::enqueueRadioDataToSource(const uint8_t *data, uint16_t size, uint32_t source,
@@ -164,10 +156,8 @@ void ConnectedPath::enqueueRadioDataToSource(const uint8_t *data, uint16_t size,
   uint8_t connid = findConnectionIndex(source, sourceHandle, &direction);
   if (CONN_EXISTS(connid)) {
     direction = !direction;
-    enqueueRadioDataTo(data, size, connid, direction);
+    pushOutputBuffer(data, size, connid);
   }
-
-  // sendData(data, size, from, handle);
 }
 
 void ConnectedPath::closeConnection_(uint8_t connid) {
@@ -235,7 +225,7 @@ void ConnectedPath::radioPacketRecv(uint8_t *data, uint16_t size, uint32_t sourc
     ConnectedPathHeader_t *header = (ConnectedPathHeader_t *) data;
     uint8_t *payload = data + sizeof(ConnectedPathHeader_t);
     uint16_t payloadSize = header->dataLength;
-    if (header->subprotocol != CONNPATH_SEND_DATA) {
+    if (header->subprotocol != CONNPATH_SEND_DATA || true) {
       LIB_LOGD(TAG, "ConnectedPath::receiveRadioPacket cmd %02X from %06X with seq %d data %d rssi %d", header->subprotocol,
                source, header->seqno, header->dataLength, rssi);
     }
@@ -478,133 +468,6 @@ void ConnectedPath::sendDataNack(uint32_t source, uint16_t sourceHandle) {
   }
 }
 
-/**
- * @brief Process the mRadioOutputBuffer buffer in order to merge packets that belong to the same connection in a
- * single Radio packet.
- */
-void ConnectedPath::processOutputBuffer() {
-  // Maximum time to wait for a packet to be sent
-  const unsigned long timeout = 20;
-  // Check if is the header of a packet that can be sent
-  auto checkHeader = [](ConnectedPathOutputBufferHeader &header, ConnectedPathOutputBufferHeader &lastHeader,
-                        uint32_t now, bool isfirst) -> bool {
-    // Check timeout only for first packet
-    bool isnotfirst = !isfirst;
-    bool istimeout = isnotfirst || (EspMeshMesh::elapsedMillis(now, header.pkttime) > timeout);
-    bool issimilar = isfirst || ((header.connId == lastHeader.connId) && (header.forward == lastHeader.forward));
-    bool result = istimeout && issimilar;
-    // LIB_LOGI(TAG, "ConnectedPath::processOutputBuffer checkHeader istimeout %d issimilar %d result %d", istimeout,
-    //          issimilar, result);
-    return result;
-  };
-
-  auto setheader = [](ConnectedPathOutputBufferHeader &header, uint8_t connid, bool forward, uint8_t subProtocol,
-                      uint32_t pkttime, uint16_t dataSize) {
-    header.connId = connid;
-    header.forward = forward;
-    header.subProtocol = subProtocol;
-    header.pkttime = pkttime;
-    header.dataSize = dataSize;
-  };
-
-  ConnectedPathOutputBufferHeader header;
-
-  uint32_t now = millis();
-  uint8_t *buffer = nullptr;
-  uint16_t bufferTotalSize = 0;
-
-  ConnectedPathOutputBufferHeader lastHeader;
-  setheader(lastHeader, CONNPATH_MAX_CONNECTIONS, false, CONNPATH_INVALID_REQ, 0, 0);
-  uint16_t offset = 0;
-  uint16_t pktProcessed = 0;
-  bool processing = true;
-  bool isfirst = true;
-
-  // First pass to get the total size of the buffer
-  while (processing) {
-    processing = false;
-    uint16_t readed = mRadioOutputBuffer.viewData2((uint8_t *) &header, sizeof(header), offset);
-    if (readed == sizeof(ConnectedPathOutputBufferHeader)) {
-      if (checkHeader(header, lastHeader, now, isfirst)) {
-        if (bufferTotalSize + header.dataSize < 0x500) {
-          bufferTotalSize += header.dataSize;
-          setheader(lastHeader, header.connId, header.forward, header.subProtocol, header.pkttime, header.dataSize);
-          offset += sizeof(ConnectedPathOutputBufferHeader) + header.dataSize;
-          isfirst = false;
-          pktProcessed++;
-          processing = true;
-          // LIB_LOGI(TAG, "ConnectedPath::processOutputBuffer pkts %d connid %d subprot %d lastconnid %d size %d",
-          //          pktProcessed, header.connId, header.subProtocol, lastHeader.connId, bufferTotalSize);
-        }
-      }
-    }
-  }
-
-  if (bufferTotalSize > 0) {
-    // Allocate the buffer
-    buffer = new uint8_t[bufferTotalSize];
-  }
-
-  // setheader(lastHeader, CONNPATH_MAX_CONNECTIONS, false, CONNPATH_INVALID_REQ, 0, 0);
-  isfirst = true;
-  uint16_t bufferPos = 0;
-  // Only for debug purposes
-  uint16_t numPktProcessed = pktProcessed;
-  uint32_t firstPktTime = 0;
-
-  // Second pass to fill the buffer with the data
-  while (pktProcessed--) {
-    uint16_t readed = mRadioOutputBuffer.popData((uint8_t *) &header, sizeof(header));
-    if (readed != sizeof(ConnectedPathOutputBufferHeader)) {
-      LIB_LOGE(TAG, "ConnectedPath::processOutputBuffer invalid packet in buffer readed %d awaited %d", readed,
-               sizeof(ConnectedPathOutputBufferHeader));
-      continue;
-    }
-    if (isfirst) {
-      firstPktTime = header.pkttime;
-    }
-    if (header.dataSize > 0) {
-      readed = mRadioOutputBuffer.popData(buffer + bufferPos, header.dataSize);
-      if (readed != header.dataSize) {
-        LIB_LOGE(TAG, "ConnectedPath::processOutputBuffer invalid packet in buffer readed %d awaited %d", readed,
-                 header.dataSize);
-        continue;
-      }
-      bufferPos += header.dataSize;
-    }
-    isfirst = false;
-  }
-
-  if (numPktProcessed > 0) {
-    if (CONN_EXISTS(lastHeader.connId)) {
-      ConnectedPathConnections *conn = mConnectsions + lastHeader.connId;
-      ConnectedPathPacket *pkt =
-          createPacket(lastHeader.subProtocol, bufferTotalSize, lastHeader.forward ? conn->destAddr : conn->sourceAddr,
-                       lastHeader.forward ? conn->destHandle : conn->sourceHandle, buffer);
-      LIB_LOGVV(TAG, "ConnectedPath::processOutputBuffer prot %d num packets %d tot size %d after %dms",
-                lastHeader.subProtocol, numPktProcessed, bufferTotalSize,
-                EspMeshMesh::elapsedMillis(now, lastHeader.pkttime));
-      sendRadioPacket(pkt, false, true);
-    } else {
-      LIB_LOGE(TAG, "ConnectedPath::processOutputBuffer invalid connection id %d", lastHeader.connId);
-    }
-  }
-
-  // Free the buffer
-  if (buffer)
-    delete[] buffer;
-}
-
-const ConnectedPathConnections *ConnectedPath::findConnection(uint32_t from, uint16_t handle) const {
-  for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++) {
-    if ((from == mConnectsions[i].sourceAddr && handle == mConnectsions[i].sourceHandle) ||
-        (from == mConnectsions[i].destAddr && handle == mConnectsions[i].destHandle)) {
-      return mConnectsions + i;
-    }
-  }
-  return nullptr;
-}
-
 ConnectedPathConnections *ConnectedPath::findConnection(uint32_t from, uint16_t handle) {
   for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++) {
     if ((from == mConnectsions[i].sourceAddr && handle == mConnectsions[i].sourceHandle) ||
@@ -747,6 +610,9 @@ void ConnectedPath::sendImmediatePacket(uint8_t subprot, uint32_t destination, u
     // FIXME: send to uart if we are the coordinator. Otherwise send to client
     sendUartPacket(subprot, destinationHandle, nullptr, 0);
   } else {
+    if(mOutputBufferIndex > 0) {
+      sendOutputBuffer();
+    }
     sendRadioPacket(createPacket(subprot, 0, destination, destinationHandle, nullptr), true, true);
   }
 }
@@ -761,6 +627,49 @@ void ConnectedPath::debugConnection() const {
                c.destHandle, t);
     }
   }
+}
+
+void ConnectedPath::sendOutputBufferToRadio(uint8_t connid, bool forward, uint16_t datasize, const uint8_t *data) {
+  if (!CONN_EXISTS(connid) || !mConnectsions[connid].isOperative) {
+    return;
+  }
+
+  LIB_LOGVV(TAG, "ConnectedPath::sendOutputBufferToRadio connid %d size %d from %06X:%04X %s to %06X:%04X",
+            connid, datasize, mConnectsions[connid].sourceAddr, mConnectsions[connid].sourceHandle, FORWARD2TXT(forward),
+            mConnectsions[connid].destAddr, mConnectsions[connid].destHandle);
+
+  ConnectedPathPacket *pkt = createPacket(
+    CONNPATH_SEND_DATA, datasize, 
+    forward ? mConnectsions[connid].destAddr : mConnectsions[connid].sourceAddr, 
+    forward ? mConnectsions[connid].destHandle : mConnectsions[connid].sourceHandle, 
+    data);
+
+  sendRadioPacket(pkt, forward, true);
+}
+
+void ConnectedPath::sendOutputBuffer() {
+  if (mOutputBufferIndex > 0) {
+    sendOutputBufferToRadio(mOutputBufferConnId, REVERSE, mOutputBufferIndex, mOutputBuffer);
+    mOutputBufferDeadline = 0;
+    mOutputBufferIndex = 0;
+  }
+}
+
+void ConnectedPath::pushOutputBuffer(const uint8_t *data, uint16_t size, uint8_t connid) {
+  // If the output buffer is not empty and the connection id is different or the buffer is full, send the buffer now
+  if (mOutputBufferIndex > 0 && (mOutputBufferConnId != connid || mOutputBufferIndex + size > RADIO_OUTPUT_BUFFER_SIZE)) {
+    sendOutputBuffer();
+  }
+  // Deadline is set only on first push
+  if (mOutputBufferDeadline == 0) mOutputBufferDeadline = millis() + 100;
+  memcpy(mOutputBuffer + mOutputBufferIndex, data, size);
+  mOutputBufferIndex += size;
+  mOutputBufferConnId = connid;
+}
+
+void ConnectedPath::clearOutputBuffer() {
+  mOutputBufferDeadline = 0;
+  mOutputBufferIndex = 0;
 }
 
 }  // namespace espmeshmesh

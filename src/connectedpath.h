@@ -92,7 +92,6 @@ class ConnectedPath: public PacketBufProtocol {
   bool sendRawRadioPacket(ConnectedPathPacket *pkt);
   bool sendRadioPacket(ConnectedPathPacket *pkt, bool forward, bool initHeader);
   void enqueueRadioPacket(uint8_t subprot, uint8_t connid, bool forward, uint16_t datasize, const uint8_t *data);
-  void enqueueRadioDataTo(const uint8_t *data, uint16_t size, uint8_t connid, bool forward);
   void enqueueRadioDataToSource(const uint8_t *data, uint16_t size, uint32_t from, uint16_t handle);
   void closeConnection_(uint8_t connid);
   void closeConnection(uint32_t from, uint16_t handle);
@@ -116,7 +115,6 @@ class ConnectedPath: public PacketBufProtocol {
   void disconnect(uint32_t from, uint16_t handle);
   void sendData(const uint8_t *buffer, uint16_t size, uint32_t source, uint16_t handle);
   void sendDataNack(uint32_t from, uint16_t handle);
-  void processOutputBuffer();
 
  private:
   void connectionSetInvalid(uint8_t i) {
@@ -168,8 +166,18 @@ class ConnectedPath: public PacketBufProtocol {
   std::list<ConnectedPathBindedPort_t> mBindedPorts;
   uint16_t mNextHandle = 1;
 
- private:
-  MemRingBuffer mRadioOutputBuffer;
+private:
+  uint8_t *mOutputBuffer;
+  uint16_t mOutputBufferIndex;
+  uint32_t mOutputBufferDeadline = 0;
+  uint8_t mOutputBufferConnId = 0;
+
+private:
+  void sendOutputBufferToRadio(uint8_t connid, bool forward, uint16_t datasize, const uint8_t *data);
+  void sendOutputBuffer();
+  void pushOutputBuffer(const uint8_t *data, uint16_t size, uint8_t connid);
+  void clearOutputBuffer();
+
 };
 
 }  // namespace espmeshmesh
