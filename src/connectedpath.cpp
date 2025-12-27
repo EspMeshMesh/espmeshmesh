@@ -124,14 +124,14 @@ bool ConnectedPath::sendRadioPacket(ConnectedPathPacket *pkt, bool forward, bool
   return sendRawRadioPacket(pkt);
 }
 
-void ConnectedPath::enqueueRadioPacket(uint8_t subprot, uint8_t connid, bool forward, uint16_t datasize,
+void ConnectedPath::sendRadioToConnection(uint8_t subprot, uint8_t connid, bool forward, uint16_t datasize,
                                        const uint8_t *data) {
   if (!CONN_EXISTS(connid) || !mConnectsions[connid].isOperative) {
     return;
   }
 
   if (subprot != CONNPATH_SEND_DATA) {
-    LIB_LOGD(TAG, "ConnectedPath::enqueueRadioPacket prot %d connid %d size %d from %06X:%04X %s to %06X:%04X", subprot,
+    LIB_LOGD(TAG, "ConnectedPath::sendRadioDataToConnection prot %d connid %d size %d from %06X:%04X %s to %06X:%04X", subprot,
               connid, datasize, mConnectsions[connid].sourceAddr, mConnectsions[connid].sourceHandle, FORWARD2TXT(forward),
               mConnectsions[connid].destAddr, mConnectsions[connid].destHandle);
   }
@@ -354,7 +354,7 @@ void ConnectedPath::openConnection(uint32_t from, uint16_t handle, uint16_t data
         newdata[2] = newPathLen;
         if (newPathLen)
           memcpy(newdata + 3, data + 7, newPathLen * sizeof(uint32_t));
-        enqueueRadioPacket(CONNPATH_OPEN_CONNECTION_REQ, connid, FORWARD, newdatasize, newdata);
+        sendRadioToConnection(CONNPATH_OPEN_CONNECTION_REQ, connid, FORWARD, newdatasize, newdata);
         delete[] newdata;
       } else {
         LIB_LOGI(TAG, "ConnectedPath::openConnection port %d", port);
@@ -599,7 +599,7 @@ bool ConnectedPath::sendPacket(uint8_t subprot, uint8_t connid, bool direction, 
     else
       return true;
   } else {
-    enqueueRadioPacket(subprot, connid, direction, size, data);
+    sendRadioToConnection(subprot, connid, direction, size, data);
   }
   return false;
 }

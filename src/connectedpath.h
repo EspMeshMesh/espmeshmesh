@@ -91,7 +91,7 @@ class ConnectedPath: public PacketBufProtocol {
   void loop(void) override;
   bool sendRawRadioPacket(ConnectedPathPacket *pkt);
   bool sendRadioPacket(ConnectedPathPacket *pkt, bool forward, bool initHeader);
-  void enqueueRadioPacket(uint8_t subprot, uint8_t connid, bool forward, uint16_t datasize, const uint8_t *data);
+  void sendRadioToConnection(uint8_t subprot, uint8_t connid, bool forward, uint16_t datasize, const uint8_t *data);
   void enqueueRadioDataToSource(const uint8_t *data, uint16_t size, uint32_t from, uint16_t handle);
   void closeConnection_(uint8_t connid);
   void closeConnection(uint32_t from, uint16_t handle);
