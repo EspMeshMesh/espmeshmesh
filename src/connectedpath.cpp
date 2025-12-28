@@ -225,7 +225,7 @@ void ConnectedPath::radioPacketRecv(uint8_t *data, uint16_t size, uint32_t sourc
     ConnectedPathHeader_t *header = (ConnectedPathHeader_t *) data;
     uint8_t *payload = data + sizeof(ConnectedPathHeader_t);
     uint16_t payloadSize = header->dataLength;
-    if (header->subprotocol != CONNPATH_SEND_DATA || true) {
+    if (header->subprotocol != CONNPATH_SEND_DATA) {
       LIB_LOGD(TAG, "ConnectedPath::receiveRadioPacket cmd %02X from %06X with seq %d data %d rssi %d", header->subprotocol,
                source, header->seqno, header->dataLength, rssi);
     }
