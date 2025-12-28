@@ -89,6 +89,8 @@ class ConnectedPath: public PacketBufProtocol {
  public:
   ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf);
   void loop(void) override;
+  void shutdown(void) override;
+  bool teardown(void) override;
   bool sendRawRadioPacket(ConnectedPathPacket *pkt);
   bool sendRadioPacket(ConnectedPathPacket *pkt, bool forward, bool initHeader);
   void sendRadioToConnection(uint8_t subprot, uint8_t connid, bool forward, uint16_t datasize, const uint8_t *data);
@@ -104,6 +106,7 @@ class ConnectedPath: public PacketBufProtocol {
   void setReceiveCallback(ConnectedPathReceiveHandler recvCb, ConnectedPathDisconnectHandler discCb, void *arg,
                           uint32_t from, uint16_t handle);
   void bindPort(ConnectedPathNewConnectionHandler h, void *arg, uint16_t port);
+  void unbindPort(uint16_t port);
   bool isConnectionActive(uint32_t from, uint16_t handle) const;
 
  private:

@@ -169,6 +169,7 @@ private:
   Discovery mDiscovery;
 
 private:
+  uint8_t mTeardownPhase = 0;
   // Deadline to delay the teardown
   uint32_t mTeardownDeadline = 0;
   // UartRingBuffer;

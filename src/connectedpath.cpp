@@ -96,6 +96,21 @@ void ConnectedPath::loop() {
   }
 }
 
+void ConnectedPath::shutdown() {
+  LIB_LOGD(TAG, "ConnectedPath::shutdown");
+}
+
+bool ConnectedPath::teardown() {
+  // Wait until there are api clients active
+  for(int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++) {
+    if(mConnectsions[i].receive != nullptr) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool ConnectedPath::sendRawRadioPacket(ConnectedPathPacket *pkt) {
   LIB_LOGV(TAG, "ConnectedPath::sendRawRadioPacket sending to %06X %d bytes with flags %d", pkt->getTarget(),
            pkt->clearDataSize(), pkt->getHeader()->flags);
@@ -272,6 +287,11 @@ void ConnectedPath::bindPort(ConnectedPathNewConnectionHandler h, void *arg, uin
   LIB_LOGD(TAG, "ConnectedPath::bind port %d", port);
   ConnectedPathBindedPort_t newclient = {h, arg, port};
   mBindedPorts.push_back(newclient);
+}
+
+void ConnectedPath::unbindPort(uint16_t port) {
+  LIB_LOGD(TAG, "ConnectedPath::unbind port %d", port);
+  mBindedPorts.remove_if([port](const ConnectedPathBindedPort_t &bp) { return bp.port == port; });
 }
 
 bool ConnectedPath::isConnectionActive(uint32_t from, uint16_t handle) const {

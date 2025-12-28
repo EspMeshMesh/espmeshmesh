@@ -538,7 +538,7 @@ void StarPathProtocol::handleDataPacket(StarPathPacket *pkt, uint32_t from, int1
                 // We are the target, we can handle the data packet
 
                 // The packet is for me, make a mesh address from the path routing structure
-                LIB_LOGD(TAG, "handleDataPacket to coordinator last hop");
+                LIB_LOGV(TAG, "handleDataPacket to coordinator last hop");
                 MeshAddress sourceAddress = MeshAddress(
                     header->port, 
                     pathrouting.source_address, 

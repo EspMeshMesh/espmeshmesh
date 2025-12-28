@@ -466,22 +466,40 @@ void EspMeshMesh::loop() {
 
 void EspMeshMesh::shutdown() {
   LIB_LOGI(TAG, "Shutting down meshmesh...");
-#ifdef ESPMESH_STARPATH_ENABLED
-  starpath->shutdown();
-#endif
+  mConnectedPath->shutdown();
+  mTeardownPhase = 1;
 }
 
 bool EspMeshMesh::teardown() {
-  bool teardown = true;
-  // If any component returns false, the teardown is not complete
+  bool teardown = false;
+  switch(mTeardownPhase) {
+    case 1:
+      if(mConnectedPath->teardown()) {
 #ifdef ESPMESH_STARPATH_ENABLED
-  teardown &= starpath->teardown();
+        starpath->shutdown();
 #endif
-  if(teardown && mTeardownDeadline == 0) {
-    // Delay the teardown for 100 milliseconds
-    mTeardownDeadline = millis() + 100;
+        mTeardownPhase = 2;
+      }
+      break;
+    case 2:
+#ifdef ESPMESH_STARPATH_ENABLED
+       if(starpath->teardown()) {
+        mTeardownPhase = 3;
+       }
+#else
+        mTeardownPhase = 3;
+#endif
+       break;
+    case 3:
+      mTeardownDeadline = millis() + 250;
+      mTeardownPhase = 4;
+      break;
+    case 4:
+      teardown = mTeardownDeadline != 0 && millis() > mTeardownDeadline ? true : false;
+      break;
   }
-  return mTeardownDeadline != 0 && millis() > mTeardownDeadline ? true : false;
+  this->loop(); // Loop is not called by the App during teardown
+  return teardown;
 }
 
 const std::string EspMeshMesh::libVersion() const { return ESPMESHMESH_VERSION; }
