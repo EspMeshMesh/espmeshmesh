@@ -325,7 +325,7 @@ void EspMeshMesh::setupWifi(const char *hostname, uint8_t channel, uint8_t txPow
   LIB_LOGD(TAG, "Wifi succesful!!!!");
 }
 
-void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
+void EspMeshMesh::setup(SetupConfig *config) {
   mTeardownDeadline = 0;
   mUseSerial = mBaudRate > 0;
 
@@ -333,6 +333,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
   mFwVersion = config->fwVersion;
   mCompileTime = config->compileTime;
   mHostName = config->hostname;
+  mNodeType = config->nodeType;
 
   uint8_t aespassword[16];
   if (mAesPassword.size() == 0) {
@@ -362,7 +363,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
   unicast = new Unicast(packetbuf, handler);
   multipath = new MultiPath(packetbuf, handler);
 #ifdef ESPMESH_STARPATH_ENABLED
-  starpath = new StarPathProtocol(config->isCoordinator, packetbuf, handler);
+  starpath = new StarPathProtocol(packetbuf, handler);
 #endif
 
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
@@ -396,6 +397,7 @@ void EspMeshMesh::setup(EspMeshMeshSetupConfig *config) {
 void EspMeshMesh::dump_config() {
   LIB_LOGCONFIG(TAG, "EspMeshMesh " ESPMESHMESH_VERSION " configuration:");
   LIB_LOGCONFIG(TAG, "Hostname: %s", mHostName.c_str());
+  LIB_LOGCONFIG(TAG, "Node type: %s", mNodeType == ESPMESH_NODE_TYPE_COORDINATOR ? "Coordinator" : mNodeType == ESPMESH_NODE_TYPE_BACKBONE ? "Backbone" : "Edge");
   LIB_LOGCONFIG(TAG, "Firmware version: %s", mFwVersion.c_str());
   LIB_LOGCONFIG(TAG, "Compile time: %s", mCompileTime.c_str());
 #ifdef IDF_VER

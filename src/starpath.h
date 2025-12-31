@@ -6,6 +6,7 @@
 #include <pb.h>
 
 namespace espmeshmesh {
+class EspMeshMesh;
 
 #define STARPATH_MAX_PATH_LENGTH 16
 
@@ -66,13 +67,12 @@ public:
 
     enum NodeState {Free, Binded, Associated};
 public:
-    StarPathProtocol(bool isCoordinator, PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr);
+    StarPathProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr);
     void setup() override;
     void loop() override;
     void shutdown() override;
     bool teardown() override;
 public:
-    bool iAmCoordinator() const { return mIsCoordinator; }
     bool send(const uint8_t *data, uint16_t size, MeshAddress target, SentStatusHandler handler = nullptr);
 private:
     void sendRawPacket(StarPathPacket *pkt, uint32_t target, SentStatusHandler handler = nullptr);
@@ -116,10 +116,10 @@ private:
     StarPathNeighbourForRtc mNeighbourForRtc;
 #endif
 private:
+    EspMeshMesh *mMesh{nullptr};
     bool mIsTeardownInProgress{false};
     uint16_t mLastSequenceNum = 0;
     RecvDups mRecvDups;
-    bool mIsCoordinator{false};
     NodeState mNodeState{Free};
     Neighbour_t mCurrentNeighbour;
     Neighbour_t mBestNeighbour;

@@ -46,14 +46,6 @@ class MeshSocket;
 #define HANDLE_UART_ERROR 1
 #define FRAME_NOT_HANDLED -1
 
-typedef struct {
-  std::string hostname;
-  uint8_t channel;
-  uint8_t txPower;
-  bool isCoordinator;
-  std::string fwVersion;
-  std::string compileTime;
-} EspMeshMeshSetupConfig;
 
 class EspMeshMesh {
 public:
@@ -61,7 +53,24 @@ public:
   static EspMeshMesh *getInstance();
   ConnectedPath *getConnectedPath() const { return mConnectedPath; }
 public:
+
+  enum NodeType { 
+    ESPMESH_NODE_TYPE_BACKBONE = 0, 
+    ESPMESH_NODE_TYPE_COORDINATOR = 1, 
+    ESPMESH_NODE_TYPE_EDGE = 2 
+  };
+  struct SetupConfig {
+    std::string hostname;
+    uint8_t channel;
+    uint8_t txPower;
+    NodeType nodeType;
+    std::string fwVersion;
+    std::string compileTime; 
+  };
+
+public:
   EspMeshMesh(int baud_rate, int tx_buffer, int rx_buffer);
+  
   void pre_setup();
 #ifdef IDF_VER
   static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
@@ -69,7 +78,7 @@ public:
   bool setupIdfWifiStation(const char *hostname, uint8_t channel, uint8_t txPower);
 #endif
   void setupWifi(const char *hostname, uint8_t channel, uint8_t txPower);
-  void setup(EspMeshMeshSetupConfig *config);
+  void setup(SetupConfig *config);
   void setAesPassword(const char *password) { mAesPassword = password; }
   void dump_config();
   void loop();
@@ -80,6 +89,10 @@ public:
   const std::string fwVersion() const { return mFwVersion; }
   const std::string hostname() const { return mHostName; }
   const std::string compileTime() const { return mCompileTime; }
+  const NodeType nodeType() const { return mNodeType; }
+  const bool isCoordinator() const { return mNodeType == ESPMESH_NODE_TYPE_COORDINATOR; }
+  const bool isBackbone() const { return mNodeType == ESPMESH_NODE_TYPE_BACKBONE; }
+  const bool isEdge() const { return mNodeType == ESPMESH_NODE_TYPE_EDGE; }
  public:
   void setLockdownMode(bool active) { packetbuf->setLockdownMode(active); }
   static void wifiInitMacAddr(uint8_t index);
@@ -188,6 +201,8 @@ private:
   std::string mCompileTime;
   // Hostname
   std::string mHostName;
+  // Node type
+  NodeType mNodeType = ESPMESH_NODE_TYPE_BACKBONE;
 #ifdef ESP8266
   bool mWorkAround{false};
 #endif

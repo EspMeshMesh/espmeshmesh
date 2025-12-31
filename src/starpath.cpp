@@ -56,17 +56,17 @@ uint8_t *StarPathPacket::starPathPayload() {
     return (uint8_t *)(clearData()+sizeof(StarPathHeaderSt));
 }
 
-StarPathProtocol::StarPathProtocol(bool isCoordinator, PacketBuf *pbuf, ReceiveHandler rx_fn): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_STARPATH), mRecvDups() {
-    LIB_LOGD(TAG, "StarPathProtocol constructor isCoordinator %d", isCoordinator);
+StarPathProtocol::StarPathProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_STARPATH), mRecvDups() {
+    mMesh = EspMeshMesh::getInstance();
+    LIB_LOGD(TAG, "StarPathProtocol constructor isCoordinator %d", mMesh->isCoordinator());
 #ifdef IDF_VER
     if(esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED) {
         neighbourForRtc.id = MeshAddress::noAddress;
     }
 #endif
     clearBestNeighbour();
-    if(isCoordinator) {
+    if(mMesh->isCoordinator()) {
         mNodeState = Associated;
-        mIsCoordinator = true;
         mCurrentNeighbour.coordinatorId = MeshAddress::coordinatorAddress;
         mCurrentNeighbour.id = mPacketBuf->nodeId();
     }
@@ -414,8 +414,9 @@ bool StarPathProtocol::containsLoop(const uint32_t *repeaters, uint8_t repeaters
 #define TOTAL_COST_MARGIN 20
 
 void StarPathProtocol::handleDiscoveryBeacon(StarPathPacket *pkt, uint32_t from, int16_t rssi) {
-    LIB_LOGD(TAG, "handleDiscoveryBeacon");
-    if(mNodeState == Associated && mBeaconReplyTarget == 0) {
+    LIB_LOGD(TAG, "handleDiscoveryBeacon from %06X rssi %d", from, rssi);
+    if(!mMesh->isEdge() || (mNodeState == Associated && mBeaconReplyTarget == 0)) {
+        // Edge nodes can't reply to discovery beacons
         // If I am associated and I'm not replying to another beacon, I can reply to the beacon
         mBeaconReplyTarget = from;
         mBeaconReplyRssi = rssi;
@@ -430,7 +431,8 @@ void StarPathProtocol::handleDiscoveryBeacon(StarPathPacket *pkt, uint32_t from,
  * When our neighbour is not associated to the coordinator anymore, we can disassociate from him.
  */
 void StarPathProtocol::handleNotificationBeacon(StarPathPacket *pkt, uint32_t from, int16_t rssi) {
-    if(mNodeState == Associated && !iAmCoordinator()) {
+    // If I am associated and I am not the coordinator, I can handle the notification beacon
+    if(mNodeState == Associated && !mMesh->isCoordinator()) {
         LIB_LOGD(TAG, "handleNotificationBeacon from %06X", from);
         // If I am associated, I can handle the notification beacon
 
@@ -607,6 +609,7 @@ void StarPathProtocol::handleDataPresentationPacket(uint8_t *payload, uint16_t l
     strncpy(nodepresentationrx.node_presentation.compile_time, nodepresentation.compile_time, 48);
     strncpy(nodepresentationrx.node_presentation.lib_version, nodepresentation.lib_version, 16);
     nodepresentationrx.node_presentation.type = nodepresentation.type;
+    nodepresentationrx.node_presentation.node_type = nodepresentation.node_type;
     nodepresentationrx.has_path_routing = true; 
     nodepresentationrx.path_routing.source_address = pathrouting->source_address;
     nodepresentationrx.path_routing.target_address = pathrouting->target_address;
@@ -672,7 +675,8 @@ void StarPathProtocol::sendDiscoveryBeaconReply(uint32_t target, int16_t rssi) {
     LIB_LOGI(TAG, "sendDiscoveryBeaconReply to %06X rssi %d cost %d hops %d", target, rssi, calculateCost(rssi), mCurrentNeighbour.repeaters.size());
     // Fill output message
     espmeshmesh_DiscoveryBeaconReply discoverybeaconreply;
-    discoverybeaconreply.coordinator_id = iAmCoordinator() ? mPacketBuf->nodeId() : mCurrentNeighbour.coordinatorId;
+    // If I am the coordinator, coordinatorId is equal to MeshAddress::coordinatorAddress 
+    discoverybeaconreply.coordinator_id = mMesh->isCoordinator() ? mPacketBuf->nodeId() : mCurrentNeighbour.coordinatorId;
     discoverybeaconreply.incoming_cost = calculateFullCost(rssi, (uint8_t)mCurrentNeighbour.repeaters.size());
     // TODO: Remove this once we end test phase
     discoverybeaconreply.incoming_cost += calculateTestbedCosts(target, mPacketBuf->nodeId());
@@ -718,6 +722,7 @@ void StarPathProtocol::sendPresentationPacket(int type) {
     strncpy(nodepresentation.compile_time, espmeshmesh::EspMeshMesh::getInstance()->compileTime().c_str(), 48);
     strncpy(nodepresentation.lib_version, espmeshmesh::EspMeshMesh::getInstance()->libVersion().c_str(), 16);
     nodepresentation.type = (espmeshmesh_NodePresentationFlags)type;
+    nodepresentation.node_type = (espmeshmesh_NodeType)mMesh->nodeType();
     MeshAddress target = MeshAddress(0, mCurrentNeighbour.coordinatorId);
     target.sourceProtocol = MeshAddress::SRC_STARPATH;
     sendDataPacket(espmeshmesh_NodePresentation_fields, &nodepresentation, espmeshmesh_NodePresentation_msgid, target, 
@@ -756,7 +761,7 @@ void StarPathProtocol::associateToNeighbour(const Neighbour_t &neighbour) {
     LIB_LOGD(TAG, "associateToNeighbour");
 
     // Sanity check. We can't associate to ourselves.
-    if(iAmCoordinator() || neighbour.id == mPacketBuf->nodeId()) {
+    if(mMesh->isCoordinator() || neighbour.id == mPacketBuf->nodeId()) {
         LIB_LOGE(TAG, "associateToNeighbour neighbourId %06X is myself or coordinator", neighbour.id);
         return;
     }
@@ -792,7 +797,7 @@ void StarPathProtocol::disassociateFromNeighbour() {
     LIB_LOGD(TAG, "disassociateFromNeighbour");
 
     // Sanity check. We can't disassociate from ourselves.
-    if(iAmCoordinator()) {
+    if(mMesh->isCoordinator()) {
         // If I am the coordinator, I can't disassociate from myself
         LIB_LOGE(TAG, "disassociateFromNeighbour I am the coordinator");
         return;
