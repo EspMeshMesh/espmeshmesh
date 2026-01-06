@@ -1,6 +1,5 @@
 #pragma once
 #include "meshaddress.h"
-
 #include "packetbuf.h"
 #include "discovery.h"
 #include "broadcast2.h"
@@ -9,27 +8,13 @@
 
 #include <string>
 
-#ifdef ESP8266
-#include <HardwareSerial.h>
-#endif  // ESP8266
-
-#ifdef IDF_VER
-#include <driver/uart.h>
-#endif  // IDF_VER
-
 namespace espmeshmesh {
 
 typedef std::function<int8_t(const uint8_t *data, uint16_t len, uint32_t from)> HandleFrameCbFn;
 typedef void (*EspHomeDataReceivedCbFn)(uint16_t, uint8_t *, uint16_t);
 
-typedef enum { WAIT_START, WAIT_DATA, WAIT_ESCAPE, WAIT_CRC16_1, WAIT_CRC16_2 } RecvState;
-typedef enum {
-  CODE_DATA_START = 0xFE,
-  CODE_DATA_START_CRC16 = 0xFD,
-  CODE_DATA_END = 0xEF,
-  CODE_DATA_ESCAPE = 0xEA
-} SpcialByteCodes;
-
+class Uart;
+class Wifi;
 class Broadcast;
 class Broadcast2;
 class Unicast;
@@ -45,7 +30,6 @@ class MeshSocket;
 #define HANDLE_UART_OK 0
 #define HANDLE_UART_ERROR 1
 #define FRAME_NOT_HANDLED -1
-
 
 class EspMeshMesh {
 public:
@@ -72,14 +56,9 @@ public:
   EspMeshMesh(int baud_rate, int tx_buffer, int rx_buffer);
   
   void pre_setup();
-#ifdef IDF_VER
-  static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data);
-  bool setupIdfWifiAP(const char *hostname, uint8_t channel, uint8_t txPower);
-  bool setupIdfWifiStation(const char *hostname, uint8_t channel, uint8_t txPower);
-#endif
   void setupWifi(const char *hostname, uint8_t channel, uint8_t txPower);
   void setup(SetupConfig *config);
-  void setAesPassword(const char *password) { mAesPassword = password; }
+  void setAesPassword(std::string password);
   void dump_config();
   void loop();
   void shutdown();
@@ -97,12 +76,19 @@ public:
   void setLockdownMode(bool active) { packetbuf->setLockdownMode(active); }
   static void wifiInitMacAddr(uint8_t index);
   void commandReply(const uint8_t *buff, uint16_t len);
-  void uartSendData(const uint8_t *buff, uint16_t len);
 
   MeshAddress::DataSrc lastCommandSourceProtocol() const { return mFromAddress.sourceProtocol; }
   int16_t lastPacketRssi() const { return mRssiHandle; }
   const MeshAddress &lastFromAddress() const { return mFromAddress; }
 
+
+  /*
+   * @brief Send data using framed uart protocol.
+   * @param buff Data to send
+   * @param len Length of data to send
+   */
+  void uartSendData(const uint8_t *buff, uint16_t len);
+  
   /**
    * @brief Send data using broadcast2 protocol with port selector.
    * @param buff Data to send
@@ -126,13 +112,6 @@ public:
   }
 
  private:
-#ifdef IDF_VER
-  void initIdfUart();
-#endif
-  void user_uart_recv_data(uint8_t byte);
-  void flushUartTxBuffer();
-
- private:
   void handleFrame(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi=0);
   void replyHandleFrame(const uint8_t *buf, uint16_t len, const MeshAddress &from, int16_t rssi = 0);
 
@@ -147,6 +126,8 @@ public:
   int mRxBuffer;
 
 private:
+  Uart *mUart = nullptr;
+  Wifi *mWifi = nullptr;
   PacketBuf *packetbuf = nullptr;
   Broadcast *broadcast = nullptr;
   Broadcast2 *broadcast2 = nullptr;
@@ -164,37 +145,19 @@ private:
 #endif
   ConnectedPath *mConnectedPath = nullptr;
 
-#ifdef ESP8266
-  HardwareSerial *mHwSerial = nullptr;
-#endif  // ESP8266
-
-#ifdef IDF_VER
-  uart_port_t mUartNum{UART_NUM_0};
-#else
-  int mUartNum{0};
-#endif
-
-  RecvState mRecvState = WAIT_START;
-  uint8_t *mRecvBuffer = nullptr;
-  uint16_t mRecvBufferPos = 0;
   MeshAddress mFromAddress;
-
   Discovery mDiscovery;
 
 private:
+  // Work around to send a dummy packet to the network to enable esp8266 wifi radio
+  bool mWorkAround{false};
   uint8_t mTeardownPhase = 0;
   // Deadline to delay the teardown
   uint32_t mTeardownDeadline = 0;
-  // UartRingBuffer;
-  MemRingBuffer mUartTxBuffer;
-  // Use serial
-  bool mUseSerial = false;
   // Elapsed time for stats
   uint32_t mElapsed1 = 0;
   // RSSI for handle frame
   int16_t mRssiHandle = 0;
-  // Encryption password
-  std::string mAesPassword;
   // Firmware version
   std::string mFwVersion;
   // Compile time
@@ -203,9 +166,6 @@ private:
   std::string mHostName;
   // Node type
   NodeType mNodeType = ESPMESH_NODE_TYPE_BACKBONE;
-#ifdef ESP8266
-  bool mWorkAround{false};
-#endif
  public:
   void addHandleFrameCb(PacketFrameHandler cb) { mHandleFrameCbs.push_back(cb); }
 
@@ -217,6 +177,7 @@ private:
 
  public:
   friend class MeshSocket;
+  friend class Uart;
 };
 
 }  // namespace espmeshmesh

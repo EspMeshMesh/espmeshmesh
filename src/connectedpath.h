@@ -160,7 +160,7 @@ class ConnectedPath: public PacketBufProtocol {
   void debugConnection() const;
 
  private:
-  EspMeshMesh *mMeshMesh;
+ EspMeshMesh *mMeshMesh;
   uint16_t mLastSequenceNum = 0;
   RecvDups mRecvDups;
   ConnectedPathConnections mConnectsions[CONNPATH_MAX_CONNECTIONS];

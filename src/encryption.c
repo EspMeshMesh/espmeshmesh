@@ -52,14 +52,14 @@ void encrypt_data(uint8_t *dst, uint8_t *src, uint16_t len) {
 		aes_encrypt(encrypt_ctx, tmpsrc, tmpdst);
 		os_memcpy(dst, tmpdst, AES_BLOCK_SIZE);
 
-		dst += data_len;
+		dst += AES_BLOCK_SIZE;
 		src += data_len;
 		len -= data_len;
 	}
 }
 
 void decrypt_data(uint8_t *dst, uint8_t *src, uint16_t len) {
-	if(decrypt_ctx == 0) {
+	if(decrypt_ctx == 0 || len % AES_BLOCK_SIZE != 0) {
 		return;
 	}
 
@@ -67,14 +67,12 @@ void decrypt_data(uint8_t *dst, uint8_t *src, uint16_t len) {
 	uint8_t tmpdst[AES_BLOCK_SIZE];
 
 	while(len>0) {
-		uint8_t data_len = len > AES_BLOCK_SIZE ? AES_BLOCK_SIZE : len;
-		if(data_len < AES_BLOCK_SIZE) os_memset(tmpsrc , 0, AES_BLOCK_SIZE);
-		os_memcpy(tmpsrc, src, data_len);
+		os_memcpy(tmpsrc, src, AES_BLOCK_SIZE);
 		aes_decrypt(decrypt_ctx, tmpsrc, tmpdst);
-		os_memcpy(dst, tmpdst, data_len);
+		os_memcpy(dst, tmpdst, AES_BLOCK_SIZE);
 
-		dst += data_len;
-		src += data_len;
-		len -= data_len;
+		dst += AES_BLOCK_SIZE;
+		src += AES_BLOCK_SIZE;
+		len -= AES_BLOCK_SIZE;
 	}
 }

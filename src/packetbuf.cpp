@@ -72,7 +72,6 @@ typedef struct ieee80211_hdr_st ieee80211_hdr_t;
 typedef ieee80211_hdr_t *ieee80211_hdr_p;
 
 #define PACKETBUF_LEN_PINDEX		2
-#define PACKETBUF_LEN_PINDEX		2
 
 #ifndef CRYPTO_LEN
 #define CRYPTO_LEN(X) {}

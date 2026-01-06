@@ -2,6 +2,7 @@
 
 #include "log.h"
 #include "espmeshmesh.h"
+#include "uart.h"
 #include "commands.h"
 
 #define RES_OK 0
