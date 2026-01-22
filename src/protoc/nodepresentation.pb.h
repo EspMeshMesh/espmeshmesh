@@ -26,7 +26,7 @@ typedef enum _espmeshmesh_NodeType {
 typedef struct _espmeshmesh_NodePresentation {
     char hostname[49];
     char firmware_version[17];
-    char compile_time[49];
+    char compile_time[29];
     char lib_version[17];
     espmeshmesh_NodePresentationFlags type;
     espmeshmesh_NodeType node_type;
@@ -80,13 +80,13 @@ extern const pb_msgdesc_t espmeshmesh_NodePresentation_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define ESPMESHMESH_NODEPRESENTATION_PB_H_MAX_SIZE espmeshmesh_NodePresentation_size
-#define espmeshmesh_NodePresentation_size        140
+#define espmeshmesh_NodePresentation_size        120
 
 /* Message IDs (where set with "msgid" option) */
 #define PB_MSG_67 espmeshmesh_NodePresentation
 
 #define NODEPRESENTATION_MESSAGES \
-	PB_MSG(67,140,espmeshmesh_NodePresentation) \
+	PB_MSG(67,120,espmeshmesh_NodePresentation) \
 
 #define espmeshmesh_NodePresentation_msgid 67
 

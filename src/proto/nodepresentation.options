@@ -1,5 +1,5 @@
 espmeshmesh.NodePresentation.hostname           max_length:48
 espmeshmesh.NodePresentation.firmware_version   max_length:16
-espmeshmesh.NodePresentation.compile_time       max_length:48
+espmeshmesh.NodePresentation.compile_time       max_length:28
 espmeshmesh.NodePresentation.lib_version        max_length:16
 

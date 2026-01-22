@@ -606,7 +606,7 @@ void StarPathProtocol::handleDataPresentationPacket(uint8_t *payload, uint16_t l
     nodepresentationrx.has_node_presentation = true;
     strncpy(nodepresentationrx.node_presentation.hostname, nodepresentation.hostname, 48);
     strncpy(nodepresentationrx.node_presentation.firmware_version, nodepresentation.firmware_version, 16);
-    strncpy(nodepresentationrx.node_presentation.compile_time, nodepresentation.compile_time, 48);
+    strncpy(nodepresentationrx.node_presentation.compile_time, nodepresentation.compile_time, sizeof(nodepresentationrx.node_presentation.compile_time)-1);
     strncpy(nodepresentationrx.node_presentation.lib_version, nodepresentation.lib_version, 16);
     nodepresentationrx.node_presentation.type = nodepresentation.type;
     nodepresentationrx.node_presentation.node_type = nodepresentation.node_type;
@@ -719,7 +719,7 @@ void StarPathProtocol::sendPresentationPacket(int type) {
     espmeshmesh_NodePresentation nodepresentation = espmeshmesh_NodePresentation_init_zero;
     strncpy(nodepresentation.hostname, espmeshmesh::EspMeshMesh::getInstance()->hostname().c_str(), 48);
     strncpy(nodepresentation.firmware_version, espmeshmesh::EspMeshMesh::getInstance()->fwVersion().c_str(), 16);
-    strncpy(nodepresentation.compile_time, espmeshmesh::EspMeshMesh::getInstance()->compileTime().c_str(), 48);
+    strncpy(nodepresentation.compile_time, espmeshmesh::EspMeshMesh::getInstance()->compileTime().c_str(), sizeof(nodepresentation.compile_time)-1);
     strncpy(nodepresentation.lib_version, espmeshmesh::EspMeshMesh::getInstance()->libVersion().c_str(), 16);
     nodepresentation.type = (espmeshmesh_NodePresentationFlags)type;
     nodepresentation.node_type = (espmeshmesh_NodeType)mMesh->nodeType();
