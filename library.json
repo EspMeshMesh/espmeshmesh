@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library.json",
   "name": "ESPMeshMesh",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "description": "ESPMeshMesh implementation",
   "keywords": "mesh, network",
   "repository":
@@ -29,7 +29,7 @@
   ],
   "build": {
     "flags": [
-      "-D ESPMESHMESH_VERSION=\\\"1.4.6\\\""
+      "-D ESPMESHMESH_VERSION=\\\"1.4.7\\\""
     ]
   }
 }
