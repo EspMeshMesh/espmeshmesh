@@ -52,7 +52,7 @@ EspMeshMesh *EspMeshMesh::getInstance() { return singleton; }
 EspMeshMesh::EspMeshMesh(int baud_rate, int tx_buffer, int rx_buffer): mBaudRate(baud_rate), mTxBuffer(tx_buffer), mRxBuffer(rx_buffer) {
   if (singleton == nullptr) singleton = this;
   mWifi = wifiFactory(this);
-  mUart = uartFactory(this);
+  if(baud_rate > 0) mUart = uartFactory(this);
 }
 
 void EspMeshMesh::pre_setup() {

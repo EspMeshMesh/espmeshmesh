@@ -7,6 +7,7 @@
 #include <user_interface.h>
 #include <md5.h>
 
+static const char *TAG = "Wifi.Esp8266";
 
 namespace espmeshmesh {
 
