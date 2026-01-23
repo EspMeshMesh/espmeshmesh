@@ -217,7 +217,7 @@ void StarPathProtocol::sendDataPacket(const uint8_t *data, uint16_t size, const 
 }
 
 /**
- * Sends a packet with a path routing structure  and datausing Protobuf.
+ * Sends a packet with a path routing structure  and data using Protobuf.
  * @param fields The fields structure of the message to send.
  * @param src_struct The source of data structure to send.
  * @param target The target address to send the packet to.
@@ -509,6 +509,7 @@ void StarPathProtocol::handleDiscoveryBeaconReply(StarPathPacket *pkt, uint32_t 
             mBestNeighbour.id = from;
             mBestNeighbour.coordinatorId = discoverybeaconreply.coordinator_id;
             mBestNeighbour.cost = discoverybeaconreply.incoming_cost;
+            mBestNeighbour.repeaters.clear();
             for(uint8_t i = 0; i < discoverybeaconreply.repeaters_count; i++) {
                 mBestNeighbour.repeaters.push_back(discoverybeaconreply.repeaters[i]);
             }
