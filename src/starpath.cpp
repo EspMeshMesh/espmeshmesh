@@ -355,12 +355,13 @@ void StarPathProtocol::presentationPacketSent(uint8_t status, RadioPacket *pkt) 
 
 uint16_t StarPathProtocol::calculateCost(int16_t rssi) const {
 #ifdef ESP8266
-    const int16_t esp8266RssiMax = 50;
-    const int16_t esp8266RssiMin = 0;
+    const int16_t esp8266RssiMax = 80;
+    const int16_t esp8266RssiMin = 10;
 
+    if(rssi > esp8266RssiMax) rssi = esp8266RssiMax;
     if(rssi < esp8266RssiMin) rssi = esp8266RssiMin;
 
-    int16_t cost = 100 - (rssi*100 - esp8266RssiMin*100) / (esp8266RssiMax-esp8266RssiMin);
+    int16_t cost = 100 - (rssi - esp8266RssiMin)*100 / (esp8266RssiMax-esp8266RssiMin);
 #endif
 
 #ifdef IDF_VER
@@ -371,6 +372,8 @@ uint16_t StarPathProtocol::calculateCost(int16_t rssi) const {
 
     int16_t cost = 100 - (rssi*100 - esp32RssiMin*100) / (esp32RssiMax-esp32RssiMin);
 #endif
+
+    LIB_LOGD(TAG, "calculateCost rssi %d cost %d", rssi, cost);
     return cost;
 }
 
@@ -383,8 +386,9 @@ uint16_t StarPathProtocol::calculateFullCost(int16_t rssi, uint8_t hops) const {
  * The cost is calculated based on the source and target addresses.
  */
 int16_t StarPathProtocol::calculateTestbedCosts(uint32_t source, uint32_t target) const {
+#ifdef TESTBED_ENABLED
     // Node4 --> Node3 ---> Node2 --> Node1 --> Coordinator
-    if(source == 0xC0E5A8 && target != 0xB575B8) {
+    /*if(source == 0xC0E5A8 && target != 0xB575B8) {
         // Node1 --> Coordinator
         return 100;
     }
@@ -395,9 +399,11 @@ int16_t StarPathProtocol::calculateTestbedCosts(uint32_t source, uint32_t target
     if(source == 0xC16BC8 && target != 0xB56EC4) {
         // Node2 --> Node1
         return 100;
-    }
+    }*/
+#endif
     return 0;
 }
+
 
 /**
  * If the path already contains my node id then it is a loop.
