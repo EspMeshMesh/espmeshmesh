@@ -158,13 +158,14 @@ void RadioPacket::fill80211(uint8_t *targetId, uint8_t *pktbufNodeIdPtr) {
 	ieee80211_hdr->frame_control.Protocol = 0;
 	ieee80211_hdr->frame_control.Type = FRAME_TYPE_DATA;
 	ieee80211_hdr->frame_control.Subtype = FRAME_SUBTYPE_DATA;
+    ieee80211_hdr->frame_control.FromDS = 0;
+    ieee80211_hdr->frame_control.ToDS = 0;
+    // For some unknown reason when sending broadcast pacakts if frame control is set to 0 
+    // the esp32 will add fromDS flags and esp8266 will to receive the bradcast packets.
+    // this is a workaround to avoid this issue.
+    ieee80211_hdr->frame_control.Retry = targetId ? 0 : 1;
 
-#ifdef USE_ESP32
-  ieee80211_hdr->frame_control.FromDS = targetId ? 0 : 1;
-  ieee80211_hdr->frame_control.ToDS = 0;
-#endif
-
-  ieee80211_hdr->seq_ctrl = ++seq_ctrl;
+    ieee80211_hdr->seq_ctrl = ++seq_ctrl;
 	// Fill addresses with 0xFF
 	memset(ieee80211_hdr->addr1, 0xFF, 18);
 	// Target for unicast packet
