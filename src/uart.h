@@ -8,7 +8,6 @@ class EspMeshMesh;
 class Uart {
     typedef enum { WAIT_START, WAIT_DATA, WAIT_ESCAPE, WAIT_CRC16_1, WAIT_CRC16_2 } RecvState;
     typedef enum {
-      CODE_DATA_START_NOCRC = 0xFE,
       CODE_DATA_START = 0xFD,
       CODE_DATA_END = 0xEF,
       CODE_DATA_ESCAPE = 0xEA
