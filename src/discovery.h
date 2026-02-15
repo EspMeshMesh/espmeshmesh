@@ -66,7 +66,6 @@ class Discovery {
   void process_beacon(uint32_t id, int16_t rssi1, int16_t rssi2);
   void clear_table(void);
   uint8_t handle_frame(const uint8_t *buf, uint16_t len, EspMeshMesh *parent);
-  static uint32_t chipId();
   void discoveryStart(const uint8_t *buf, uint16_t len);
   void discoveryStart(uint8_t slotnum = 100);
 

@@ -2,6 +2,7 @@
 #include "log.h"
 #include "commands.h"
 #include "espmeshmesh.h"
+#include "defines.h"
 
 #if USE_ESP32
 #include <esp_random.h>
@@ -66,7 +67,7 @@ void Discovery::loop(EspMeshMesh *parent) {
       BaconsData_t data;
       data.reply1 = CMD_DISCOVERY_REQ;
       data.reply2 = DISCCMD_BEACONS_SEND_REP;
-      data.id = Discovery::chipId();
+      data.id = chipId();
       // FIXME: Is not true anyore beacuse the recv packet queue
       data.rssi = (int16_t) parent->lastPacketRssi();
 
@@ -147,7 +148,7 @@ uint8_t Discovery::handle_frame(const uint8_t *buf, uint16_t len, EspMeshMesh *p
     case DISCCMD_BEACONS_SEND_REQ:
       if (len == sizeof(CmdStart_t) - 1 && !isRunning()) {
         memcpy(((uint8_t *) &mStart) + 1, buf, sizeof(CmdStart_t) - 1);
-        if (mStart.mask == 0 || (Discovery::chipId() & mStart.mask) == mStart.filter) {
+        if (mStart.mask == 0 || (chipId() & mStart.mask) == mStart.filter) {
           mRunPhase = 11;
           mStartTime = millis();
           mBeaconDelay = BEACONS_DELAY(mStart.slotnum);
@@ -168,17 +169,6 @@ uint8_t Discovery::handle_frame(const uint8_t *buf, uint16_t len, EspMeshMesh *p
 
   }
   return err;
-}
-
-uint32_t Discovery::chipId() {
-#ifdef IDF_VER
-  uint64_t macAddress;
-  esp_efuse_mac_get_default((uint8_t *) &macAddress);
-  macAddress = __builtin_bswap64(macAddress);
-  return (uint32_t) (macAddress >> 16) & 0xFFFFFF;
-#else
-  return system_get_chip_id();
-#endif
 }
 
 void Discovery::findMaxRssi(int16_t max, int16_t &maxRssi, uint32_t &maxRssiNodeId) {

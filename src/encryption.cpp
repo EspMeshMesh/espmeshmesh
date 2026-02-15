@@ -2,6 +2,7 @@
 #include <stddef.h>
 
 #include "aes.h"
+#include "defines.h"
 
 #ifdef USE_ESP32
 #include <esp_system.h>
@@ -15,6 +16,10 @@
 #include <osapi.h>
 #include <gpio.h>
 #include <mem.h>
+#endif
+
+#ifdef USE_LINUX
+#include <string.h>
 #endif
 
 #define ENCRYPTION_BLOCK_LEN 16
@@ -43,14 +48,18 @@ void encrypt_data(uint8_t *dst, uint8_t *src, uint16_t len) {
 		if(data_len<AES_BLOCK_SIZE) {
 			// Se il blocco e miniore di 16 aggingo un caratteri a case e il conado per ignorarli
 			tmpsrc[data_len] = 0xFE;
-#ifdef USE_ESP32
+#ifdef IDF_VER
 			for(i=data_len+1;i<AES_BLOCK_SIZE;i++) tmpsrc[i] = (uint8_t)(esp_random() & 0xFF);
-#else
+#endif
+#ifdef ESP8266
 			for(i=data_len+1;i<AES_BLOCK_SIZE;i++) tmpsrc[i] = (uint8_t)(phy_get_rand() & 0xFF);
+#endif
+#ifdef USE_LINUX
+			for(i=data_len+1;i<AES_BLOCK_SIZE;i++) tmpsrc[i] = (uint8_t)(espmeshmesh::random_uint32() & 0xFF);
 #endif
 		}
 		aes_encrypt(encrypt_ctx, tmpsrc, tmpdst);
-		os_memcpy(dst, tmpdst, AES_BLOCK_SIZE);
+		memcpy(dst, tmpdst, AES_BLOCK_SIZE);
 
 		dst += AES_BLOCK_SIZE;
 		src += data_len;
@@ -67,9 +76,9 @@ void decrypt_data(uint8_t *dst, uint8_t *src, uint16_t len) {
 	uint8_t tmpdst[AES_BLOCK_SIZE];
 
 	while(len>0) {
-		os_memcpy(tmpsrc, src, AES_BLOCK_SIZE);
+		memcpy(tmpsrc, src, AES_BLOCK_SIZE);
 		aes_decrypt(decrypt_ctx, tmpsrc, tmpdst);
-		os_memcpy(dst, tmpdst, AES_BLOCK_SIZE);
+		memcpy(dst, tmpdst, AES_BLOCK_SIZE);
 
 		dst += AES_BLOCK_SIZE;
 		src += AES_BLOCK_SIZE;

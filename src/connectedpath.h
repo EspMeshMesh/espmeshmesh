@@ -9,9 +9,6 @@
 #include "recvdups.h"
 #include "memringbuffer.h"
 
-#include <cstdint>
-#include <functional>
-
 #define CONNPATH_FLAG_REVERSEDIR 0x80
 #define CONNPATH_FLAG_RETRANSMIT_MASK 0x0F
 #define CONNPATH_INVALID_ADDRESS 0xFFFFFFFF

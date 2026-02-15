@@ -211,7 +211,7 @@ public:
 #else
   static void freedomCallback_cb(uint8_t status);
 #endif
-#ifndef IDF_VER
+#ifdef ESP8266
   static void recvTask_cb(ETSEvent *events);
 #endif
   void recvTask(uint32_t index);
@@ -234,7 +234,7 @@ public:
   uint16_t lastpktLen = 0;
 
  private:
-#ifndef IDF_VER
+ #ifdef ESP8266
   os_event_t pktbufRecvTaskQueue[PACKETBUF_TASK_QUEUE_LEN];
 #endif
   pktbuf_recvTask_packet_t pktbufRecvTaskPacket[PACKETBUF_TASK_QUEUE_LEN];

@@ -18,6 +18,10 @@
 #include <freertos/queue.h>
 #endif
 
+#ifdef USE_LINUX
+#include <malloc.h>
+#endif
+
 extern "C" {
     #include "encryption.h"
 }
@@ -256,7 +260,7 @@ void PacketBuf::freedomCallback(uint8_t status) {
     }
 }
 
-#ifndef IDF_VER
+#ifdef ESP8266
 void PacketBuf::recvTask_cb(ETSEvent *events) {
   if (events->sig == 0) {
     if(singleton) {
@@ -284,7 +288,8 @@ void PacketBuf::recvTask(uint32_t index) {
                pktbufRecvTaskPacket[index].length);
       return;
     }
-#else
+#endif
+#ifdef ESP8266
     if (ESP.getMaxFreeBlockSize() < lastpktLen + 128 || ESP.getMaxFreeBlockSize() < MEMORY_TRESHOLD) {
       LIB_LOGE(TAG, "recvTask low memory a:%d r:%d l:%d", ESP.getMaxFreeBlockSize(), lastpktLen,
                pktbufRecvTaskPacket[index].length);
@@ -342,7 +347,8 @@ void PacketBuf::setup(const uint8_t *aeskey, int aeskeylen) {
         LIB_LOGE(TAG, "esp_wifi_set_promiscuous_rx_cb error %d", ret);
     }
     mRecvQueue = xQueueCreate(16,sizeof(uint32_t));
-#else
+#endif
+#ifdef ESP8266
     system_os_task(recvTask_cb, PACKETBUF_TASK_PRIO, pktbufRecvTaskQueue, PACKETBUF_TASK_QUEUE_LEN);
 #endif
     encryption_init(aeskey, aeskeylen);
@@ -351,11 +357,12 @@ void PacketBuf::setup(const uint8_t *aeskey, int aeskeylen) {
         pktbufRecvTaskPacket[i].length = 0;
     }
 
-	pktbufNodeId = Discovery::chipId();
+	pktbufNodeId = chipId();
 	pktbufNodeIdPtr = (uint8_t *)&pktbufNodeId;
 #ifdef IDF_VER
     esp_wifi_set_tx_done_cb(wifiTxDoneCb);
-#else
+#endif
+#ifdef ESP8266
 	wifi_register_send_pkt_freedom_cb(freedomCallback_cb);
 #endif
 }
@@ -370,9 +377,9 @@ void PacketBuf::loop() {
 #endif
 
 void IRAM_ATTR __attribute__((hot)) PacketBuf::rawRecv(RxPacket *pkt) {
-  if(isLockdownModeActive) {
-    return;
-  }
+    if(isLockdownModeActive) {
+        return;
+    }
 
     ieee80211_hdr_p ieee80211_hdr = (ieee80211_hdr_p)pkt->payload;
 
@@ -409,9 +416,14 @@ void IRAM_ATTR __attribute__((hot)) PacketBuf::rawRecv(RxPacket *pkt) {
 #ifdef IDF_VER
         if(heap_caps_get_free_size(MALLOC_CAP_8BIT)<pktbufRecvTaskPacket[pktbufRecvTaskIndex].length+128 || heap_caps_get_free_size(MALLOC_CAP_8BIT)<MEMORY_TRESHOLD) {
             LIB_LOGE(TAG, "recvTask low memory a:%d r:%ld", heap_caps_get_free_size(MALLOC_CAP_8BIT), pktbufRecvTaskPacket[pktbufRecvTaskIndex].length);
-#else
+#endif
+#ifdef ESP8266
         if(ESP.getMaxFreeBlockSize()<pktbufRecvTaskPacket[pktbufRecvTaskIndex].length+128 || ESP.getMaxFreeBlockSize()<MEMORY_TRESHOLD) {
             LIB_LOGE(TAG, "rawRecv low memory a:%d r:%d", ESP.getMaxFreeBlockSize(), pktbufRecvTaskPacket[pktbufRecvTaskIndex].length);
+#endif
+#ifdef USE_LINUX
+        if(malloc_usable_size(pkt->payload)<pktbufRecvTaskPacket[pktbufRecvTaskIndex].length+128 || malloc_usable_size(pkt->payload)<MEMORY_TRESHOLD) {
+            LIB_LOGE(TAG, "rawRecv low memory a:%d r:%ld", malloc_usable_size(pkt->payload), pktbufRecvTaskPacket[pktbufRecvTaskIndex].length);
 #endif
             return;
         }
@@ -428,7 +440,8 @@ void IRAM_ATTR __attribute__((hot)) PacketBuf::rawRecv(RxPacket *pkt) {
         pktbufRecvTaskPacket[pktbufRecvTaskIndex].rssi = pkt->rx_ctrl.rssi;
 #ifdef IDF_VER
         xQueueSend(mRecvQueue, &pktbufRecvTaskIndex, 0);
-#else
+#endif
+#ifdef ESP8266
         system_os_post(PACKETBUF_TASK_PRIO, 0, pktbufRecvTaskIndex);
 #endif
         if(++pktbufRecvTaskIndex >= PACKETBUF_TASK_QUEUE_LEN) pktbufRecvTaskIndex = 0;

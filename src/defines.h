@@ -3,6 +3,11 @@
 #include <cstdint>
 #include <functional>
 
+#ifdef USE_LINUX
+#include <chrono>
+#include <random>
+#endif
+
 namespace espmeshmesh {
 
 #define PROTOCOL_BROADCAST 1
@@ -20,14 +25,23 @@ namespace espmeshmesh {
 #define CMD_FLASH_EBOOT 0x04
 #define CMD_FLASH_PREPARE 0x05
 
+#ifdef USE_LINUX
+#define IRAM_ATTR
+#endif
+
 #ifdef IDF_VER
 uint32_t millis();
 #endif
 
+
+#ifdef USE_LINUX
+uint32_t millis();
+#endif
+
 uint32_t random_uint32();
+uint32_t chipId();
 
 using namespace std::placeholders;
-
 
 inline uint32_t uint32FromBuffer(const uint8_t *buffer, bool little = false) {
   if (little)

@@ -373,6 +373,10 @@ uint16_t StarPathProtocol::calculateCost(int16_t rssi) const {
     int16_t cost = 100 - (rssi*100 - esp32RssiMin*100) / (esp32RssiMax-esp32RssiMin);
 #endif
 
+#ifdef USE_LINUX
+    int16_t cost = static_cast<int16_t>(rssi);
+#endif
+
     LIB_LOGD(TAG, "calculateCost rssi %d cost %d", rssi, cost);
     return cost;
 }

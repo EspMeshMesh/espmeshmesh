@@ -305,7 +305,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
       break;
     case CMD_NODE_ID_REQ:  // 04 --> 05 0000XXYY
       if (len == 1) {
-        uint32_t id = Discovery::chipId();
+        uint32_t id = chipId();
         uint8_t rep[5] = {0};
         rep[0] = CMD_NODE_ID_REP;
         memcpy(rep + 1, (uint8_t *) &id, 4);
