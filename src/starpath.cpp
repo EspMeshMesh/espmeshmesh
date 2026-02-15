@@ -421,9 +421,8 @@ bool StarPathProtocol::containsLoop(const uint32_t *repeaters, uint8_t repeaters
 
 void StarPathProtocol::handleDiscoveryBeacon(StarPathPacket *pkt, uint32_t from, int16_t rssi) {
     LIB_LOGD(TAG, "handleDiscoveryBeacon from %06X rssi %d", from, rssi);
-    if(!mMesh->isEdge() || (mNodeState == Associated && mBeaconReplyTarget == 0)) {
-        // Edge nodes can't reply to discovery beacons
-        // If I am associated and I'm not replying to another beacon, I can reply to the beacon
+    if(!mMesh->isEdge() && mNodeState == Associated && mBeaconReplyTarget == 0) {
+        // Not edge nodes and I am associated and I'm not replying to another beacon, I can reply to the beacon
         mBeaconReplyTarget = from;
         mBeaconReplyRssi = rssi;
         mBeaconReplyDeadline = millis() + 50 + (random_uint32() % 64);
