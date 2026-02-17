@@ -1,5 +1,8 @@
 #pragma once
 #include "espmeshmesh.h"
+#include <string>
+#include <functional>
+#include <cstdint>
 
 #define PACKETBUF_TASK_QUEUE_LEN 12
 
@@ -41,7 +44,7 @@ protected:
     pktbuf_recvTask_packet_t pktbufRecvTaskPacket[PACKETBUF_TASK_QUEUE_LEN];
     uint32_t pktbufRecvTaskIndex;
 
-private:
+protected:
     bool mIsLockdownModeActive = false;
     std::string mHostname;
     uint8_t mChannel;

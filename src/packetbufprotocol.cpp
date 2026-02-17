@@ -5,7 +5,7 @@
 
 namespace espmeshmesh {
 
-PacketBufProtocol::PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn, MeshAddress::DataSrc protocol):  
+PacketBufProtocol::PacketBufProtocol(PacketBuf *pbuf, ProtocolReceiveHandler rx_fn, MeshAddress::DataSrc protocol):  
     mPacketBuf(pbuf), mProtocolType(protocol) {
 
     if (rx_fn) {
@@ -22,7 +22,7 @@ bool PacketBufProtocol::isPortAvailable(uint16_t port) const {
     return (it == this->mBindedPorts.end());
 }
 
-bool PacketBufProtocol::bindPort(uint16_t port, ReceiveHandler handler) {
+bool PacketBufProtocol::bindPort(uint16_t port, ProtocolReceiveHandler handler) {
     if (!this->isPortAvailable(port)) {
         LIB_LOGE(TAG, "bindPort: port %d already binded on protocol type %d", port, (int)mProtocolType);
         return false;

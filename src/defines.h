@@ -65,6 +65,11 @@ inline void uint16toBuffer(uint8_t *buffer, uint16_t value) {
   buffer[1] = ((value >> 8) & 0xFF);
 }
 
+inline unsigned long elapsedMillis(unsigned long t2, unsigned long t1) {
+  return t2 >= t1 ? t2 - t1 : (~(t1 - t2)) + 1;
+}
+
+
 typedef std::function<int8_t(const uint8_t *data, uint16_t size,const MeshAddress &from, int16_t rssi)> PacketFrameHandler;
 
 }  // namespace espmeshmesh

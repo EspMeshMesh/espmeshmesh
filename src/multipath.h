@@ -36,7 +36,7 @@ public:
 };
 
 struct MultiPathBindedPort_st {
-    ReceiveHandler handler;
+    ProtocolReceiveHandler handler;
     uint16_t port;
 };
 
@@ -45,7 +45,7 @@ typedef MultiPathBindedPort_st MultiPathBindedPort_t;
 class MultiPath: public PacketBufProtocol {
 public:
     enum Direction { Forward, Reverse };
-	MultiPath(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_MULTIPATH), mRecvDups() {}
+	MultiPath(PacketBuf *pbuf, ProtocolReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_MULTIPATH), mRecvDups() {}
     void loop() override;
     void send(MultiPathPacket *pkt, bool initHeader, SentStatusHandler handler = nullptr);
     //void send(const uint8_t *data, uint16_t size, uint32_t target, uint32_t *path, uint8_t pathSize, uint8_t port, SentStatusHandler handler = nullptr);

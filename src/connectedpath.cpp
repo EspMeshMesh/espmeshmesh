@@ -5,6 +5,7 @@
 #include "uart.h"
 #include "commands.h"
 #include "packetbuf.h"
+#include "defines.h"
 
 #define RES_OK 0
 #define RES_ERROR 1
@@ -51,9 +52,10 @@ void ConnectedPathPacket::setTarget(uint32_t target, uint16_t handle) {
     getHeader()->sourceHandle = handle;
 }
 
-ConnectedPath::ConnectedPath(EspMeshMesh *meshmesh, PacketBuf *packetbuf)
-    : PacketBufProtocol(packetbuf, nullptr, MeshAddress::SRC_CONNPATH), mMeshMesh(meshmesh), mRecvDups() {
+ConnectedPath::ConnectedPath(PacketBuf *packetbuf)
+    : PacketBufProtocol(packetbuf, nullptr, MeshAddress::SRC_CONNPATH), mRecvDups() {
 
+  mMeshMesh = EspMeshMesh::getInstance();
   mOutputBuffer = new uint8_t[RADIO_OUTPUT_BUFFER_SIZE];
   mOutputBufferIndex = 0;
   mOutputBufferDeadline = 0;
@@ -88,10 +90,10 @@ void ConnectedPath::loop() {
     }
   }
 
-  if (EspMeshMesh::elapsedMillis(now, mConnectionsCheckTime) > 120000) {
+  if (elapsedMillis(now, mConnectionsCheckTime) > 120000) {
     mConnectionsCheckTime = now;
     for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++) {
-      if (mConnectsions[i].isOperative && EspMeshMesh::elapsedMillis(now, mConnectsions[i].lastTime) > 300000) {
+      if (mConnectsions[i].isOperative && elapsedMillis(now, mConnectsions[i].lastTime) > 300000) {
         closeConnection_(i);
       }
     }
@@ -204,7 +206,7 @@ void ConnectedPath::closeAllConnections() {
  * @param size - The size of the packet data.
  * @return uint8_t - The result of the operation. 0 if successful, 1 if not.
  */
-uint8_t ConnectedPath::receiveUartPacket(const uint8_t *data, uint16_t size) {
+void ConnectedPath::receiveUartPacket(const uint8_t *data, uint16_t size) {
   if (size >= sizeof(ConnectedPathHeaderSt)) {
     ConnectedPathHeader_t *header = (ConnectedPathHeader_t *) data;
     const uint8_t *payload = data + sizeof(ConnectedPathHeaderSt);
@@ -227,7 +229,6 @@ uint8_t ConnectedPath::receiveUartPacket(const uint8_t *data, uint16_t size) {
       LIB_LOGE(TAG, "ConnectedPath::receiveUartPacket unknow sub protocol %d", header->subprotocol);
     }
   }
-  return HANDLE_UART_OK;
 }
 
 /**
@@ -644,7 +645,7 @@ void ConnectedPath::debugConnection() const {
   for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++) {
     if (mConnectsions[i].sourceAddr != CONNPATH_INVALID_ADDRESS) {
       const ConnectedPathConnections &c = mConnectsions[i];
-      uint32_t t = EspMeshMesh::elapsedMillis(now, c.lastTime);
+      uint32_t t = elapsedMillis(now, c.lastTime);
       LIB_LOGD(TAG, "connections: %02X %06X:%04X -> %06X:%04X (%ld)", i, c.sourceAddr, c.sourceHandle, c.destAddr,
                c.destHandle, t);
     }

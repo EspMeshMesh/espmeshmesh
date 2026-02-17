@@ -1,11 +1,10 @@
 #pragma once
-#include "defines.h"
-
 #include <stdint.h>
-
-namespace espmeshmesh {
+#include "meshaddress.h"
 
 #define DISCOVERY_TABLE_SIZE 64
+
+namespace espmeshmesh {
 
 struct CmdStartCompat_st {
   uint8_t cmd1;
@@ -57,15 +56,14 @@ struct CmdAssociate_st {
 } __attribute__((packed));
 typedef struct CmdAssociate_st CmdAssociate_t;
 
-class EspMeshMesh;
 class Discovery {
  public:
   void init();
-  void loop(EspMeshMesh *parent);
+  void loop();
   bool isRunning() const { return mRunPhase > 0; }
   void process_beacon(uint32_t id, int16_t rssi1, int16_t rssi2);
   void clear_table(void);
-  uint8_t handle_frame(const uint8_t *buf, uint16_t len, EspMeshMesh *parent);
+  uint8_t handle_frame(const uint8_t *buf, uint16_t len, const MeshAddress &from, int16_t rssi);
   void discoveryStart(const uint8_t *buf, uint16_t len);
   void discoveryStart(uint8_t slotnum = 100);
 
@@ -79,6 +77,8 @@ class Discovery {
   uint32_t mStartTime = 0;
   uint32_t mBeaconDelay;
   uint8_t mRunPhase = 0;
+  int16_t mLastRssi = 0;
+  MeshAddress mLastAddress;
 };
 
 }  // namespace espmeshmesh

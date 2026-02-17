@@ -39,10 +39,10 @@ static const char *TAG = "espmeshmesh.discovery";
 
 void Discovery::init() { clear_table(); }
 
-void Discovery::loop(EspMeshMesh *parent) {
+void Discovery::loop() {
   uint32_t now = millis();
   if (mRunPhase == 1) {
-    if (EspMeshMesh::elapsedMillis(now, mStartTime) > 50) {
+    if (elapsedMillis(now, mStartTime) > 50) {
       mRunPhase++;
       mStartTime = now;
     }
@@ -50,12 +50,12 @@ void Discovery::loop(EspMeshMesh *parent) {
     mStart.cmd1 = CMD_DISCOVERY_REQ;
     mStart.cmd2 = DISCCMD_BEACONS_SEND_REQ;
 
-    parent->broadcastSendData((uint8_t *) &mStart, sizeof(CmdStart_t));\
+    EspMeshMesh::getInstance()->broadcastSendData((uint8_t *) &mStart, sizeof(CmdStart_t));
     // parent->broadCastSendData((uint8_t *)&mStart, sizeof(CmdStart_t));
 
     mRunPhase++;
   } else if (mRunPhase == 3) {
-    if (EspMeshMesh::elapsedMillis(now, mStartTime) > 2000) {
+    if (elapsedMillis(now, mStartTime) > 2000) {
       LIB_LOGD(TAG, "Discovery::loop discovery end");
       mRunPhase = 0;
       mStartTime = now;
@@ -63,15 +63,15 @@ void Discovery::loop(EspMeshMesh *parent) {
   }
 
   if (mRunPhase == 11) {
-    if (EspMeshMesh::elapsedMillis(now, mStartTime) > mBeaconDelay) {
+    if (elapsedMillis(now, mStartTime) > mBeaconDelay) {
       BaconsData_t data;
       data.reply1 = CMD_DISCOVERY_REQ;
       data.reply2 = DISCCMD_BEACONS_SEND_REP;
       data.id = chipId();
       // FIXME: Is not true anyore beacuse the recv packet queue
-      data.rssi = (int16_t) parent->lastPacketRssi();
+      data.rssi = mLastRssi;
 
-      parent->unicastSendData((uint8_t *) &data, sizeof(BaconsData_t), parent->lastFromAddress().address);
+      EspMeshMesh::getInstance()->unicastSendData((uint8_t *) &data, sizeof(BaconsData_t), mLastAddress.address);
       LIB_LOGD(TAG, "Discovery::loop beacon reply end");
       mRunPhase = 0;
     }
@@ -98,7 +98,7 @@ void Discovery::clear_table(void) {
   discovery_table_index = 0;
 }
 
-uint8_t Discovery::handle_frame(const uint8_t *buf, uint16_t len, EspMeshMesh *parent) {
+uint8_t Discovery::handle_frame(const uint8_t *buf, uint16_t len, const MeshAddress &from, int16_t rssi) {
   uint8_t err = 1;
   switch (buf[0]) {
     case DISCCMD_RESET_TABLE_REQ:
@@ -107,7 +107,7 @@ uint8_t Discovery::handle_frame(const uint8_t *buf, uint16_t len, EspMeshMesh *p
         rep[0] = CMD_DISCOVERY_REP;
         rep[1] = DISCCMD_RESET_TABLE_REP;
         clear_table();
-        parent->commandReply(rep, 2);
+        EspMeshMesh::getInstance()->commandReply(rep, 2);
         err = 0;
       }
       break;
@@ -117,7 +117,7 @@ uint8_t Discovery::handle_frame(const uint8_t *buf, uint16_t len, EspMeshMesh *p
         rep[0] = CMD_DISCOVERY_REP;
         rep[1] = DISCCMD_TABLE_SIZE_REP;
         rep[2] = discovery_table_index;
-        parent->commandReply(rep, 3);
+        EspMeshMesh::getInstance()->commandReply(rep, 3);
         err = 0;
       }
       break;
@@ -128,7 +128,7 @@ uint8_t Discovery::handle_frame(const uint8_t *buf, uint16_t len, EspMeshMesh *p
         rep[1] = DISCCMD_TABLE_ITEM_GET_REP;
         rep[2] = buf[1];
         memcpy(rep + 3, discovery_table + buf[1], sizeof(DiscoveryItem_t));
-        parent->commandReply(rep, 3 + sizeof(DiscoveryItem_t));
+        EspMeshMesh::getInstance()->commandReply(rep, 3 + sizeof(DiscoveryItem_t));
         err = 0;
       }
       break;
@@ -140,7 +140,7 @@ uint8_t Discovery::handle_frame(const uint8_t *buf, uint16_t len, EspMeshMesh *p
           uint8_t rep[2];
           rep[0] = CMD_DISCOVERY_REP;
           rep[1] = DISCCMD_START_REP;
-          parent->commandReply(rep, 2);
+          EspMeshMesh::getInstance()->commandReply(rep, 2);
         }
         err = 0;
       }
@@ -150,6 +150,8 @@ uint8_t Discovery::handle_frame(const uint8_t *buf, uint16_t len, EspMeshMesh *p
         memcpy(((uint8_t *) &mStart) + 1, buf, sizeof(CmdStart_t) - 1);
         if (mStart.mask == 0 || (chipId() & mStart.mask) == mStart.filter) {
           mRunPhase = 11;
+          mLastAddress = from;
+          mLastRssi = rssi;
           mStartTime = millis();
           mBeaconDelay = BEACONS_DELAY(mStart.slotnum);
           LIB_LOGD(TAG, "Discovery::handle_frame beacon reply id %02lX mask %d filt %d slots %d delay %ld",
@@ -162,7 +164,7 @@ uint8_t Discovery::handle_frame(const uint8_t *buf, uint16_t len, EspMeshMesh *p
       if (len == sizeof(BaconsData_t) - 1) {
         BaconsData_t data;
         memcpy(((uint8_t *) &data) + 1, buf, sizeof(BaconsData_t) - 1);
-        process_beacon(data.id, data.rssi, (int16_t) parent->lastPacketRssi());
+        process_beacon(data.id, data.rssi, mLastRssi);
         err = 0;
       }
       break;

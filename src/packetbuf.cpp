@@ -108,7 +108,7 @@ void PacketBuf::captureFrameCallback(const uint8_t *data, uint16_t len, int16_t 
 }
 
 void PacketBuf::setup(const uint8_t *aeskey) {
-    mWifiDrv = EspMeshMesh::getInstance()->getWifiDrv();
+    mWifiDrv = EspMeshMesh::getInstance()->getWifiDriver();
     mWifiDrv->setCaptureFrameCallback(std::bind(&PacketBuf::captureFrameCallback, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
     mWifiDrv->setInjectFrameCallback(std::bind(&PacketBuf::injectFrameCallback, this, std::placeholders::_1));
     encryption_init(aeskey);

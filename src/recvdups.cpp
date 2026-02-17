@@ -34,10 +34,10 @@ void RecvDups::printDuplicateTable(uint32_t now) {
 
 void RecvDups::loop() {
     uint32_t now=millis();
-    if(EspMeshMesh::elapsedMillis(now, mDuplicateTableTime) > 300000) {
+    if(elapsedMillis(now, mDuplicateTableTime) > 300000) {
         mDuplicateTableTime = now;
         for(int i=0; i<mDuplicateTableSize; i++) {
-            if(mDuplicates[i].address != TABLE_INVALID_ADDRESS && EspMeshMesh::elapsedMillis(now, mDuplicates[i].time) > 30000) {
+            if(mDuplicates[i].address != TABLE_INVALID_ADDRESS && elapsedMillis(now, mDuplicates[i].time) > 30000) {
                 mDuplicates[i].address = TABLE_INVALID_ADDRESS;
             }
         }

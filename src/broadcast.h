@@ -24,7 +24,7 @@ public:
 
 class Broadcast: public PacketBufProtocol {
 public:
-	Broadcast(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_BROADCAST){}
+	Broadcast(PacketBuf *pbuf, ProtocolReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_BROADCAST){}
 	void send(const uint8_t *data, uint16_t size);
 	void radioPacketRecv(uint8_t *payload, uint16_t size, uint32_t from, int16_t rssi) override;
 };

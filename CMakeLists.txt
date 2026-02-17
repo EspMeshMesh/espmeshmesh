@@ -48,6 +48,7 @@ set(ESPMESH_CPP_SOURCES
   ${ESPMESH_SRC_DIR}/defines.cpp
   ${ESPMESH_SRC_DIR}/discovery.cpp
   ${ESPMESH_SRC_DIR}/espmeshmesh.cpp
+  ${ESPMESH_SRC_DIR}/espmeshmesh_impl.cpp
   ${ESPMESH_SRC_DIR}/log.cpp
   ${ESPMESH_SRC_DIR}/memringbuffer.cpp
   ${ESPMESH_SRC_DIR}/meshaddress.cpp

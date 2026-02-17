@@ -51,7 +51,7 @@ private:
 class PoliteBroadcastProtocol: public PacketBufProtocol {
 public:
     enum PoliteState { StateIdle, StateWaitEnd };
-	PoliteBroadcastProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_POLITEBRD){}
+	PoliteBroadcastProtocol(PacketBuf *pbuf, ProtocolReceiveHandler rx_fn = nullptr): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_POLITEBRD){}
     void loop() override;
     void send(const uint8_t *data, uint16_t size, uint32_t target);
     void radioPacketRecv(uint8_t *data, uint16_t size, uint32_t fromptr, int16_t rssi);

@@ -37,7 +37,7 @@ enum StarPathDirection {
     ToNode
 };
 struct StarPathBindedPort_st {
-    ReceiveHandler handler;
+    ProtocolReceiveHandler handler;
     uint16_t port;
 };
 typedef StarPathBindedPort_st StarPathBindedPort_t;
@@ -69,7 +69,7 @@ public:
 
     enum NodeState {Free, Binded, Associated};
 public:
-    StarPathProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr);
+    StarPathProtocol(PacketBuf *pbuf, ProtocolReceiveHandler rx_fn = nullptr);
     void setup() override;
     void loop() override;
     void shutdown() override;

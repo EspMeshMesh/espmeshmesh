@@ -1,6 +1,7 @@
 #include "uart.h"
 #include "uart_esp32.h"
 #include "uart_esp8266.h"
+#include "uart_linux.h"
 #include "log.h"
 #include "crc16.h"
 #include "meshaddress.h"
@@ -13,7 +14,7 @@ static const char *TAG = "Uart";
 
 namespace espmeshmesh {
 
-Uart::Uart(EspMeshMesh *mesh): mMesh(mesh) {
+Uart::Uart() {
 }
 
 void Uart::sendFramedData(const uint8_t *data, uint16_t length) {
@@ -73,7 +74,7 @@ void Uart::recvByte(uint8_t byte) {
     case WAIT_CRC16_2:
         mReceivedCrc16 = mReceivedCrc16 | uint16_t(byte);
         if (mComputedCrc16 == mReceivedCrc16) {
-        mMesh->handleFrame(mFramedBuffer, mFramedBufferPos, MeshAddress(MeshAddress::SRC_SERIAL, 0, MeshAddress::noAddress), 0);
+        if(mIncomingFrameCallback) mIncomingFrameCallback(mFramedBuffer, mFramedBufferPos);
         } else {
         LIB_LOGE(TAG, "CRC16 mismatch %04X %04X", mComputedCrc16, mReceivedCrc16);
         }
@@ -82,11 +83,17 @@ void Uart::recvByte(uint8_t byte) {
     }
 }
 
-Uart *uartFactory(EspMeshMesh *mesh) {
+void Uart::setIncomingFrameCallback(std::function<void(const uint8_t *data, uint16_t length)> callback) {
+    mIncomingFrameCallback = callback;
+}
+
+Uart *uartFactory() {
 #if defined(IDF_VER)
-    return new UartEsp32(mesh);
+    return new UartEsp32();
 #elif defined(ESP8266)
-    return new UartEsp8266(mesh);   
+    return new UartEsp8266();   
+#elif defined(USE_LINUX)
+    return new UartLinux();   
 #else
     return nullptr;
 #endif

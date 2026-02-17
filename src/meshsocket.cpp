@@ -1,5 +1,6 @@
 #include "meshsocket.h"
 #include "espmeshmesh.h"
+#include "espmeshmesh_impl.h"
 #include "log.h"
 #include "broadcast2.h"
 #include "unicast.h"
@@ -71,7 +72,7 @@ int8_t MeshSocket::open(SocketType type) {
 
     if(mTarget.address == MeshAddress::broadCastAddress || mTarget.address == bindAllAddress) {
         // Broadcast address
-        Broadcast2 *broadcast2 = mParent->broadcast2;
+        Broadcast2 *broadcast2 = mParent->mPimpl->broadcast2;
         if(broadcast2 == nullptr) {
             return errNoParentNetworkAvailable;
         }
@@ -88,7 +89,7 @@ int8_t MeshSocket::open(SocketType type) {
     }
 #ifdef ESPMESH_STARPATH_ENABLED
     if(mTarget.address == MeshAddress::coordinatorAddress || mTarget.address == bindAllAddress) {
-        StarPathProtocol *starpath = mParent->starpath;
+        StarPathProtocol *starpath = mParent->mPimpl->starpath;
         if(starpath == nullptr) {
             return errNoParentNetworkAvailable;
         }
@@ -103,7 +104,7 @@ int8_t MeshSocket::open(SocketType type) {
 #endif
     if((mTarget.address != MeshAddress::broadCastAddress && mTarget.repeaters.size() == 0) || mTarget.address == bindAllAddress) {
         // Unicast address
-        Unicast *unicast = mParent->unicast;
+        Unicast *unicast = mParent->mPimpl->unicast;
         if(unicast == nullptr) {
             return errNoParentNetworkAvailable;
         }   
@@ -117,7 +118,7 @@ int8_t MeshSocket::open(SocketType type) {
     } 
     if((mTarget.address != MeshAddress::broadCastAddress && mTarget.repeaters.size() > 0) || mTarget.address == bindAllAddress) {
         // Multipath address
-        MultiPath *multipath = mParent->multipath;
+        MultiPath *multipath = mParent->mPimpl->multipath;
         if(multipath == nullptr) {
             return errNoParentNetworkAvailable;
         }
@@ -139,24 +140,24 @@ uint8_t MeshSocket::close() {
     }
 
     if(mIsBroadcast) {
-        Broadcast2 *broadcast2 = mParent->broadcast2;
+        Broadcast2 *broadcast2 = mParent->mPimpl->broadcast2;
         if(broadcast2) broadcast2->unbindPort(mTarget.port);
         mIsBroadcast = false;
     }
     if(mIsUnicast) {
-        Unicast *unicast = mParent->unicast;
+        Unicast *unicast = mParent->mPimpl->unicast;
         if(unicast) unicast->unbindPort(mTarget.port);
         mIsUnicast = false;
     }
 #ifdef ESPMESH_STARPATH_ENABLED
     if(mIsStarpath) {
-        StarPathProtocol *starpath = mParent->starpath;
+        StarPathProtocol *starpath = mParent->mPimpl->starpath;
         if(starpath) starpath->unbindPort(mTarget.port);
         mIsStarpath = false;
     }
 #endif
     if(mIsMultipath) {
-        MultiPath *multipath = mParent->multipath;
+        MultiPath *multipath = mParent->mPimpl->multipath;
         if(multipath) multipath->unbindPort(mTarget.port);
         mIsMultipath = false;
     }
@@ -185,19 +186,19 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SentStatusHandler h
 
     SocketProtocol protocol = calcProtocolFromTarget(mTarget);
     if(protocol == broadcastProtocol) {
-        mParent->broadcast2->send(data, size, mTarget.port, handler ? handler : nullptr);
+        mParent->mPimpl->broadcast2->send(data, size, mTarget.port, handler ? handler : nullptr);
     } else if(protocol == starpathProtocol) {
 #ifdef ESPMESH_STARPATH_ENABLED
-        if(!mParent->starpath->send(data, size, mTarget, handler ? handler : nullptr)) {
+        if(!mParent->mPimpl->starpath->send(data, size, mTarget, handler ? handler : nullptr)) {
             return errCantSendData;
         }
 #else
         return errCantSendData;
 #endif
     } else if(protocol == unicastProtocol) {
-        mParent->unicast->send(data, size, mTarget.address, mTarget.port, handler ? handler : nullptr);
+        mParent->mPimpl->unicast->send(data, size, mTarget.address, mTarget.port, handler ? handler : nullptr);
     } else if(protocol == multipathProtocol) {
-        mParent->multipath->send(data, size, mTarget, handler ? handler : nullptr);
+        mParent->mPimpl->multipath->send(data, size, mTarget, handler ? handler : nullptr);
     }
     return errSuccess;
 }
@@ -215,22 +216,22 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress
 
     SocketProtocol protocol = calcProtocolFromTarget(target);
     if(protocol == broadcastProtocol) {
-        mParent->broadcast2->send(data, size, target.port, SENT_CB(handler));
+        mParent->mPimpl->broadcast2->send(data, size, target.port, SENT_CB(handler));
     } else if(protocol == starpathProtocol) {
 #ifdef ESPMESH_STARPATH_ENABLED
         // I use statpath only to send data to the coordinator, the return is done using multipath.
         if(target.address == MeshAddress::coordinatorAddress) {
-            if(!mParent->starpath->send(data, size, target, SENT_CB(handler))) {
+            if(!mParent->mPimpl->starpath->send(data, size, target, SENT_CB(handler))) {
                 return errCantSendData;
             }
         } else {
-            mParent->multipath->send(data, size, target, SENT_CB(handler));
+            mParent->mPimpl->multipath->send(data, size, target, SENT_CB(handler));
         }
 #else
         return errCantSendData;
 #endif
     } else if(protocol == unicastProtocol) {
-        mParent->unicast->send(data, size, target.address, target.port, SENT_CB(handler));
+        mParent->mPimpl->unicast->send(data, size, target.address, target.port, SENT_CB(handler));
     } else if(protocol == multipathProtocol) {
         uint8_t repeatersCount = target.repeaters.size();
         
@@ -240,7 +241,7 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress
             for(uint8_t i = 0; i < repeatersCount; i++) repeatersArray[i] = target.repeaters[i];
         }
 
-        mParent->multipath->send(
+        mParent->mPimpl->multipath->send(
             data, 
             size, 
             target, 

@@ -3,6 +3,9 @@
 #include "wifidrvesp32.h"
 #include "wifidrvesp8266.h"
 #include "wifidrvlinux.h"
+#include "log.h"
+
+static const char *TAG = "wifidrv";
 
 namespace espmeshmesh {
 

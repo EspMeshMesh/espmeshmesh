@@ -12,11 +12,11 @@ namespace espmeshmesh {
 class PacketBuf;
 class RadioPacket;
 
-typedef std::function<void(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> ReceiveHandler;
+typedef std::function<void(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> ProtocolReceiveHandler;
 
 class PacketBufProtocol {
 public:
-    PacketBufProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn = nullptr, MeshAddress::DataSrc protocol=MeshAddress::SRC_NONE);
+    PacketBufProtocol(PacketBuf *pbuf, ProtocolReceiveHandler rx_fn = nullptr, MeshAddress::DataSrc protocol=MeshAddress::SRC_NONE);
     virtual ~PacketBufProtocol() {}
     virtual void setup() {};
     virtual void loop() {};
@@ -25,7 +25,7 @@ public:
     
     MeshAddress::DataSrc protocolType() const { return mProtocolType; }
     bool isPortAvailable(uint16_t port) const;
-    bool bindPort(uint16_t port, ReceiveHandler handler);
+    bool bindPort(uint16_t port, ProtocolReceiveHandler handler);
     void unbindPort(uint16_t port);
     void callReceiveHandler(const uint8_t *payload, uint16_t size,const MeshAddress &from, int16_t rssi);
    
@@ -34,7 +34,7 @@ public:
     
 protected:
     PacketBuf *mPacketBuf{nullptr};
-    std::map<uint16_t, ReceiveHandler> mBindedPorts;
+    std::map<uint16_t, ProtocolReceiveHandler> mBindedPorts;
     MeshAddress::DataSrc mProtocolType = MeshAddress::SRC_NONE;
 };
 

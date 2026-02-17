@@ -59,7 +59,7 @@ uint8_t *StarPathPacket::starPathPayload() {
     return (uint8_t *)(clearData()+sizeof(StarPathHeaderSt));
 }
 
-StarPathProtocol::StarPathProtocol(PacketBuf *pbuf, ReceiveHandler rx_fn): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_STARPATH), mRecvDups() {
+StarPathProtocol::StarPathProtocol(PacketBuf *pbuf, ProtocolReceiveHandler rx_fn): PacketBufProtocol(pbuf, rx_fn, MeshAddress::SRC_STARPATH), mRecvDups() {
     mMesh = EspMeshMesh::getInstance();
     LIB_LOGD(TAG, "StarPathProtocol constructor isCoordinator %d", mMesh->isCoordinator());
 #ifdef IDF_VER
