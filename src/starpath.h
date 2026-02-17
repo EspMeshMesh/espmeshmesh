@@ -1,6 +1,8 @@
 #pragma once
 #ifdef ESPMESH_STARPATH_ENABLED
 #include "packetbuf.h"
+#include "packetbufprotocol.h"
+#include "radiopacket.h"
 #include "recvdups.h"
 
 #include <pb.h>

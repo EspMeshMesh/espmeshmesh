@@ -40,6 +40,7 @@ uint32_t millis();
 
 uint32_t random_uint32();
 uint32_t chipId();
+uint32_t hwFreeHeap(void);
 
 using namespace std::placeholders;
 
@@ -64,14 +65,6 @@ inline void uint16toBuffer(uint8_t *buffer, uint16_t value) {
   buffer[1] = ((value >> 8) & 0xFF);
 }
 
-
-class RadioPacket;
-class PacketBufProtocol;
-
-typedef std::function<void(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi)> ReceiveHandler;
-
 typedef std::function<int8_t(const uint8_t *data, uint16_t size,const MeshAddress &from, int16_t rssi)> PacketFrameHandler;
-
-typedef std::function<void(int8_t status, RadioPacket *pkt)> SentStatusHandler;
 
 }  // namespace espmeshmesh

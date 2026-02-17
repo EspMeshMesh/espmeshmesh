@@ -1,7 +1,7 @@
 #pragma once
 #include "defines.h"
-#include "packetbuf.h"
-
+#include "radiopacket.h"
+#include "packetbufprotocol.h"
 
 namespace espmeshmesh {
 

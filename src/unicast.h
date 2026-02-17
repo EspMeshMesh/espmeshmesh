@@ -1,7 +1,7 @@
 #pragma once
 #include "defines.h"
-
-#include "packetbuf.h"
+#include "packetbufprotocol.h"
+#include "radiopacket.h"
 #include "recvdups.h"
 
 #include <cstdint>

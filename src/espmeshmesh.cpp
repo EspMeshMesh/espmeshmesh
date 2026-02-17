@@ -1,14 +1,6 @@
 #include "espmeshmesh.h"
 #include <algorithm>
 
-#ifdef IDF_VER
-#include <esp_sleep.h>
-#endif
-
-#ifdef ESP8266
-#include <Esp.h>
-#endif
-
 #include "log.h"
 #include "crc16.h"
 #include "commands.h"
@@ -19,9 +11,7 @@
 #include "multipath.h"
 #include "starpath.h"
 #include "uart.h"
-#include "wifi.h"
-
-
+#include "wifidrv.h"
 
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
 #include "polite.h"
@@ -51,7 +41,7 @@ EspMeshMesh *EspMeshMesh::getInstance() { return singleton; }
 
 EspMeshMesh::EspMeshMesh(int baud_rate, int tx_buffer, int rx_buffer): mBaudRate(baud_rate), mTxBuffer(tx_buffer), mRxBuffer(rx_buffer) {
   if (singleton == nullptr) singleton = this;
-  mWifi = wifiFactory(this);
+  mWifiDrv = wifiDrvFactory();
   if(baud_rate > 0) mUart = uartFactory(this);
 }
 
@@ -68,7 +58,7 @@ void EspMeshMesh::setup(SetupConfig *config) {
     mUart->setup();
   }
 
-  mWifi->setup(config->hostname.c_str(), config->channel, config->txPower);
+  mWifiDrv->setup(config->hostname.c_str(), config->channel, config->txPower);
 
   mFwVersion = config->fwVersion;
   mCompileTime = config->compileTime;
@@ -78,7 +68,7 @@ void EspMeshMesh::setup(SetupConfig *config) {
   auto handler = std::bind(&EspMeshMesh::handleFrame, this, _1, _2, _3, _4);
 
   packetbuf = PacketBuf::getInstance();
-  packetbuf->setup(mWifi->getAesPassword(), 16);
+  packetbuf->setup(mWifiDrv->getAesPassword());
 
   broadcast = new Broadcast(packetbuf, handler);
   broadcast2 = new Broadcast2(packetbuf, handler);
@@ -118,7 +108,7 @@ void EspMeshMesh::setup(SetupConfig *config) {
 }
 
 void EspMeshMesh::setAesPassword(std::string password) {
-  if(mWifi) mWifi->setAesPassword(password);
+  if(mWifiDrv) mWifiDrv->setAesPassword(password);
 }
 
 void EspMeshMesh::dump_config() {
@@ -127,7 +117,7 @@ void EspMeshMesh::dump_config() {
   LIB_LOGCONFIG(TAG, "Node type: %s", mNodeType == ESPMESH_NODE_TYPE_COORDINATOR ? "Coordinator" : mNodeType == ESPMESH_NODE_TYPE_BACKBONE ? "Backbone" : "Edge");
   LIB_LOGCONFIG(TAG, "Firmware version: %s", mFwVersion.c_str());
   LIB_LOGCONFIG(TAG, "Compile time: %s", mCompileTime.c_str());
-  mWifi->dump_config();
+  mWifiDrv->dump_config();
 #ifdef IDF_VER
   LIB_LOGCONFIG(TAG, "Reset cause: %d", esp_sleep_get_wakeup_cause());
 #endif
@@ -163,11 +153,7 @@ void EspMeshMesh::loop() {
 #endif
 
   if (elapsedMillis(now, mElapsed1) > 60000) {
-#ifdef IDF_VER
-    LIB_LOGI(TAG, "Free Heap %d", heap_caps_get_free_size(MALLOC_CAP_8BIT));
-#else
-    LIB_LOGI(TAG, "Free Heap %d", ESP.getFreeHeap());
-#endif
+    LIB_LOGI(TAG, "Free Heap %d", hwFreeHeap());
     mElapsed1 = millis();
   }
 }
@@ -244,6 +230,9 @@ void EspMeshMesh::multipathSendData(const uint8_t *buff, uint16_t len, uint32_t 
   multipath->send(pkt, true, nullptr);
 }
 
+void EspMeshMesh::setLockdownMode(bool active) {
+  if(mWifiDrv) mWifiDrv->setLockdownMode(active);
+}
 
 void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
   switch (mFromAddress.sourceProtocol) {

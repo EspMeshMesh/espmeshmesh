@@ -1,5 +1,6 @@
 #include "unicast.h"
 #include "log.h"
+#include "packetbuf.h"
 
 #include <cstring>
 

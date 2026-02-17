@@ -5,7 +5,8 @@
 #include <list>
 #include <cstring>
 
-#include "packetbuf.h"
+#include "packetbufprotocol.h"
+#include "radiopacket.h"
 #include "recvdups.h"
 #include "memringbuffer.h"
 

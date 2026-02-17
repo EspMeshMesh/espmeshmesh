@@ -3,7 +3,10 @@
 #include "defines.h"
 #include "commands.h"
 #include "espmeshmesh.h"
+#include "packetbufprotocol.h"
+#include "radiopacket.h"
 #include "log.h"
+
 #include <functional>
 #include <cstring>
 

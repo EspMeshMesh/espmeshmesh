@@ -5,6 +5,7 @@
 #include "broadcast2.h"
 #include "memringbuffer.h"
 #include "log.h"
+#include "defines.h"
 
 #include <string>
 
@@ -14,11 +15,12 @@ typedef std::function<int8_t(const uint8_t *data, uint16_t len, uint32_t from)> 
 typedef void (*EspHomeDataReceivedCbFn)(uint16_t, uint8_t *, uint16_t);
 
 class Uart;
-class Wifi;
+class WifiDrv;
 class Broadcast;
 class Broadcast2;
 class Unicast;
 class MultiPath;
+
 #ifdef ESPMESH_STARPATH_ENABLED
 class StarPathProtocol;
 #endif
@@ -36,8 +38,8 @@ public:
   static EspMeshMesh *singleton;
   static EspMeshMesh *getInstance();
   ConnectedPath *getConnectedPath() const { return mConnectedPath; }
+  WifiDrv *getWifiDrv() const { return mWifiDrv; }
 public:
-
   enum NodeType { 
     ESPMESH_NODE_TYPE_BACKBONE = 0, 
     ESPMESH_NODE_TYPE_COORDINATOR = 1, 
@@ -51,12 +53,10 @@ public:
     std::string fwVersion;
     std::string compileTime; 
   };
-
 public:
   EspMeshMesh(int baud_rate, int tx_buffer, int rx_buffer);
   
   void pre_setup();
-  void setupWifi(const char *hostname, uint8_t channel, uint8_t txPower);
   void setup(SetupConfig *config);
   void setAesPassword(std::string password);
   void dump_config();
@@ -73,8 +73,7 @@ public:
   const bool isBackbone() const { return mNodeType == ESPMESH_NODE_TYPE_BACKBONE; }
   const bool isEdge() const { return mNodeType == ESPMESH_NODE_TYPE_EDGE; }
  public:
-  void setLockdownMode(bool active) { packetbuf->setLockdownMode(active); }
-  static void wifiInitMacAddr(uint8_t index);
+  void setLockdownMode(bool active);
   void commandReply(const uint8_t *buff, uint16_t len);
 
   MeshAddress::DataSrc lastCommandSourceProtocol() const { return mFromAddress.sourceProtocol; }
@@ -127,7 +126,7 @@ public:
 
 private:
   Uart *mUart = nullptr;
-  Wifi *mWifi = nullptr;
+  WifiDrv *mWifiDrv = nullptr;
   PacketBuf *packetbuf = nullptr;
   Broadcast *broadcast = nullptr;
   Broadcast2 *broadcast2 = nullptr;

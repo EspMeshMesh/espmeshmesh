@@ -1,5 +1,6 @@
 #include "broadcast.h"
 #include "meshaddress.h"
+#include "packetbuf.h"
 #include <cstring>
 
 namespace espmeshmesh {

@@ -1,6 +1,7 @@
 #include "broadcast2.h"
 #include "meshaddress.h"
 #include "log.h"
+#include "packetbuf.h"
 #include <cstring>
 
 static const char *TAG = "espmeshmesh.broadcast2";

@@ -4,6 +4,7 @@
 #include "espmeshmesh.h"
 #include "uart.h"
 #include "commands.h"
+#include "packetbuf.h"
 
 #define RES_OK 0
 #define RES_ERROR 1
