@@ -25,9 +25,10 @@ public:
 
     virtual std::string encryptPassword(std::string password) = 0;
 
-    void setup(std::string hostname, uint8_t channel, uint8_t txPower);
+    void setup(std::string hostname, std::string interface, uint8_t channel, uint8_t txPower);
     void loop();
     virtual void dump_config();
+    virtual void shutdown();
 
     bool isLockdownModeActive() const { return this->mIsLockdownModeActive; }
     void setLockdownMode(bool active) { this->mIsLockdownModeActive = active; }
@@ -39,6 +40,7 @@ public:
 protected:
     virtual void driverLoop() = 0;
     virtual void driverSetup() = 0;
+    virtual void driverShutdown() = 0;
 
 protected:
     pktbuf_recvTask_packet_t pktbufRecvTaskPacket[PACKETBUF_TASK_QUEUE_LEN];
@@ -47,6 +49,7 @@ protected:
 protected:
     bool mIsLockdownModeActive = false;
     std::string mHostname;
+    std::string mInterface;
     uint8_t mChannel;
     uint8_t mTxPower;
     // Encryption password

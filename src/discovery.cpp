@@ -155,7 +155,7 @@ uint8_t Discovery::handle_frame(const uint8_t *buf, uint16_t len, const MeshAddr
           mStartTime = millis();
           mBeaconDelay = BEACONS_DELAY(mStart.slotnum);
           LIB_LOGD(TAG, "Discovery::handle_frame beacon reply id %02lX mask %d filt %d slots %d delay %ld",
-                   Discovery::chipId() & mStart.mask, mStart.mask, mStart.filter, mStart.slotnum, mBeaconDelay);
+                   chipId() & mStart.mask, mStart.mask, mStart.filter, mStart.slotnum, mBeaconDelay);
         }
         err = 0;
       }

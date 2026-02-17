@@ -32,7 +32,6 @@ struct AES_ctx encrypt_ctx;
 struct AES_ctx decrypt_ctx;
 
 void encryption_init(const uint8_t *key) {
-#if 0
 #ifdef USE_LINUX
 	AES_init_ctx(&encrypt_ctx, (uint8_t *)key);
 	AES_init_ctx(&decrypt_ctx, (uint8_t *)key);
@@ -40,11 +39,9 @@ void encryption_init(const uint8_t *key) {
 if(!encrypt_ctx) encrypt_ctx = aes_encrypt_init((uint8_t *)key, keyLen);
 if(!decrypt_ctx) decrypt_ctx = aes_decrypt_init((uint8_t *)key, keyLen);
 #endif
-#endif
 }
 
 void encrypt_data(uint8_t *dst, const uint8_t *src, uint16_t len) {
-#if 0
 #ifndef USE_LINUX
 	if(!encrypt_ctx) {
 		return;
@@ -70,11 +67,9 @@ void encrypt_data(uint8_t *dst, const uint8_t *src, uint16_t len) {
 		src += data_len;
 		len -= data_len;
 	}
-#endif
 }
 
 void decrypt_data(uint8_t *dst, const uint8_t *src, uint16_t len) {
-#if 0
 #ifndef USE_LINUX
 	if(decrypt_ctx == 0 || len % AES_BLOCK_SIZE != 0) {
 		return;
@@ -82,18 +77,16 @@ void decrypt_data(uint8_t *dst, const uint8_t *src, uint16_t len) {
 #endif
 
 	uint8_t tmpsrc[AES_BLOCKLEN];
-	uint8_t tmpdst[AES_BLOCKLEN];
 
 	while(len>0) {
 		memcpy(tmpsrc, src, AES_BLOCKLEN);
 		AES_ECB_decrypt(&decrypt_ctx, tmpsrc);
-		memcpy(dst, tmpdst, AES_BLOCKLEN);
+		memcpy(dst, tmpsrc, AES_BLOCKLEN);
 
 		dst += AES_BLOCKLEN;
 		src += AES_BLOCKLEN;
 		len -= AES_BLOCKLEN;
 	}
-#endif
 }
 
 }

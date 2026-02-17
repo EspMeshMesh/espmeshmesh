@@ -40,7 +40,7 @@ uint32_t millis();
 
 uint32_t random_uint32();
 uint32_t chipId();
-uint32_t hwFreeHeap(void);
+uint32_t hwFreeHeap();
 
 using namespace std::placeholders;
 

@@ -49,7 +49,9 @@ void EspMeshMesh::Impl::setup(SetupConfig *config) {
     mUart->setup();
   }
 
-  mWifiDrv->setup(config->hostname.c_str(), config->channel, config->txPower);
+  if(config->wifi.interface.size() > 0) {
+    mWifiDrv->setup(config->hostname.c_str(), config->wifi.interface, config->wifi.channel, config->wifi.txPower);
+  }
 
   mFwVersion = config->fwVersion;
   mCompileTime = config->compileTime;
@@ -81,7 +83,6 @@ void EspMeshMesh::Impl::setup(SetupConfig *config) {
 #endif
 
   mDiscovery.init();
-  dump_config();
   mElapsed1 = millis();
 }
 
@@ -89,7 +90,7 @@ void EspMeshMesh::Impl::setAesPassword(std::string password) {
   if(mWifiDrv) mWifiDrv->setAesPassword(password);
 }
 
-void EspMeshMesh::Impl::dump_config() {
+void EspMeshMesh::Impl::dumpConfig() {
   LIB_LOGCONFIG(TAG, "EspMeshMesh " ESPMESHMESH_VERSION " configuration:");
   LIB_LOGCONFIG(TAG, "Hostname: %s", mHostName.c_str());
   LIB_LOGCONFIG(TAG, "Node type: %s", mNodeType == ESPMESH_NODE_TYPE_COORDINATOR ? "Coordinator" : mNodeType == ESPMESH_NODE_TYPE_BACKBONE ? "Backbone" : "Edge");
@@ -104,6 +105,7 @@ void EspMeshMesh::Impl::dump_config() {
 
 void EspMeshMesh::Impl::loop() {
   if(mUart) mUart->loop();
+  if(mWifiDrv) mWifiDrv->loop();
   uint32_t now = millis();
 #ifdef USE_ESP32
   packetbuf->loop();
@@ -156,18 +158,22 @@ bool EspMeshMesh::Impl::teardown() {
       break;
     case 2:
 #ifdef ESPMESH_STARPATH_ENABLED
-       if(starpath->teardown()) {
+      if(starpath->teardown()) {
+        if(mWifiDrv) mWifiDrv->shutdown();
         mTeardownPhase = 3;
-       }
+      }
 #else
         mTeardownPhase = 3;
 #endif
        break;
     case 3:
-      mTeardownDeadline = millis() + 250;
       mTeardownPhase = 4;
       break;
     case 4:
+      mTeardownDeadline = millis() + 250;
+      mTeardownPhase = 5;
+      break;
+    case 5:
       teardown = mTeardownDeadline != 0 && millis() > mTeardownDeadline ? true : false;
       break;
   }

@@ -3,6 +3,8 @@
 #include "packetbuf.h"
 #include "radiopacket.h"
 
+static const char *TAG = "PKTBUF";
+
 namespace espmeshmesh {
 
 PacketBufProtocol::PacketBufProtocol(PacketBuf *pbuf, ProtocolReceiveHandler rx_fn, MeshAddress::DataSrc protocol):  

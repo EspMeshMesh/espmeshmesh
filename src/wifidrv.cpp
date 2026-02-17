@@ -5,7 +5,7 @@
 #include "wifidrvlinux.h"
 #include "log.h"
 
-static const char *TAG = "wifidrv";
+static const char *TAG = "WIFIDRV";
 
 namespace espmeshmesh {
 
@@ -15,7 +15,7 @@ WifiDrv::WifiDrv() {
 WifiDrv::~WifiDrv() {
 }
 
-void WifiDrv::setup(std::string hostname, uint8_t channel, uint8_t txPower) {
+void WifiDrv::setup(std::string hostname, std::string interface, uint8_t channel, uint8_t txPower) {
     /*int i;
     pktbufRecvTaskIndex = 0;
     for(i=0; i< PACKETBUF_TASK_QUEUE_LEN;    i++) {
@@ -23,6 +23,7 @@ void WifiDrv::setup(std::string hostname, uint8_t channel, uint8_t txPower) {
         pktbufRecvTaskPacket[i].length = 0;
     }*/
 
+    mInterface = interface;
     mHostname = hostname;
     mChannel = channel;
     mTxPower = txPower;
@@ -32,9 +33,12 @@ void WifiDrv::setup(std::string hostname, uint8_t channel, uint8_t txPower) {
     } else {
         mAesPassword = encryptPassword(mAesPassword);
     }
+
+    driverSetup();
 }
 
 void WifiDrv::loop() {
+    driverLoop();
 }
 
 void WifiDrv::dump_config() {
@@ -43,6 +47,10 @@ void WifiDrv::dump_config() {
     LIB_LOGCONFIG(TAG, "Channel: %d", mChannel);
     LIB_LOGCONFIG(TAG, "Tx Power: %d", mTxPower);
     LIB_LOGCONFIG(TAG, "Aes Password: %s", mAesPassword.c_str());
+}
+
+void WifiDrv::shutdown() {
+    driverShutdown();
 }
 
 void WifiDrv::setInjectFrameCallback(std::function<void(uint8_t status)> callback) {

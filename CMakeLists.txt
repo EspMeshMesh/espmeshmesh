@@ -125,7 +125,7 @@ if(TARGET_PLATFORM STREQUAL "linux")
   )
 endif()
 
-set(ESPMESH_DEFINITIONS USE_LINUX)
+set(ESPMESH_DEFINITIONS USE_LINUX ESPHOME_LOG_LEVEL=ESPHOME_LOG_LEVEL_VERBOSE)
 
 # Opzioni facoltative (stesso comportamento dei #ifdef nel codice)
 option(USE_POLITE_BROADCAST_PROTOCOL "Abilita protocollo Polite Broadcast" OFF)

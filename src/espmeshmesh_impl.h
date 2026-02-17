@@ -39,28 +39,12 @@ public:
   ConnectedPath *getConnectedPath() const { return mConnectedPath; }
   WifiDrv *getWifiDriver() const { return mWifiDrv; }
 public:
-  struct SetupUart {
-    uint16_t baudRate;
-    uint16_t txBuffer;
-    uint16_t rxBuffer;
-  };
-  struct SetupConfig {
-    std::string hostname;
-    uint8_t channel;
-    uint8_t txPower;
-    SetupUart uart;
-    EspMeshMesh::NodeType nodeType;
-    std::string fwVersion;
-    std::string compileTime;
-  };
-public:
   Impl();
   
-  void pre_setup();
   void setup(SetupConfig *config);
   void setAesPassword(std::string password);
-  void dump_config();
   void loop();
+  void dumpConfig();
   void shutdown();
   bool teardown();
 public:

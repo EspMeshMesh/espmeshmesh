@@ -43,7 +43,7 @@ void RecvDups::loop() {
         }
     }
 #if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_VERBOSE
-    if(mDebug && EspMeshMesh::elapsedMillis(now, mLastPrintTime) > 30000) {
+    if(mDebug && espmeshmesh::elapsedMillis(now, mLastPrintTime) > 30000) {
         mLastPrintTime = now;
         printDuplicateTable(now);
     }

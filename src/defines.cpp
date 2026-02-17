@@ -53,9 +53,9 @@ return (uint32_t) (macAddress >> 16) & 0xFFFFFF;
     return 0;
 #endif
 }
-}
 
-uint32_t hwFreeHeap(void) {
+
+uint32_t hwFreeHeap() {
 #ifdef IDF_VER
     return heap_caps_get_free_size(MALLOC_CAP_8BIT);
 #endif
@@ -63,6 +63,8 @@ uint32_t hwFreeHeap(void) {
     return ESP.getFreeHeap();
 #endif
 #ifdef USE_LINUX
-    return malloc_usable_size(nullptr);
+    return 100000;
 #endif
 }
+
+} // namespace espmeshmesh

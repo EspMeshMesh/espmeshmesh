@@ -73,7 +73,8 @@ void PacketBuf::captureFrameCallback(const uint8_t *data, uint16_t len, int16_t 
         return;
     }
 
-    lastpktLen = len - PACKETBUF_80211_SIZE - 4;
+    LIB_LOGD(TAG, "captureFrameCallback: len: %d, rssi: %d", len, rssi);
+    lastpktLen = len - PACKETBUF_80211_SIZE;
     int16_t lastpktRssi = rssi;
 
     if (hwFreeHeap() < lastpktLen + 128 || hwFreeHeap() < MEMORY_TRESHOLD) {
@@ -81,9 +82,12 @@ void PacketBuf::captureFrameCallback(const uint8_t *data, uint16_t len, int16_t 
         return;
     }
 
+    LIB_LOGD(TAG, "captureFrameCallback: lastpktLen: %d, rssi: %d", lastpktLen);
     uint8_t *clear = new uint8_t[lastpktLen];
     decrypt_data(clear, data + PACKETBUF_80211_SIZE, lastpktLen);
 
+
+    LIB_LOGD(TAG, "captureFrameCallback clear: %02X %02X %02X %02X %02X %02X", clear[0], clear[1], clear[2], clear[3], clear[4], clear[5]);
     uint32_t from;
     uint8_t *fromptr = (uint8_t *) &from;
     // Address in wifi packet is LE

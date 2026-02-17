@@ -491,6 +491,16 @@ void ConnectedPath::sendDataNack(uint32_t source, uint16_t sourceHandle) {
   }
 }
 
+const ConnectedPathConnections *ConnectedPath::findConnection(uint32_t from, uint16_t handle) const {
+  for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++) {
+    if ((from == mConnectsions[i].sourceAddr && handle == mConnectsions[i].sourceHandle) ||
+        (from == mConnectsions[i].destAddr && handle == mConnectsions[i].destHandle)) {
+      return mConnectsions + i;
+    }
+  }
+  return nullptr;
+}
+
 ConnectedPathConnections *ConnectedPath::findConnection(uint32_t from, uint16_t handle) {
   for (int i = 0; i < CONNPATH_MAX_CONNECTIONS; i++) {
     if ((from == mConnectsions[i].sourceAddr && handle == mConnectsions[i].sourceHandle) ||

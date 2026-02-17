@@ -11,6 +11,30 @@ EspMeshMesh::EspMeshMesh(): mPimpl(new EspMeshMesh::Impl()) {
     if (singleton == nullptr) singleton = this;
 }
 
+EspMeshMesh::~EspMeshMesh() {
+  if (singleton == this) singleton = nullptr;
+}
+
+void EspMeshMesh::setup(SetupConfig *config) {
+  mPimpl->setup(config);
+}
+
+void EspMeshMesh::loop() {
+  mPimpl->loop();
+}
+
+void EspMeshMesh::dumpConfig() {
+  mPimpl->dumpConfig();
+}
+
+void EspMeshMesh::shutdown() {
+  mPimpl->shutdown();
+}
+
+bool EspMeshMesh::teardown() {
+  return mPimpl->teardown();
+}
+
 WifiDrv *EspMeshMesh::getWifiDriver() const {
   return mPimpl->getWifiDriver();
 }

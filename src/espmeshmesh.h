@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <cstdint>
+#include <string>
 #include "meshsocket.h"
 
 namespace espmeshmesh {
@@ -13,10 +14,37 @@ public:
     ESPMESH_NODE_TYPE_COORDINATOR = 1, 
     ESPMESH_NODE_TYPE_EDGE = 2 
   };
+  struct SetupUart {
+    uint32_t baudRate;
+    uint16_t txBuffer;
+    uint16_t rxBuffer;
+  };
+  struct SetupWifi {
+    std::string interface;
+    uint8_t channel;
+    uint8_t txPower;
+  };
+  struct SetupConfig {
+    std::string hostname;
+    SetupWifi wifi;
+    SetupUart uart;
+    EspMeshMesh::NodeType nodeType;
+    std::string fwVersion;
+    std::string compileTime;
+  };
 public:
   static EspMeshMesh *singleton;
   static EspMeshMesh *getInstance();
+public:
   EspMeshMesh();
+  ~EspMeshMesh();
+  EspMeshMesh(const EspMeshMesh &) = delete;
+  EspMeshMesh &operator=(const EspMeshMesh &) = delete;
+  void setup(SetupConfig *config);
+  void loop();
+  void dumpConfig();
+  void shutdown();
+  bool teardown();
 public:
   WifiDrv *getWifiDriver() const;
 public:
