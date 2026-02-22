@@ -31,8 +31,13 @@ private:
     bool setMonitorMode();
     uint16_t getRadiotapLength(const uint8_t *data, size_t len) const;
     int8_t getRadiotapRssi(const uint8_t *data, size_t len) const;
+    void getRadioMacAddress(uint8_t macAddress[6]) const;
+    void setRadioMacAddress(const uint8_t macAddress[6]);
+    void setRadioChannel(uint8_t channel);
+    void setNetInterfaceUpOrDown(bool up);
 
     int mSocketFd = -1;
+    uint8_t mSequence = 0;
     std::atomic<bool> mRunning{false};
 };
 

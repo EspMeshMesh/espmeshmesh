@@ -50,10 +50,10 @@ void encrypt_data(uint8_t *dst, const uint8_t *src, uint16_t len) {
 
 	int i;
 	uint8_t tmpsrc[AES_BLOCKLEN];
-	uint8_t tmpdst[AES_BLOCKLEN];
 
 	while(len>0) {
 		uint8_t data_len = len > AES_BLOCKLEN ? AES_BLOCKLEN : len;
+		memcpy(tmpsrc, src, data_len);
 		if(data_len<AES_BLOCKLEN) {
 			// Se il blocco e miniore di 16 aggingo un caratteri a case e il conado per ignorarli
 			tmpsrc[data_len] = 0xFE;

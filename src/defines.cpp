@@ -50,7 +50,7 @@ return (uint32_t) (macAddress >> 16) & 0xFFFFFF;
     return system_get_chip_id();
 #endif
 #ifdef USE_LINUX
-    return 0;
+    return 0x112233;
 #endif
 }
 

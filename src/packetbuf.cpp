@@ -87,7 +87,8 @@ void PacketBuf::captureFrameCallback(const uint8_t *data, uint16_t len, int16_t 
     decrypt_data(clear, data + PACKETBUF_80211_SIZE, lastpktLen);
 
 
-    LIB_LOGD(TAG, "captureFrameCallback clear: %02X %02X %02X %02X %02X %02X", clear[0], clear[1], clear[2], clear[3], clear[4], clear[5]);
+    //LIB_LOGD(TAG, "captureFrameCallback clear: %02X %02X %02X %02X %02X %02X", clear[0], clear[1], clear[2], clear[3], clear[4], clear[5]);
+
     uint32_t from;
     uint8_t *fromptr = (uint8_t *) &from;
     // Address in wifi packet is LE

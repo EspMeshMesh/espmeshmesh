@@ -15,7 +15,7 @@ WifiDrv::WifiDrv() {
 WifiDrv::~WifiDrv() {
 }
 
-void WifiDrv::setup(std::string hostname, std::string interface, uint8_t channel, uint8_t txPower) {
+void WifiDrv::setup(std::string hostname, std::string interface, uint32_t macAddress, uint8_t channel, uint8_t txPower) {
     /*int i;
     pktbufRecvTaskIndex = 0;
     for(i=0; i< PACKETBUF_TASK_QUEUE_LEN;    i++) {
@@ -25,6 +25,7 @@ void WifiDrv::setup(std::string hostname, std::string interface, uint8_t channel
 
     mInterface = interface;
     mHostname = hostname;
+    mMacAddress = macAddress;
     mChannel = channel;
     mTxPower = txPower;
 

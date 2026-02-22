@@ -25,7 +25,7 @@ public:
 
     virtual std::string encryptPassword(std::string password) = 0;
 
-    void setup(std::string hostname, std::string interface, uint8_t channel, uint8_t txPower);
+    void setup(std::string hostname, std::string interface, uint32_t macAddress, uint8_t channel, uint8_t txPower);
     void loop();
     virtual void dump_config();
     virtual void shutdown();
@@ -50,6 +50,7 @@ protected:
     bool mIsLockdownModeActive = false;
     std::string mHostname;
     std::string mInterface;
+    uint32_t mMacAddress;
     uint8_t mChannel;
     uint8_t mTxPower;
     // Encryption password

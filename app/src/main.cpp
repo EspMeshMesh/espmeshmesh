@@ -39,8 +39,8 @@ int main() {
     espmeshmesh::EspMeshMesh::SetupConfig config = {
         .hostname = "espmeshmesh-app",
         .wifi = {
-            .interface = "wlp0s20f0u3",
-            .channel = 1,
+            .interface = "wlp0s20f0u3u4u2",
+            .channel = 3,
             .txPower = 10,    
         },
         .uart = {
@@ -48,7 +48,7 @@ int main() {
             .txBuffer = 0,
             .rxBuffer = 0,
         },
-        .nodeType = espmeshmesh::EspMeshMesh::NodeType::ESPMESH_NODE_TYPE_COORDINATOR,
+        .nodeType = espmeshmesh::EspMeshMesh::NodeType::ESPMESH_NODE_TYPE_BACKBONE,
         .fwVersion = "1.0.0",
         .compileTime = __DATE__ " " __TIME__,
     };

@@ -9,7 +9,7 @@
 #include "packetbuf.h"
 
 #ifndef CRYPTO_LEN
-#define CRYPTO_LEN(X) {}
+#define CRYPTO_LEN(X) ((X + 0x0F) & ~0x0F)
 #endif
 
 namespace espmeshmesh {
@@ -48,7 +48,10 @@ bool RadioPacket::encryptClearData() {
         return false;
     } else {
 	    mEncryptedDataSize = csize;
-	encrypt_data(ptrData(), mClearData, mClearDataSize);
+	    encrypt_data(ptrData(), mClearData, mClearDataSize);
+        //LIB_LOGD(TAG, "RadioPacket::encryptClearData encrypted %d bytes", mEncryptedDataSize);
+        //LIB_LOGD(TAG, "RadioPacket::encryptClearData clear data: %02X %02X %02X %02X %02X %02X", mClearData[0], mClearData[1], mClearData[2], mClearData[3], mClearData[4], mClearData[5]);
+        //LIB_LOGD(TAG, "RadioPacket::encryptClearData encrypted data: %02X %02X %02X %02X %02X %02X", ptrData()[0], ptrData()[1], ptrData()[2], ptrData()[3], ptrData()[4], ptrData()[5]);
         return true;
     }
 }

@@ -50,7 +50,7 @@ void EspMeshMesh::Impl::setup(SetupConfig *config) {
   }
 
   if(config->wifi.interface.size() > 0) {
-    mWifiDrv->setup(config->hostname.c_str(), config->wifi.interface, config->wifi.channel, config->wifi.txPower);
+    mWifiDrv->setup(config->hostname.c_str(), config->wifi.interface, chipId(), config->wifi.channel, config->wifi.txPower);
   }
 
   mFwVersion = config->fwVersion;
