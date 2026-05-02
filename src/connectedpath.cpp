@@ -273,20 +273,19 @@ void ConnectedPath::radioPacketRecv(uint8_t *data, uint16_t size, uint32_t sourc
 }
 
 void ConnectedPath::setReceiveCallback(ConnectedPathReceiveHandler recvCb, ConnectedPathDisconnectHandler discCb,
-                                       void *arg, uint32_t from, uint16_t handle) {
+                                       uint32_t from, uint16_t handle) {
   ConnectedPathConnections *conn = findConnection(from, handle);
   if (conn != nullptr) {
     conn->receive = recvCb;
     conn->disconnect = discCb;
-    conn->arg = arg;
   } else {
     LIB_LOGE(TAG, "ConnectedPath::setReceiveCallback %06X:%04X handle not found", from, handle);
   }
 }
 
-void ConnectedPath::bindPort(ConnectedPathNewConnectionHandler h, void *arg, uint16_t port) {
+void ConnectedPath::bindPort(ConnectedPathNewConnectionHandler h, uint16_t port) {
   LIB_LOGD(TAG, "ConnectedPath::bind port %d", port);
-  ConnectedPathBindedPort_t newclient = {h, arg, port};
+  ConnectedPathBindedPort_t newclient = {h, port};
   mBindedPorts.push_back(newclient);
 }
 
@@ -387,7 +386,7 @@ void ConnectedPath::openConnection(uint32_t from, uint16_t handle, uint16_t data
         bool portFound = false;
         for (ConnectedPathBindedPort_t bp : mBindedPorts) {
           if (bp.port == port) {
-            bp.handler(bp.arg, conn->sourceAddr, conn->sourceHandle);
+            bp.handler(conn->sourceAddr, conn->sourceHandle);
             portFound = true;
           }
         }
@@ -442,7 +441,7 @@ void ConnectedPath::disconnect(uint32_t from, uint16_t handle) {
              FORWARD2TXT(direction));
     if (sendPacket(CONNPATH_DISCONNECT_REQ, connid, direction, 0, nullptr)) {
       if (mConnectsions[connid].disconnect != nullptr)
-        mConnectsions[connid].disconnect(mConnectsions[connid].arg);
+        mConnectsions[connid].disconnect();
       else
         LIB_LOGE(TAG, "ConnectedPath::disconnect no disconnect callback for %06X:%04X", from, handle);
     }
@@ -462,7 +461,7 @@ void ConnectedPath::sendData(const uint8_t *buffer, uint16_t size, uint32_t sour
     mConnectsions[connidx].lastTime = millis();
     if (sendPacket(CONNPATH_SEND_DATA, connidx, forward, size, buffer)) {
       if (mConnectsions[connidx].receive != nullptr)
-        mConnectsions[connidx].receive(mConnectsions[connidx].arg, buffer, size, connidx);
+        mConnectsions[connidx].receive(buffer, size, connidx);
       else
         LIB_LOGE(TAG, "ConnectedPath::sendData no receive callback for %06X:%04X", source, handle);
     }

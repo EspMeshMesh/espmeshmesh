@@ -35,20 +35,23 @@ struct MeshAddress {
     } DataSrc;
     
     MeshAddress(): repeaters(std::vector<uint32_t>()), port(0), address(0) {}
-    MeshAddress(uint8_t port, uint32_t address): repeaters(std::vector<uint32_t>()), port(port), address(address) {}
-    MeshAddress(DataSrc sourceProtocol, uint8_t port, uint32_t address): sourceProtocol(sourceProtocol), port(port), address(address) {}
-    MeshAddress(uint8_t port, uint32_t address, std::vector<uint32_t> repeaters): repeaters(repeaters), port(port), address(address) {}
+    MeshAddress(uint16_t port, uint32_t address): repeaters(std::vector<uint32_t>()), port(port), address(address) {}
+    MeshAddress(DataSrc sourceProtocol, uint16_t port, uint32_t address): sourceProtocol(sourceProtocol), port(port), address(address) {}
+    MeshAddress(uint16_t port, uint32_t address, std::vector<uint32_t> repeaters): repeaters(repeaters), port(port), address(address) {}
+    MeshAddress(DataSrc sourceProtocol, uint16_t protocolHandle, uint32_t sourceAddress, bool dummy): sourceProtocol(sourceProtocol), protocolHandle(protocolHandle), address(sourceAddress) {}
     MeshAddress(const MeshAddress &other): sourceProtocol(other.sourceProtocol), repeaters(other.repeaters), port(other.port), address(other.address) {}
 
+    MeshAddress(uint16_t port, uint32_t address, const uint8_t *path, uint8_t pathCount, bool reversed=false);
+
     MeshAddress(const MeshAddress &other, bool reversed);
-    MeshAddress(uint8_t port, uint32_t address, const uint8_t *path, uint8_t pathCount, bool reversed=false);
- 
+
     bool isBroadcast() const { return address == broadCastAddress; }
     MeshAddress reverse() const { return MeshAddress(*this, true); }
 
     DataSrc sourceProtocol{SRC_NONE};
+    uint16_t protocolHandle{0};
     std::vector<uint32_t> repeaters;
-    uint8_t port{0};
+    uint16_t port{0};
     uint32_t address{0};
 };
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "meshsocket.h"
 #include "meshaddress.h"
 #include "packetbuf.h"
 #include "discovery.h"
@@ -24,8 +25,6 @@ class StarPathProtocol;
 #endif
 class PoliteBroadcastProtocol;
 class ConnectedPath;
-
-class MeshSocket;
 
 #define HANDLE_UART_OK 0
 #define HANDLE_UART_ERROR 1

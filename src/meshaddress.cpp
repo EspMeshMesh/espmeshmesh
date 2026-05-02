@@ -3,12 +3,13 @@
 #include <algorithm>
 namespace espmeshmesh {
 
-MeshAddress::MeshAddress(const MeshAddress &other, bool reversed): sourceProtocol(other.sourceProtocol), port(other.port), address(other.address) {
+MeshAddress::MeshAddress(const MeshAddress &other, bool reversed): sourceProtocol(other.sourceProtocol), 
+protocolHandle(other.protocolHandle), port(other.port), address(other.address) {
     repeaters = other.repeaters;
     if(reversed) std::reverse(repeaters.begin(), repeaters.end());
 }
 
-MeshAddress::MeshAddress(uint8_t port, uint32_t address, const uint8_t *path, uint8_t pathCount, bool reversed): repeaters(std::vector<uint32_t>()), port(port), address(address) {
+MeshAddress::MeshAddress(uint16_t port, uint32_t address, const uint8_t *path, uint8_t pathCount, bool reversed): repeaters(std::vector<uint32_t>()), port(port), address(address) {
     if(path && pathCount>0) {
         repeaters.resize(pathCount);
         if(!reversed || pathCount == 1) {

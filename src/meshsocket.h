@@ -1,7 +1,11 @@
 #pragma once
 #include "packetbuf.h"
 #include "meshaddress.h"
+
 #include <functional>
+#include <list>
+#include <memory>
+#include <queue>
 
 namespace espmeshmesh {
 
@@ -28,13 +32,35 @@ private:
     int16_t mRssi;
 };
 
+/**
+ * @brief MeshSocket class to replicate the socket operations of the standard library
+ * @details This class is used to replicate the socket operations of the standard library.
+ * @todo this class register a lot of listeners in the underlying network components, 
+ * We have to be sure theat are all removed when the socket is closed and class deleted.
+ * In the current version is a work in progress based on current available consumers.
+ * THis class is used by:
+ * 1. esphome.api component:
+ *   - Server that bind on port 6053:
+ *    - MeshSocket(MeshSocket::MM_SOCK_STREAM);
+ *    - server::bind() Register listener in the underlying network components to handle the incoming connections.
+ *    - server::listen() enable the accpet and backlog for the incoming connections.
+ *    - server::close() for a listen socket, un bind the port.
+ *    - delete server 
+ *   - API clients:
+ *    - client::MeshSocket(const MeshAddress &{MM_SOCK_STREAM, SRC_CONNPATH, handle, from}); create an already connected socket using from:handle connected path connection.
+ *      - The construcotr register the listeners and set seocket Connected.
+ *    - server::accept() the server accept is called to retreive this instance of the socket.
+ *    - client::close()
+ *    - delete client 
+ * 
+ */
 class MeshSocket {
 private:
-    enum SocketProtocol {unicastProtocol, multipathProtocol, broadcastProtocol, politeProtocol, starpathProtocol};
+    enum SocketProtocol {unicastProtocol, multipathProtocol, broadcastProtocol, politeProtocol, starpathProtocol, connectedProtocol};
 public:
     enum SocketType {
-        SOCK_DGRAM,   // Use to create a datagram socket.
-        SOCK_FLOOD    // Use to create a datagram socket that will flood the network.
+        MM_SOCK_DGRAM,   // Use to create a datagram socket.
+        MM_SOCK_STREAM    // Use to create a stream socket.
     };
 
     enum StatusFlags {
@@ -65,11 +91,17 @@ public:
     static const uint8_t maxRepeaters = 16;
     static const uint32_t bindAllAddress = UINT32_MAX-1;
 
+
+    /**
+     * @brief Create a new empty socket
+     */
+    MeshSocket(MeshSocket::SocketType type);
+
     /**
      * @brief Create a new datagram socket that will bind all protcols for incoming data.
      * @param port Port t bind on all protocols
      */
-    MeshSocket(uint8_t port);
+    MeshSocket(uint16_t port);
 
     /**
      * @brief Create a new socket that will send and receive data from the target.
@@ -100,15 +132,31 @@ public:
      */
     StatusFlags status() const;
     /**
+     * @brief Bind the socket to a port
+     * @param port Port to bind the socket to
+     * @return 0 if the socket is bound correctly, otherwise an error code
+     */
+    int8_t bind(uint16_t port);
+    /**
+     * @brief Listen for incoming connections
+     * @return 0 if the socket is listening correctly, otherwise an error code
+     */
+    uint8_t listen(uint8_t backlogMaxSize);
+    /**
      * @brief Listen for incoming connections
      * @return 0 if the socket is listening correctly, otherwise an error code
      */
     uint8_t listen(SocketNewConnectionHandler handler);
     /**
+     * @brief Listen for incoming connections
+     * @return 0 if the socket is listening correctly, otherwise an error code
+     */
+    MeshSocket *accept();
+    /**
      * @brief Open the socket and allocate the resource to handle its connection.
      * @return 0 if the socket is opened correctly, otherwise an error code
      */
-    int8_t open(SocketType type = SOCK_DGRAM);
+    int8_t open();
     /**
      * @brief Close the socket and release the resources
      */
@@ -135,7 +183,7 @@ public:
     int16_t sendDatagram(const uint8_t *data, uint16_t size, MeshAddress target, SocketSentStatusHandler handler=nullptr);
     /**
      * @brief Receive data from the socket the function is not blocking and will fill the buffer with the received data up to size.
-     * If the type of socket is not SOCK_DGRAM or SOCK_FLOOD, the function will return the data coorresponding to one or more received datagrams.
+     * If the type of socket is not MM_SOCK_DGRAM or MM_SOCK_FLOOD, the function will return the data coorresponding to one or more received datagrams.
      * IF the size of the biffer is not enough to contain the first received datagram, the function will return an error code.
      * If the sieze of buffer is enough, the function will return more the one datagram concatenated. If you need to receive only one datagram,
      * you can use the recvDatagram function.
@@ -146,7 +194,7 @@ public:
     int16_t recv(uint8_t *data, uint16_t size);
     /**
      * @brief Receive a datagram using the opened socket, the function is not blocking and will return the last received datagram.
-     * If the socket is not opened, the function will return an error code, if the type of socket is not SOCK_DGRAM or SOCK_FLOOD,
+     * If the socket is not opened, the function will return an error code, if the type of socket is not MM_SOCK_DGRAM or MM_SOCK_FLOOD,
      * the function will return an error code.
      * @param data buffer that will contain the received data
      * @param size the maximum size of the data to receive
@@ -171,12 +219,19 @@ public:
     **/
     void recvDatagramCb(SocketRecvDatagramHandler handler);
 private:
+    void newConnectionForBacklog(uint32_t from);
+private:
     static SocketProtocol calcProtocolFromTarget(const MeshAddress &target);
 private:
     void recvFromProtocol(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi=0);
+    void recvFromStreamProtocol(const uint8_t *data, uint16_t size, MeshAddress &from);
+    void disconnectFromStreamProtocol();
+private:
+    void newStreamClient(uint32_t from, uint16_t handle);
 private:
     EspMeshMesh *mParent{0};
 private:
+    bool mIsConnectedPath{false};
     bool mIsBroadcast{false};
     bool mIsUnicast{false};
     bool mIsMultipath{false};
@@ -184,12 +239,18 @@ private:
 private:
     StatusFlags mStatus{Closed};
     MeshAddress mTarget;
-    // TODO: Implement SOCK_FLOOD
-    SocketType mType{SOCK_DGRAM};
+    // TODO: Implement MM_SOCK_FLOOD
+    SocketType mType{MM_SOCK_DGRAM};
+private:
+    std::list<MeshSocket *> mAcceptBacklog;
+    uint8_t mAcceptBacklogMaxSize{16};
 private:
     std::list<SocketDatagram *> mRecvDatagrams;
     uint32_t mRecvDatagramsSize{0};
     uint32_t mRecvDatagramsMaxSize{2048};
+private:
+    std::queue<uint8_t> mRecvStreamData;
+    uint32_t mRecvStreamDataSize{2048};
 private:
     SocketReceiveHandler mRecvHandler{nullptr};
     SocketRecvDatagramHandler mRecvDatagramHandler{nullptr};

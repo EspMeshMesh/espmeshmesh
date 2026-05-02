@@ -19,9 +19,9 @@
 
 namespace espmeshmesh {
 
-typedef std::function<void(void *arg, const uint8_t *data, uint16_t size, uint8_t connid)> ConnectedPathReceiveHandler;
-typedef std::function<void(void *arg)> ConnectedPathDisconnectHandler;
-typedef std::function<void(void *arg, uint32_t from, uint16_t handle)> ConnectedPathNewConnectionHandler;
+typedef std::function<void(const uint8_t *data, uint16_t size, uint8_t connid)> ConnectedPathReceiveHandler;
+typedef std::function<void()> ConnectedPathDisconnectHandler;
+typedef std::function<void(uint32_t from, uint16_t handle)> ConnectedPathNewConnectionHandler;
 
 struct ConnectedPathHeaderSt {
   uint8_t protocol;       // ConnectedPath protocol identifier
@@ -35,7 +35,6 @@ typedef struct ConnectedPathHeaderSt ConnectedPathHeader_t;
 
 struct ConnectedPathBindedPortSt {
   ConnectedPathNewConnectionHandler handler;
-  void *arg;
   uint16_t port;
 };
 typedef ConnectedPathBindedPortSt ConnectedPathBindedPort_t;
@@ -51,7 +50,6 @@ struct ConnectedPathConnections {
   uint32_t lastTime;
   ConnectedPathReceiveHandler receive;
   ConnectedPathDisconnectHandler disconnect;
-  void *arg;
 };
 
 struct ConnectedPathOutputBufferHeader {
@@ -103,9 +101,9 @@ class ConnectedPath: public PacketBufProtocol {
   void radioPacketRecv(uint8_t *p, uint16_t size, uint32_t f, int16_t r) override;
   void radioPacketSent(uint8_t status, RadioPacket *pkt) override;
 
-  void setReceiveCallback(ConnectedPathReceiveHandler recvCb, ConnectedPathDisconnectHandler discCb, void *arg,
+  void setReceiveCallback(ConnectedPathReceiveHandler recvCb, ConnectedPathDisconnectHandler discCb,
                           uint32_t from, uint16_t handle);
-  void bindPort(ConnectedPathNewConnectionHandler h, void *arg, uint16_t port);
+  void bindPort(ConnectedPathNewConnectionHandler h, uint16_t port);
   void unbindPort(uint16_t port);
   bool isConnectionActive(uint32_t from, uint16_t handle) const;
 

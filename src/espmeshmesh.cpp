@@ -21,8 +21,6 @@
 #include "uart.h"
 #include "wifi.h"
 
-
-
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
 #include "polite.h"
 #endif
@@ -444,6 +442,5 @@ void EspMeshMesh::sendLog(int level, const char *tag, const char *payload, size_
 
   delete[] buffer;
 }
-
 
 }  // namespace espmeshmesh
