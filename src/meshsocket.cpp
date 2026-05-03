@@ -286,7 +286,7 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SentStatusHandler h
         mParent->broadcast2->send(data, size, mTarget.port, handler ? handler : nullptr);
     } else if(protocol == politeProtocol) {
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
-        mParent->mPoliteBroadcast->send(data, size, mTarget.address);
+        mParent->mPoliteBroadcast->send(data, size, mTarget.address, mTarget.port, handler ? handler : nullptr);
 #else
         return errCantSendData;
 #endif
@@ -311,7 +311,7 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SentStatusHandler h
 #define SENT_CB(handler) [handler](bool status, RadioPacket *pkt) { if(handler) handler(status); }
 
 int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress target, SocketSentStatusHandler handler) {
-    if(mStatus != Connected) {
+    if(mStatus != Connected && mStatus != Listening) {
         return errIsNotConnected;
     }
 
@@ -320,11 +320,12 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress
     }
 
     SocketProtocol protocol = calcProtocolFromTarget(target);
+    LIB_LOGD(TAG, "sendDatagram protocol %d", protocol);
     if(protocol == broadcastProtocol) {
         mParent->broadcast2->send(data, size, target.port, SENT_CB(handler));
     } else if(protocol == politeProtocol) {
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
-        mParent->mPoliteBroadcast->send(data, size, target.address);
+        mParent->mPoliteBroadcast->send(data, size, target.address, target.port, SENT_CB(handler));
 #else
         return errCantSendData;
 #endif
@@ -486,5 +487,24 @@ void MeshSocket::newStreamClient(uint32_t from, uint16_t handle) {
     LIB_LOGD(TAG, "newStreamClient from %06lX handle %d", from, handle);
     mAcceptBacklog.push_back(new MeshSocket(MeshAddress(MeshAddress::SRC_CONNPATH, handle, from, true)));
 }
+
+const char *MeshSocket::error2string(ErrorCodes code) {
+    switch(code) {
+        case errSuccess: return "Success";
+        case errNoParentNetworkAvailable: return "No parent network available";
+        case errProtCantBeBinded: return "Protocol can't be binded";
+        case errRepeatersNotAllowed: return "Repeaters not allowed";
+        case errCantSendData: return "Can't send data";
+        case errAlreadyClosed: return "Already closed";
+        case errTooManyRepeaters: return "Too many repeaters";
+        case errIsNotClosed: return "Is not closed";
+        case errIsNotConnected: return "Is not connected";
+        case errInvalidTargetAddress: return "Invalid target address";
+        case errBufferTooSmall: return "Buffer too small";
+        case errIsNotDatagram: return "Is not a datagram";
+        default: return "Unknown error";
+    }
+}
+
 
 }  // namespace espmeshmesh

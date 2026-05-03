@@ -36,6 +36,7 @@ using namespace std::placeholders;
 static const char *TAG = "espmeshmesh";
 
 #define BROADCAST_DEFAULT_PORT 0
+#define POLITE_BROADCAST_DEFAULT_PORT 0
 #define UNICAST_DEFAULT_PORT 0
 #define MULTIPATH_DEFAULT_PORT 0
 #define SERIAL_DEFAULT_PORT 0
@@ -261,7 +262,7 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
     case MeshAddress::SRC_POLITEBRD:
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
       if (mFromAddress.address != MeshAddress::politeBroadcastAddress)
-        mPoliteBroadcast->send(buff, len, mFromAddress.address);
+        mPoliteBroadcast->send(buff, len, mFromAddress.address, POLITE_BROADCAST_DEFAULT_PORT, nullptr);
       break;
 #endif
     case MeshAddress::SRC_NONE:
@@ -346,7 +347,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
     case CMD_POLITEBRD_SEND:
       if (len > 5) {
-        mPoliteBroadcast->send(data + 5, len - 5, uint32FromBuffer(data + 1));
+        mPoliteBroadcast->send(data + 5, len - 5, uint32FromBuffer(data + 1), POLITE_BROADCAST_DEFAULT_PORT, nullptr);
         err = 0;
       }
       break;

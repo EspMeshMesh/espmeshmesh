@@ -259,6 +259,8 @@ private:
     SocketRecvDatagramHandler mRecvDatagramHandler{nullptr};
     SocketSentStatusHandler mSentStatusHandler{nullptr};
     SocketNewConnectionHandler mNewConnectionHandler{nullptr};
+public:
+    static const char *error2string(ErrorCodes code);
 };
 
 } // namespace espmeshmesh
