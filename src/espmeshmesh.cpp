@@ -260,8 +260,8 @@ void EspMeshMesh::commandReply(const uint8_t *buff, uint16_t len) {
       break;
     case MeshAddress::SRC_POLITEBRD:
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
-      if (mFromAddress != POLITE_DEST_BROADCAST)
-        mPoliteBroadcast->send(buff, len, mFromAddress);
+      if (mFromAddress.address != MeshAddress::politeBroadcastAddress)
+        mPoliteBroadcast->send(buff, len, mFromAddress.address);
       break;
 #endif
     case MeshAddress::SRC_NONE:
@@ -346,7 +346,7 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
     case CMD_POLITEBRD_SEND:
       if (len > 5) {
-        mPoliteBroadcast->send(buf + 5, len - 5, uint32FromBuffer(buf + 1));
+        mPoliteBroadcast->send(data + 5, len - 5, uint32FromBuffer(data + 1));
         err = 0;
       }
       break;

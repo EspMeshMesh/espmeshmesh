@@ -19,6 +19,7 @@ struct MeshAddress {
     static const uint32_t noAddress = 0;
     static const uint32_t broadCastAddress = UINT32_MAX;
     static const uint32_t coordinatorAddress = UINT32_MAX-1;
+    static const uint32_t politeBroadcastAddress = UINT32_MAX-2;
 
     typedef enum {
         SRC_NONE       = 0x00,

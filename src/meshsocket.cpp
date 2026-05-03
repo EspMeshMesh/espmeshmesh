@@ -5,6 +5,9 @@
 #include "unicast.h"
 #include "multipath.h"
 #include "starpath.h"
+#ifdef USE_POLITE_BROADCAST_PROTOCOL    
+#include "polite.h"
+#endif
 #include "connectedpath.h"
 
 #include <functional>
@@ -102,6 +105,20 @@ int8_t MeshSocket::bind(uint16_t port) {
         mIsBroadcast = true;
         mStatus = Listening;
     }
+#ifdef USE_POLITE_BROADCAST_PROTOCOL
+    if(mType == MM_SOCK_DGRAM && (mTarget.address == MeshAddress::politeBroadcastAddress || mTarget.address == bindAllAddress)) {
+        PoliteBroadcastProtocol *politeBroadcast = mParent->mPoliteBroadcast;
+        if(politeBroadcast == nullptr) {
+            return errNoParentNetworkAvailable;
+        }
+        bool res = politeBroadcast->bindPort(mTarget.port, std::bind(&MeshSocket::recvFromProtocol, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
+        if(!res) {
+            return errProtCantBeBinded;
+        }
+        mIsPoliteBroadcast = true;
+        mStatus = Listening;
+    }
+#endif
 #ifdef ESPMESH_STARPATH_ENABLED
     if(mType == MM_SOCK_DGRAM && (mTarget.address == MeshAddress::coordinatorAddress || mTarget.address == bindAllAddress)) {
         StarPathProtocol *starpath = mParent->starpath;
@@ -194,6 +211,13 @@ uint8_t MeshSocket::close() {
         if(broadcast2) broadcast2->unbindPort(mTarget.port);
         mIsBroadcast = false;
     }
+#ifdef USE_POLITE_BROADCAST_PROTOCOL
+    if(mIsPoliteBroadcast) {
+        PoliteBroadcastProtocol *politeBroadcast = mParent->mPoliteBroadcast;
+        if(politeBroadcast) politeBroadcast->unbindPort(mTarget.port);
+        mIsPoliteBroadcast = false;
+    }
+#endif
     if(mIsUnicast) {
         Unicast *unicast = mParent->unicast;
         if(unicast) unicast->unbindPort(mTarget.port);
@@ -260,6 +284,12 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SentStatusHandler h
     SocketProtocol protocol = calcProtocolFromTarget(mTarget);
     if(protocol == broadcastProtocol) {
         mParent->broadcast2->send(data, size, mTarget.port, handler ? handler : nullptr);
+    } else if(protocol == politeProtocol) {
+#ifdef USE_POLITE_BROADCAST_PROTOCOL
+        mParent->mPoliteBroadcast->send(data, size, mTarget.address);
+#else
+        return errCantSendData;
+#endif
     } else if(protocol == starpathProtocol) {
 #ifdef ESPMESH_STARPATH_ENABLED
         if(!mParent->starpath->send(data, size, mTarget, handler ? handler : nullptr)) {
@@ -292,6 +322,12 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress
     SocketProtocol protocol = calcProtocolFromTarget(target);
     if(protocol == broadcastProtocol) {
         mParent->broadcast2->send(data, size, target.port, SENT_CB(handler));
+    } else if(protocol == politeProtocol) {
+#ifdef USE_POLITE_BROADCAST_PROTOCOL
+        mParent->mPoliteBroadcast->send(data, size, target.address);
+#else
+        return errCantSendData;
+#endif
     } else if(protocol == starpathProtocol) {
 #ifdef ESPMESH_STARPATH_ENABLED
         // I use statpath only to send data to the coordinator, the return is done using multipath.
@@ -396,6 +432,9 @@ MeshSocket::SocketProtocol MeshSocket::calcProtocolFromTarget(const MeshAddress 
     }
     if(target.address == MeshAddress::broadCastAddress) {
         return broadcastProtocol;
+    }
+    if(target.address == MeshAddress::politeBroadcastAddress) {
+        return politeProtocol;
     }
     if(target.address == MeshAddress::coordinatorAddress) {
         return starpathProtocol;

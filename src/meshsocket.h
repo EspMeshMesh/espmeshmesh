@@ -233,6 +233,9 @@ private:
 private:
     bool mIsConnectedPath{false};
     bool mIsBroadcast{false};
+#ifdef USE_POLITE_BROADCAST_PROTOCOL
+    bool mIsPoliteBroadcast{false};
+#endif
     bool mIsUnicast{false};
     bool mIsMultipath{false};
     bool mIsStarpath{false};
