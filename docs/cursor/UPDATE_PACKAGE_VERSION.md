@@ -2,14 +2,19 @@
 
 ## Procedure
 
-as message.
-1. Change library.json file in two places: near *version* and near *build.flags* with the current version without the initial v
-2. Commit the changes with message bump to 1.2.3 where 1.2.3 is the current version.
-3. Add a tag formatted as v1.2.3 where 1.2.3 is an example version; use the name of the tag 4. Push changes with tags on the origin repository
-5. Use pio commands to push changes on the PlatformIO registry.
+1. Change `library.json` in two places: the top-level `version` field and the `build.flags` value that sets `ESPMESHMESH_VERSION`. Use the numeric version only (no leading `v`), e.g. `1.2.3`.
+2. Commit the changes with message `bump to 1.2.3` where `1.2.3` is the new version.
+3. Add an annotated Git tag `v1.2.3` with the same digits. Use the tag name as the tag message (e.g. `-m "v1.2.3"`).
+4. Push the branch and tags to `origin`.
+5. Publish to the PlatformIO registry using the command below (from the repository root).
 
 ## Useful commands
 
 ```bash
+git tag -a v1.2.3 -m "v1.2.3"
+git push origin main
+git push origin v1.2.3
 ~/.platformio/penv/bin/pio package publish --no-interactive
 ```
+
+Replace `1.2.3` / `v1.2.3` and `main` with the version and branch you are releasing.
