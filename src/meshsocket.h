@@ -55,8 +55,6 @@ private:
  * 
  */
 class MeshSocket {
-private:
-    enum SocketProtocol {unicastProtocol, multipathProtocol, broadcastProtocol, politeProtocol, starpathProtocol, connectedProtocol};
 public:
     enum SocketType {
         MM_SOCK_DGRAM,   // Use to create a datagram socket.
@@ -220,8 +218,6 @@ public:
     void recvDatagramCb(SocketRecvDatagramHandler handler);
 private:
     void newConnectionForBacklog(uint32_t from);
-private:
-    static SocketProtocol calcProtocolFromTarget(const MeshAddress &target);
 private:
     void recvFromProtocol(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi=0);
     void recvFromStreamProtocol(const uint8_t *data, uint16_t size, MeshAddress &from);

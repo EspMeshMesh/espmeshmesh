@@ -24,4 +24,23 @@ MeshAddress::MeshAddress(uint16_t port, uint32_t address, const uint8_t *path, u
     }
 }
 
+MeshAddress::DataSrc MeshAddress::calcBestProtocol() const {
+    if(sourceProtocol != SRC_NONE) {
+        return sourceProtocol;
+    }
+    if(address == MeshAddress::broadCastAddress) {
+        return SRC_BROADCAST;
+    }
+    if(address == MeshAddress::politeBroadcastAddress) {
+        return SRC_POLITEBRD;
+    }
+    if(address == MeshAddress::coordinatorAddress) {
+        return SRC_STARPATH;
+    }
+    if(repeaters.empty()) {
+        return SRC_UNICAST;
+    }
+    return SRC_MULTIPATH;
+}
+
 } // namespace espmeshmesh

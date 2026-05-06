@@ -48,6 +48,7 @@ struct MeshAddress {
 
     bool isBroadcast() const { return address == broadCastAddress; }
     MeshAddress reverse() const { return MeshAddress(*this, true); }
+    DataSrc calcBestProtocol() const;
 
     DataSrc sourceProtocol{SRC_NONE};
     uint16_t protocolHandle{0};

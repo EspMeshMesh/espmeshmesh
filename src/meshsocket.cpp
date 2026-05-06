@@ -281,16 +281,16 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SentStatusHandler h
     }
 
     //LIB_LOGD(TAG, "protocol %d sending %d bytes data to target %06X:%04X", mTarget.sourceProtocol, size, mTarget.address, mTarget.protocolHandle);
-    SocketProtocol protocol = calcProtocolFromTarget(mTarget);
-    if(protocol == broadcastProtocol) {
+    MeshAddress::DataSrc protocol = mTarget.calcBestProtocol();
+    if(protocol == MeshAddress::SRC_BROADCAST) {
         mParent->broadcast2->send(data, size, mTarget.port, handler ? handler : nullptr);
-    } else if(protocol == politeProtocol) {
+    } else if(protocol == MeshAddress::SRC_POLITEBRD) {
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
         mParent->mPoliteBroadcast->send(data, size, mTarget.address, mTarget.port, handler ? handler : nullptr);
 #else
         return errCantSendData;
 #endif
-    } else if(protocol == starpathProtocol) {
+    } else if(protocol == MeshAddress::SRC_STARPATH) {
 #ifdef ESPMESH_STARPATH_ENABLED
         if(!mParent->starpath->send(data, size, mTarget, handler ? handler : nullptr)) {
             return errCantSendData;
@@ -298,11 +298,11 @@ int16_t MeshSocket::send(const uint8_t *data, uint16_t size, SentStatusHandler h
 #else
         return errCantSendData;
 #endif
-    } else if(protocol == unicastProtocol) {
+    } else if(protocol == MeshAddress::SRC_UNICAST) {
         mParent->unicast->send(data, size, mTarget.address, mTarget.port, handler ? handler : nullptr);
-    } else if(protocol == multipathProtocol) {
+    } else if(protocol == MeshAddress::SRC_MULTIPATH) {
         mParent->multipath->send(data, size, mTarget, handler ? handler : nullptr);
-    } else if(protocol == connectedProtocol) {
+    } else if(protocol == MeshAddress::SRC_CONNPATH) {
         mParent->mConnectedPath->enqueueRadioDataToSource(data, size, mTarget.address, mTarget.protocolHandle);
     }
     return size;
@@ -319,17 +319,17 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress
         return errInvalidTargetAddress;
     }
 
-    SocketProtocol protocol = calcProtocolFromTarget(target);
+    MeshAddress::DataSrc protocol = target.calcBestProtocol();
     LIB_LOGD(TAG, "sendDatagram protocol %d", protocol);
-    if(protocol == broadcastProtocol) {
+    if(protocol == MeshAddress::SRC_BROADCAST) {
         mParent->broadcast2->send(data, size, target.port, SENT_CB(handler));
-    } else if(protocol == politeProtocol) {
+    } else if(protocol == MeshAddress::SRC_POLITEBRD) {
 #ifdef USE_POLITE_BROADCAST_PROTOCOL
         mParent->mPoliteBroadcast->send(data, size, target.address, target.port, SENT_CB(handler));
 #else
         return errCantSendData;
 #endif
-    } else if(protocol == starpathProtocol) {
+    } else if(protocol == MeshAddress::SRC_STARPATH) {
 #ifdef ESPMESH_STARPATH_ENABLED
         // I use statpath only to send data to the coordinator, the return is done using multipath.
         if(target.address == MeshAddress::coordinatorAddress) {
@@ -342,9 +342,9 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress
 #else
         return errCantSendData;
 #endif
-    } else if(protocol == unicastProtocol) {
+    } else if(protocol == MeshAddress::SRC_UNICAST) {
         mParent->unicast->send(data, size, target.address, target.port, SENT_CB(handler));
-    } else if(protocol == multipathProtocol) {
+    } else if(protocol == MeshAddress::SRC_MULTIPATH) {
         uint8_t repeatersCount = target.repeaters.size();
         
         uint32_t *repeatersArray = nullptr;
@@ -425,25 +425,6 @@ void MeshSocket::recvDatagramCb(SocketRecvDatagramHandler handler) {
 
 void MeshSocket::newConnectionForBacklog(uint32_t from) {
     LIB_LOGD(TAG, "newConnectionForBacklog from %06lX", from);
-}
-
-MeshSocket::SocketProtocol MeshSocket::calcProtocolFromTarget(const MeshAddress &target) {
-    if(target.sourceProtocol == MeshAddress::SRC_CONNPATH) {
-        return connectedProtocol;
-    }
-    if(target.address == MeshAddress::broadCastAddress) {
-        return broadcastProtocol;
-    }
-    if(target.address == MeshAddress::politeBroadcastAddress) {
-        return politeProtocol;
-    }
-    if(target.address == MeshAddress::coordinatorAddress) {
-        return starpathProtocol;
-    }
-    if(target.repeaters.empty()) {
-        return unicastProtocol;
-    }
-    return multipathProtocol;
 }
 
 void MeshSocket::recvFromProtocol(const uint8_t *data, uint16_t size, const MeshAddress &from, int16_t rssi) {
