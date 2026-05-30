@@ -397,7 +397,11 @@ void ConnectedPath::openConnection(uint32_t from, uint16_t handle, uint16_t data
       }
     } else {
       LIB_LOGE(TAG, "ConnectedPath::openConnection not enough connections for %06X:%04X", from, handle);
-      sendPacket(CONNPATH_OPEN_CONNECTION_NACK, connid, REVERSE, 0, nullptr);
+      if(from == CONNPATH_COORDINATOR_ADDRESS) {
+        sendUartPacket(CONNPATH_OPEN_CONNECTION_NACK, handle, nullptr, 0);
+      } else {
+        // FIXME: send nack to the next node in the path
+      }
     }
   }
 }
