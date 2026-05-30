@@ -1,4 +1,16 @@
-# Procedure to update and publish new PlatformIO package version
+---
+name: platformio-publish
+description: Procedure to update and publish new PlatformIO package version
+---
+
+# Platformio Publish
+
+Detailed instructions for the agent.
+
+## When to use 
+
+- Use this skill when user ask you to pulbish a new library version on the platformio registry
+- This skill describe the full procedure to publish the library on the platformio registry
 
 ## Procedure
 
@@ -11,9 +23,13 @@
 ## Useful commands
 
 ```bash
+# Create a new tag with the same name and message v1.2.3
 git tag -a v1.2.3 -m "v1.2.3"
+# Push the current main branch on origin
 git push origin main
+# Push the new tag on origin
 git push origin v1.2.3
+# Use the pio client to publish the library
 ~/.platformio/penv/bin/pio package publish --no-interactive
 ```
 
