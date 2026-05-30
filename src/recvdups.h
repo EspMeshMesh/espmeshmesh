@@ -11,7 +11,7 @@ struct RecvDupPacket {
     uint16_t seqno;
 };
 
-#define TABLE_TABLE_SIZE 0x20
+#define TABLE_TABLE_SIZE 0x40
 #define TABLE_INVALID_ADDRESS 0xFFFFFFFE
 #define TABLE_LAST_ADDRESS 0xFFFFFFFF
 
