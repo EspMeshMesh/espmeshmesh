@@ -11,9 +11,11 @@ struct RecvDupPacket {
     uint16_t seqno;
 };
 
-#define TABLE_TABLE_SIZE 0x40
-#define TABLE_INVALID_ADDRESS 0xFFFFFFFE
-#define TABLE_LAST_ADDRESS 0xFFFFFFFF
+#if defined(ESPMESH_RECV_DUP_TABLE_SIZE)
+#define TABLE_TABLE_SIZE ESPMESH_RECV_DUP_TABLE_SIZE
+#else
+#define TABLE_TABLE_SIZE 0x20
+#endif
 
 class RecvDups {
 public:
@@ -26,9 +28,12 @@ public:
     void loop();
     void clear();
 private:
+    void deleteDuplicate(int index);
+
     RecvDupPacket mDuplicates[TABLE_TABLE_SIZE];
-    int mDuplicateTableSize = TABLE_TABLE_SIZE;
+    int mFirstFreeAddressIndex = 0;
     uint32_t mDuplicateTableTime = 0;
+
 #if LIB_LOG_LEVEL >= LIB_LOG_LEVEL_VERBOSE
     bool mDebug = false;
     uint32_t mLastPrintTime = 0;
