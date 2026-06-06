@@ -15,6 +15,10 @@
 #define CMD_LOGEVENT_REQ 0x38
 #define CMD_LOGEVENT_REP 0x39
 
+// MeshSocket Commands
+#define CMD_MESHSSOCK_REQ 0x40
+#define CMD_MESHSSOCK_REP 0x41
+
 // StarPath Commands
 #define CMD_NODE_PRESENTATION_REP 0x41
 #define PROTO_NODE_PRESENTATION_REP 0x43

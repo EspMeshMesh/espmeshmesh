@@ -11,6 +11,7 @@
 
 #include "log.h"
 #include "crc16.h"
+#include "meshaddress.h"
 #include "commands.h"
 #include "packetbuf.h"
 #include "broadcast.h"
@@ -99,6 +100,9 @@ void EspMeshMesh::setup(SetupConfig *config) {
 #endif
 
   mDiscovery.init();
+#ifdef API_SOCKET_ENABLED
+  mApiSocket.init(this);
+#endif
   dump_config();
   mElapsed1 = millis();
 
@@ -151,7 +155,9 @@ void EspMeshMesh::loop() {
   // Execute discovery if is running
   if (mDiscovery.isRunning())
     mDiscovery.loop(this);
-
+#ifdef API_SOCKET_ENABLED
+  mApiSocket.loop();
+#endif
 #ifdef ESP8266
   if (!mWorkAround && elapsedMillis(now, mElapsed1) > 2000) {
     mWorkAround = true;
@@ -317,28 +323,38 @@ void EspMeshMesh::handleFrame(const uint8_t *data, uint16_t len, const MeshAddre
         err = mDiscovery.handle_frame(data + 1, len - 1, this);
       }
       break;
+#ifdef API_SOCKET_ENABLED
+    case CMD_MESHSSOCK_REQ:
+      if (len > 1) {
+        err = mApiSocket.handleFrame(data + 1, len - 1);
+      }
+      break;
+#endif
     case CMD_BROADCAST_SEND:  // 70 AABBCCDDEE...ZZ
       if (len > 1) {
         broadcast->send(data + 1, len - 1);
         err = 0;
       }
       break;
-    case CMD_UNICAST_SEND:  // 72 0000XXYY AABBCCDDEE...ZZ
-      if (len > 5) {
+                            // Cmd Address  Port  Payload
+    case CMD_UNICAST_SEND:  // 72  00123456 1234  AABBCCDDEE...ZZ
+      if (len > 7) {
         LIB_LOGD(TAG, "CMD_UNICAST_SEND len %d", len);
-        unicast->send(data + 5, len - 5, uint32FromBuffer(data + 1), UNICAST_DEFAULT_PORT, nullptr);
+        unicast->send(data + 7, len - 7, uint32FromBuffer(data + 1), uint16FromBuffer(data + 5), nullptr);
         err = 0;
       }
-      break;
-    case CMD_MULTIPATH_SEND:  // 76 AAAAAAAA BB CCCCCCCC........DDDDDDDD AABBCCDDEE...ZZ
-      if (len > 5) {
-        uint8_t pathlen = data[5];
-        if (len > 6 + pathlen * sizeof(uint32_t)) {
-          uint16_t payloadsize = len - (6 + pathlen * sizeof(uint32_t));
-          const uint8_t *payload = data + 6 + sizeof(uint32_t) * pathlen;
-          uint32_t target = uint32FromBuffer(data + 1);
+      break;                  // Cmd Address  Port Hops Hop1              HopN     Payload
+    case CMD_MULTIPATH_SEND:  // 76  AAAAAAAA BBBB CC   DDDDDDDD ........ DDDDDDDD AABBCCDDEE...ZZ
+      if (len > 7) {
+        uint32_t target = uint32FromBuffer(data + 1);
+        uint16_t port = uint16FromBuffer(data + 5);
+        uint8_t pathlen = data[7];
+        uint16_t hdrsize = 8 + pathlen * sizeof(uint32_t);
+        if (len > hdrsize) {
+          uint16_t payloadsize = len - hdrsize;
+          const uint8_t *payload = data + hdrsize;
           // Send the packet
-          MeshAddress targetAddress(MULTIPATH_DEFAULT_PORT, target, data + 6, pathlen, false);
+          MeshAddress targetAddress(port, target, data + hdrsize, pathlen, false);
           multipath->send(payload, payloadsize, targetAddress, nullptr);
           err = 0;
         }

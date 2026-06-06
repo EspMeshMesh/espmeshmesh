@@ -3,6 +3,9 @@
 #include "meshaddress.h"
 #include "packetbuf.h"
 #include "discovery.h"
+#ifdef API_SOCKET_ENABLED
+#include "apisocket.h"
+#endif
 #include "broadcast2.h"
 #include "memringbuffer.h"
 #include "log.h"
@@ -146,7 +149,9 @@ private:
 
   MeshAddress mFromAddress;
   Discovery mDiscovery;
-
+#ifdef API_SOCKET_ENABLED
+  ApiSocket mApiSocket;
+#endif
 private:
   // Work around to send a dummy packet to the network to enable esp8266 wifi radio
   bool mWorkAround{false};
