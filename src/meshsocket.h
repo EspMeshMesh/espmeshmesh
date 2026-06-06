@@ -120,6 +120,11 @@ public:
      */
     uint32_t getTargetAddress() const { return mTarget.address; }
     /**
+     * @brief Return the target port of the socket
+     * @return Target port of the socket
+     */
+    uint16_t getTargetPort() const { return mTarget.port; }
+    /**
      * @brief Return true if the target address is the broadcast address
      * @return True if the target address is the broadcast address
      */
@@ -190,6 +195,20 @@ public:
      * @return Number of bytes received or -1 if there is an error
      */
     int16_t recv(uint8_t *data, uint16_t size);
+    /**
+     * @brief Return the number of pending datagrams
+     * @return Number of pending datagrams
+     */
+    uint16_t pendingDatagrams() const { return mRecvDatagrams.size(); }
+    /**
+     * @brief Return the size of the next datagram
+     * @return Size of the next datagram
+     */
+    uint16_t sizeOfNextDatagram() const { return mRecvDatagrams.size() == 0 ? 0 : mRecvDatagrams.front()->size(); }
+    /**
+     * @brief Return the from address of the next datagram
+     * @return From address of the next datagram
+     */
     /**
      * @brief Receive a datagram using the opened socket, the function is not blocking and will return the last received datagram.
      * If the socket is not opened, the function will return an error code, if the type of socket is not MM_SOCK_DGRAM or MM_SOCK_FLOOD,

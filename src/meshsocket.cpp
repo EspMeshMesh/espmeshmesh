@@ -384,7 +384,7 @@ int16_t MeshSocket::recv(uint8_t *data, uint16_t size) {
 }
 
 int16_t MeshSocket::recvDatagram(uint8_t *data, uint16_t size, MeshAddress &from, int16_t &rssi) {
-    if(mStatus != Connected) {
+    if(mStatus != Connected && mStatus != Listening) {
         return errIsNotConnected;
     }
 
