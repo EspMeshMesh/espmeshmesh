@@ -3,6 +3,12 @@
 #include <cstdint>
 #include <functional>
 
+#ifndef ESPMESHMESH_VERSION
+#define ESPMESHMESH_VERSION 0.0.0
+#endif
+#define ESPMESHMESH_VERSION_XSTR(x) #x
+#define ESPMESHMESH_VERSION_STR(x) ESPMESHMESH_VERSION_XSTR(x)
+
 namespace espmeshmesh {
 
 #define PROTOCOL_BROADCAST 1

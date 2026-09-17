@@ -29,7 +29,7 @@
   ],
   "build": {
     "flags": [
-      "-D ESPMESHMESH_VERSION=\\\"1.6.6\\\""
+      "-DESPMESHMESH_VERSION=1.6.6"
     ]
   }
 }

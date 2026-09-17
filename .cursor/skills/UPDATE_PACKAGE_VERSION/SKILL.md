@@ -14,7 +14,7 @@ Detailed instructions for the agent.
 
 ## Procedure
 
-1. Change `library.json` in two places: the top-level `version` field and the `build.flags` value that sets `ESPMESHMESH_VERSION`. Use the numeric version only (no leading `v`), e.g. `1.2.3`.
+1. Change `library.json` in two places: the top-level `version` field and the `build.flags` value that sets `ESPMESHMESH_VERSION` (use `-DESPMESHMESH_VERSION=1.2.3` with no quotes). Use the numeric version only (no leading `v`), e.g. `1.2.3`.
 2. Commit the changes with message `bump to 1.2.3` where `1.2.3` is the new version.
 3. Add an annotated Git tag `v1.2.3` with the same digits. Use the tag name as the tag message (e.g. `-m "v1.2.3"`).
 4. Push the branch and tags to `origin`.

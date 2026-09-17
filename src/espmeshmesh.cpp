@@ -125,7 +125,7 @@ void EspMeshMesh::setAesPassword(std::string password) {
 }
 
 void EspMeshMesh::dump_config() {
-  LIB_LOGCONFIG(TAG, "EspMeshMesh " ESPMESHMESH_VERSION " configuration:");
+  LIB_LOGCONFIG(TAG, "EspMeshMesh " ESPMESHMESH_VERSION_STR(ESPMESHMESH_VERSION) " configuration:");
   LIB_LOGCONFIG(TAG, "Hostname: %s", mHostName.c_str());
   LIB_LOGCONFIG(TAG, "Node type: %s", mNodeType == ESPMESH_NODE_TYPE_COORDINATOR ? "Coordinator" : mNodeType == ESPMESH_NODE_TYPE_BACKBONE ? "Backbone" : "Edge");
   LIB_LOGCONFIG(TAG, "Firmware version: %s", mFwVersion.c_str());
@@ -215,7 +215,7 @@ bool EspMeshMesh::teardown() {
   return teardown;
 }
 
-const std::string EspMeshMesh::libVersion() const { return ESPMESHMESH_VERSION; }
+const std::string EspMeshMesh::libVersion() const { return ESPMESHMESH_VERSION_STR(ESPMESHMESH_VERSION); }
 
 void EspMeshMesh::uartSendData(const uint8_t *buff, uint16_t len) {
   if(mUart) mUart->sendFramedData(buff, len);
