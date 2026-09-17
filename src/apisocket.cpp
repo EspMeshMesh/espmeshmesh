@@ -93,7 +93,6 @@ void ApiSocket::recvPendingDatagram(uint8_t cmd, uint16_t port) {
   if(mBindedSockets.size() > 0) {
     for(auto socket : mBindedSockets) {
       if(socket->getTargetPort() == port && socket->pendingDatagrams() > 0) {
-        LIB_LOGD(TAG, "recvPendingDatagram found socket for port %d", port);
         recvDatagram(cmd, socket);
       }
     }
@@ -102,7 +101,6 @@ void ApiSocket::recvPendingDatagram(uint8_t cmd, uint16_t port) {
 
 void ApiSocket::recvDatagram(uint8_t cmd, MeshSocket *socket) {
   uint16_t sizeNext = socket->sizeOfNextDatagram();
-  LIB_LOGD(TAG, "recvDatagram sizeNext %d", sizeNext);
   if(sizeNext == 0) {
     return;
   }
