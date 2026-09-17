@@ -70,10 +70,10 @@ public:
   const std::string fwVersion() const { return mFwVersion; }
   const std::string hostname() const { return mHostName; }
   const std::string compileTime() const { return mCompileTime; }
-  const NodeType nodeType() const { return mNodeType; }
-  const bool isCoordinator() const { return mNodeType == ESPMESH_NODE_TYPE_COORDINATOR; }
-  const bool isBackbone() const { return mNodeType == ESPMESH_NODE_TYPE_BACKBONE; }
-  const bool isEdge() const { return mNodeType == ESPMESH_NODE_TYPE_EDGE; }
+  NodeType nodeType() const { return mNodeType; }
+  bool isCoordinator() const { return mNodeType == ESPMESH_NODE_TYPE_COORDINATOR; }
+  bool isBackbone() const { return mNodeType == ESPMESH_NODE_TYPE_BACKBONE; }
+  bool isEdge() const { return mNodeType == ESPMESH_NODE_TYPE_EDGE; }
  public:
   void setLockdownMode(bool active) { packetbuf->setLockdownMode(active); }
   static void wifiInitMacAddr(uint8_t index);
