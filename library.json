@@ -4,13 +4,11 @@
   "version": "1.6.6",
   "description": "ESPMeshMesh implementation",
   "keywords": "mesh, network",
-  "repository":
-  {
+  "repository": {
     "type": "git",
     "url": "https://github.com/EspMeshMesh/espmeshmesh.git"
   },
-  "authors":
-  [
+  "authors": [
     {
       "name": "Stefano Pagnottelli",
       "email": "dev@espmeshmesh.org",
@@ -29,7 +27,8 @@
   ],
   "build": {
     "flags": [
-      "-DESPMESHMESH_VERSION=1.6.6"
+      "-DESPMESHMESH_VERSION=1.6.6",
+      "-Wl,-zmuldefs"
     ]
   }
 }

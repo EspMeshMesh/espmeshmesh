@@ -142,6 +142,7 @@ void RadioPacket::sendFreedom() {
 #endif
 
 #ifdef USE_ESP32
+    // Requires ieee80211_raw_frame_sanity_check override (wifi_raw_tx_bypass.c) + -Wl,-zmuldefs
     //LIB_LOGD(TAG, "sendFreedom esp_wifi_80211_tx about to send %d bytes", len80211());
     esp_err_t res = esp_wifi_80211_tx(WIFI_IF_STA, ptr80211(), len80211(), true);
     if(res != ESP_OK) {

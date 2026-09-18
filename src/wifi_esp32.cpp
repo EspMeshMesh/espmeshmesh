@@ -39,14 +39,15 @@ bool WifiEsp32::setupWifiAp() {
   esp_netif_t *netif;
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   const wifi_promiscuous_filter_t filt = {.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT | WIFI_PROMIS_FILTER_MASK_DATA};
+  // ESPHome 2026.6+ NetworkComponent may already have initialized these.
   res = esp_netif_init();
-  if (res != ESP_OK) {
+  if (res != ESP_OK && res != ESP_ERR_INVALID_STATE) {
     LIB_LOGD(TAG, "esp_netif_init error %d", res);
     return false;
   }
 
   res = esp_event_loop_create_default();
-  if (res != ESP_OK) {
+  if (res != ESP_OK && res != ESP_ERR_INVALID_STATE) {
     LIB_LOGD(TAG, "esp_event_loop_create_default error %d", res);
     return false;
   }
@@ -152,14 +153,15 @@ bool WifiEsp32::setupWifiStation() {
   esp_netif_t *netif;
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   const wifi_promiscuous_filter_t filt = {.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT | WIFI_PROMIS_FILTER_MASK_DATA};
+  // ESPHome 2026.6+ NetworkComponent may already have initialized these.
   res = esp_netif_init();
-  if (res != ESP_OK) {
+  if (res != ESP_OK && res != ESP_ERR_INVALID_STATE) {
     LIB_LOGD(TAG, "esp_netif_init error %d", res);
     return false;
   }
 
   res = esp_event_loop_create_default();
-  if (res != ESP_OK) {
+  if (res != ESP_OK && res != ESP_ERR_INVALID_STATE) {
     LIB_LOGD(TAG, "esp_event_loop_create_default error %d", res);
     return false;
   }
