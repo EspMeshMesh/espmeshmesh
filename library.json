@@ -30,5 +30,8 @@
       "-DESPMESHMESH_VERSION=1.6.8",
       "-Wl,-zmuldefs"
     ]
+  },
+  "ESPHOME": {
+    "NOTE": "IDF REQUIRES for esp_wifi/esp_phy/... are injected by esphome-meshmesh components/meshmesh/__init__.py (_ensure_espmeshmesh_idf_wifi_stack) because ESPHome 2026.7+ PIO\u2192IDF conversion only maps library.json PIO dependencies into REQUIRES."
   }
 }
