@@ -40,7 +40,10 @@ struct MeshAddress {
     MeshAddress(DataSrc sourceProtocol, uint16_t port, uint32_t address): sourceProtocol(sourceProtocol), port(port), address(address) {}
     MeshAddress(uint16_t port, uint32_t address, std::vector<uint32_t> repeaters): repeaters(repeaters), port(port), address(address) {}
     MeshAddress(DataSrc sourceProtocol, uint16_t protocolHandle, uint32_t sourceAddress, bool dummy): sourceProtocol(sourceProtocol), protocolHandle(protocolHandle), address(sourceAddress) {}
-    MeshAddress(const MeshAddress &other): sourceProtocol(other.sourceProtocol), repeaters(other.repeaters), port(other.port), address(other.address) {}
+    // Default copy/assign (Rule of Zero). A hand-written copy ctor omitted
+    // protocolHandle and triggered -Wdeprecated-copy on operator=.
+    MeshAddress(const MeshAddress &other) = default;
+    MeshAddress &operator=(const MeshAddress &other) = default;
 
     MeshAddress(uint16_t port, uint32_t address, const uint8_t *path, uint8_t pathCount, bool reversed=false);
 
