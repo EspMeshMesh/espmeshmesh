@@ -29,7 +29,9 @@ RecvDups::RecvDups() {
 void RecvDups::printDuplicateTable(uint32_t now) {
     LIB_LOGD(TAG, "Duplicate table size: %d", mFirstFreeAddressIndex);
     for(int i=0; i<mFirstFreeAddressIndex; i++) {
-        LIB_LOGD(TAG, "Duplicate table[%d]: address: %06lX:%d, seqno: %d, time: %d", i, mDuplicates[i].address, mDuplicates[i].handle, mDuplicates[i].seqno, now-mDuplicates[i].time);
+        LIB_LOGD(TAG, "Duplicate table[%d]: address: %06lX:%d, maxSeqno: %d, bitmap: 0x%08lX, time: %ld", 
+                 i, mDuplicates[i].address, mDuplicates[i].handle, mDuplicates[i].maxSeqno, 
+                 mDuplicates[i].seenBitmap, now-mDuplicates[i].time);
     }
 }
 #endif
@@ -73,6 +75,7 @@ bool RecvDups::checkDuplicateTable(uint32_t address, uint16_t handle, uint16_t s
     }
 
     if(foundrow < 0) {
+        // New (address, handle) pair - not a duplicate
         if(mFirstFreeAddressIndex >= TABLE_TABLE_SIZE) {
             int oldest = findOldestIndex(mDuplicates, mFirstFreeAddressIndex, now);
             LIB_LOGW(TAG, "Duplicate table full, evicting %06lX:%04X for %06lX:%04X",
@@ -84,19 +87,55 @@ bool RecvDups::checkDuplicateTable(uint32_t address, uint16_t handle, uint16_t s
         mDuplicates[foundrow].time = now;
         mDuplicates[foundrow].address = address;
         mDuplicates[foundrow].handle = handle;
-        mDuplicates[foundrow].seqno = seqno;
+        mDuplicates[foundrow].maxSeqno = seqno;
+        mDuplicates[foundrow].seenBitmap = 1;  // Bit 0 = current seqno seen
         return false;
     }
 
     mDuplicates[foundrow].time = now;
-    uint16_t stored = mDuplicates[foundrow].seqno;
-    if(stored == seqno) {
+    uint16_t maxSeqno = mDuplicates[foundrow].maxSeqno;
+    uint32_t bitmap = mDuplicates[foundrow].seenBitmap;
+
+    // Calculate the distance from maxSeqno (handles uint16 wraparound)
+    int16_t delta = (int16_t)(seqno - maxSeqno);
+
+    if (delta == 0) {
+        // Exact match with maxSeqno - always a duplicate (bit 0 is always set)
         return true;
     }
-    if ((uint16_t)(stored - seqno) < 5) {
+
+    if (delta > 0) {
+        // New seqno is ahead of maxSeqno - accept and shift bitmap
+        if (delta >= 32) {
+            // Large jump - reset bitmap (old entries are too stale)
+            bitmap = 1;
+        } else {
+            // Shift bitmap left and mark new seqno as seen
+            bitmap = (bitmap << delta) | 1;
+        }
+        mDuplicates[foundrow].maxSeqno = seqno;
+        mDuplicates[foundrow].seenBitmap = bitmap;
+        return false;
+    }
+
+    // delta < 0: seqno is behind maxSeqno (out-of-order arrival or late retransmit)
+    int offset = -delta;  // How many positions behind maxSeqno
+
+    if (offset >= 32) {
+        // seqno is too old (outside our tracking window) - treat as stale duplicate
+        // This prevents very old packets from being processed
         return true;
     }
-    mDuplicates[foundrow].seqno = seqno;
+
+    // Check if this specific seqno was already seen
+    uint32_t mask = 1U << offset;
+    if (bitmap & mask) {
+        // Already seen this seqno - duplicate
+        return true;
+    }
+
+    // First time seeing this seqno (out-of-order but not duplicate) - accept it
+    mDuplicates[foundrow].seenBitmap = bitmap | mask;
     return false;
 }
 

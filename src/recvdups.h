@@ -7,8 +7,9 @@ namespace espmeshmesh {
 struct RecvDupPacket {
     uint32_t address;
     uint32_t time;
+    uint32_t seenBitmap;  // Bitmap tracking which of the last 32 seqnos have been seen
     uint16_t handle;
-    uint16_t seqno;
+    uint16_t maxSeqno;    // Highest sequence number seen (renamed from seqno for clarity)
 };
 
 #if defined(ESPMESH_RECV_DUP_TABLE_SIZE)
