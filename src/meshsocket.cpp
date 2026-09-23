@@ -365,22 +365,25 @@ int16_t MeshSocket::sendDatagram(const uint8_t *data, uint16_t size, MeshAddress
     return errSuccess;
 }
 
-// TODO: Implement Stream recv and receive multiple datagrams
+// TODO: Stream recv supports POSIX-like partial reads; receive multiple datagrams still pending
 int16_t MeshSocket::recv(uint8_t *data, uint16_t size) {
     if(mStatus != Connected) {
         return errIsNotConnected;
     }
 
-    if(mRecvStreamData.size() < size) {
+    if(mRecvStreamData.empty()) {
         return errBufferTooSmall;
     }
 
-    for(int i = 0; i < size; i++) {
+    uint16_t n = mRecvStreamData.size() < size ? (uint16_t)mRecvStreamData.size() : size;
+    // LIB_LOGD(TAG, "recv size: %d wanted: %d returning: %d", mRecvStreamData.size(), size, n);
+
+    for(uint16_t i = 0; i < n; i++) {
         data[i] = mRecvStreamData.front();
         mRecvStreamData.pop();
     }
 
-    return size;
+    return (int16_t)n;
 }
 
 int16_t MeshSocket::recvDatagram(uint8_t *data, uint16_t size, MeshAddress &from, int16_t &rssi) {
